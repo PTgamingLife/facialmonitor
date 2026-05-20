@@ -88,10 +88,14 @@ function showPage(pageId) {
   void pg.offsetWidth;
   pg.classList.add('page-enter');
 
-  if (pageId === 'page-main' && sb_currentUser) {
+  // page-challenge（檢測）含 credit-num 與 step-indicator
+  if (pageId === 'page-challenge' && sb_currentUser) {
     document.getElementById('credit-num').textContent = sb_currentUser.credits || 0;
-    // 回到首頁時重置到 Step 1
     setTimeout(() => resetToStep1(), 50);
+  }
+  // page-main（首頁）顯示任務與存錢豬公
+  if (pageId === 'page-main' && sb_currentUser) {
+    setTimeout(() => { if (typeof loadChallenge === 'function') loadChallenge(); }, 100);
   }
 }
 

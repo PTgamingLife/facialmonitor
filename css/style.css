@@ -2464,3 +2464,82 @@ html, body {
   transition: all 0.2s;
 }
 .pay-line-link:hover { background: #05b04b; transform: translateY(-1px); }
+
+/* ══════════════════════════════════════════════════════
+   PIGGY BANK 存錢豬公
+══════════════════════════════════════════════════════ */
+.piggy-bank-section {
+  padding: 0 16px 8px;
+}
+.piggy-header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+.piggy-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-dark);
+  font-family: 'Noto Serif TC', serif;
+  letter-spacing: 0.5px;
+}
+.piggy-subtitle {
+  font-size: 12px;
+  color: var(--text-soft);
+  margin-top: 2px;
+}
+.piggy-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.piggy-svg {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  filter: drop-shadow(0 4px 12px rgba(196,154,90,0.18));
+}
+.piggy-count-badge {
+  position: absolute;
+  bottom: 28px;
+  right: calc(50% - 120px);
+  background: var(--bg-card);
+  border: 1.5px solid var(--gold-pale);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gold-main);
+  box-shadow: 0 2px 8px rgba(196,154,90,0.15);
+  pointer-events: none;
+}
+.piggy-count-slash {
+  font-size: 12px;
+  color: var(--text-hint);
+  font-weight: 400;
+}
+.piggy-progress-wrap {
+  width: 100%;
+  max-width: 260px;
+  margin: 0 auto 12px;
+}
+.piggy-bar {
+  height: 8px;
+  background: var(--gold-pale);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.piggy-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #F5D17A, #C49A5A);
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+.piggy-milestones {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-hint);
+  margin-top: 3px;
+  padding: 0 2px;
+}

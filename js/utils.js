@@ -128,6 +128,6 @@ function restartScan() {
   document.getElementById('btn-step2').style.display = 'none';
 
   document.getElementById('credit-num').textContent = sb_currentUser.credits || 0;
-  showPage('page-main');
+  showPage('page-challenge');
   goStep(1);
 }

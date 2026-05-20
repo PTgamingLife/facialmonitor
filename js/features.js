@@ -185,10 +185,17 @@ async function submitReferral() {
   const newCredits = (myData.credits || 0) + 1;
   await sb.from('sb_users').update({ credits: newCredits }).eq('id', sb_currentUser.id);
 
-  // Update referrer's referral_count only（提供者不加次數）
-  await sb.from('sb_users').update({
-    referral_count: (referrer.referral_count || 0) + 1
-  }).eq('id', referrer.id);
+  // Update referrer's referral_count（每推薦4人，推薦者獲得+1次）
+  const newRefCount = (referrer.referral_count || 0) + 1;
+  await sb.from('sb_users').update({ referral_count: newRefCount }).eq('id', referrer.id);
+
+  // 每 4 次推薦成功，給推薦者 +1 credit
+  if (newRefCount % 4 === 0) {
+    const { data: refFresh } = await sb.from('sb_users')
+      .select('credits').eq('id', referrer.id).single();
+    const newRefCredits = (refFresh?.credits || 0) + 1;
+    await sb.from('sb_users').update({ credits: newRefCredits }).eq('id', referrer.id);
+  }
 
   sb_currentUser.credits = newCredits;
   document.getElementById('credit-num').textContent = newCredits;
@@ -347,12 +354,66 @@ async function loadLeaderboardInto(podiumId, listId) {
   }
 }
 
+// ── Piggy Bank ────────────────────────────────────────────
+function renderPiggyBank(count) {
+  const clamped = Math.min(Math.max(count, 0), 100);
+  const pct = clamped / 100;
+
+  // Update count badge
+  const countEl = document.getElementById('piggy-count');
+  if (countEl) countEl.textContent = clamped;
+
+  // Update fill rect: pig body bottom ≈ y=170, max fill height = 100 SVG units
+  const maxH = 100;
+  const fillH = Math.round(pct * maxH);
+  const fillRect = document.getElementById('pig-fill');
+  if (fillRect) {
+    fillRect.setAttribute('y', 170 - fillH);
+    fillRect.setAttribute('height', fillH);
+  }
+
+  // Update progress bar
+  const bar = document.getElementById('piggy-bar-fill');
+  if (bar) bar.style.width = (pct * 100) + '%';
+
+  // Render coin circles with "H" in pig body (grid from bottom)
+  const layer = document.getElementById('pig-coins-layer');
+  if (!layer) return;
+
+  const coinR = 7;       // coin radius
+  const spacing = 18;    // spacing between coins
+  const cols = 7;        // coins per row
+  const bodyCx = 105;    // pig body center x
+  const bodyBottom = 168; // y of pig body bottom (inside fill)
+
+  let svg = '';
+  for (let i = 0; i < clamped; i++) {
+    const col = (i % cols) - Math.floor(cols / 2); // -3..+3
+    const row = Math.floor(i / cols);
+    const cx = bodyCx + col * spacing;
+    const cy = bodyBottom - coinR - row * spacing;
+    if (cy < 72) break; // don't overflow above pig body
+    svg += `<g transform="translate(${cx},${cy})">` +
+      `<circle r="${coinR}" fill="#F5D17A" stroke="#C49A5A" stroke-width="1.2"/>` +
+      `<text text-anchor="middle" dominant-baseline="central" font-size="8" font-weight="bold" fill="#9E7A3F">H</text>` +
+      `</g>`;
+  }
+  layer.innerHTML = svg;
+}
+
 // ── Challenge ─────────────────────────────────────────────
 let sb_challengePartner = null;
 let sb_challengeData = null;
 
 async function loadChallenge() {
   if (!sb_currentUser) return;
+
+  // Count ALL completed tasks for piggy bank
+  const { count: totalDone } = await sb.from('sb_challenge_progress')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', sb_currentUser.id)
+    .eq('done', true);
+  renderPiggyBank(totalDone || 0);
 
   // Check latest report has tasks
   const { data: records } = await sb.from('sb_analysis_records')
@@ -496,6 +557,13 @@ async function toggleTask(index, recordId) {
       user_id: sb_currentUser.id, record_id: recordId, task_index: index, done: true
     }, { onConflict: 'user_id,record_id,task_index' });
   }
+
+  // Refresh piggy bank count
+  const { count: newTotal } = await sb.from('sb_challenge_progress')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', sb_currentUser.id)
+    .eq('done', true);
+  renderPiggyBank(newTotal || 0);
 }
 
 // ── Leaderboard ──────────────────────────────────────────

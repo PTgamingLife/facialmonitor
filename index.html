@@ -135,10 +135,10 @@
       <div style="flex:1;height:1px;background:var(--gold-pale);"></div>
     </div>
 
-    <!-- Section 2: Payment (disabled) -->
+    <!-- Section 2: Payment -->
     <div style="margin-bottom:14px;">
-      <button disabled style="width:100%;height:52px;border:none;border-radius:var(--radius-sm);background:#C8C8C8;color:#888;font-size:15px;font-weight:600;cursor:not-allowed;font-family:'Noto Sans TC',sans-serif;letter-spacing:1px;">
-        付費功能🚧 官方建置中
+      <button class="btn-gold" onclick="openPayment()" style="width:100%;height:52px;font-size:15px;font-weight:600;letter-spacing:1px;">
+        💳 選擇付費方案 →
       </button>
     </div>
 
@@ -203,143 +203,119 @@
   </div>
 </div>
 
-<!-- ════════════════ MAIN PAGE ════════════════ -->
+<!-- ════════════════ MAIN PAGE (首頁：健康任務) ════════════════ -->
 <div id="page-main" class="page">
   <div class="main-header">
-    <div class="main-title">大數據健康檢測</div>
-    <div class="main-sub">面舌診檢測</div>
-    <div class="credit-badge" onclick="openCodeModal()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    <div class="main-title">大數據健康任務</div>
+    <div class="main-sub">每日打卡，積累健康資本</div>
+  </div>
+
+  <!-- ── 存錢豬公 ── -->
+  <div class="piggy-bank-section">
+    <div class="piggy-header">
+      <div class="piggy-title">🐷 健康存錢筒</div>
+      <div class="piggy-subtitle">每完成一項任務，存入一枚健康幣</div>
+    </div>
+
+    <div class="piggy-wrap">
+      <svg class="piggy-svg" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <clipPath id="pig-clip">
+            <ellipse cx="105" cy="118" rx="68" ry="52"/>
+          </clipPath>
+          <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F5D17A"/>
+            <stop offset="100%" stop-color="#C49A5A"/>
+          </linearGradient>
+        </defs>
+        <!-- Gold coin fill rising from bottom -->
+        <g clip-path="url(#pig-clip)">
+          <rect id="pig-fill" x="37" y="170" width="136" height="0" fill="url(#gold-grad)" opacity="0.75"/>
+          <!-- Dynamic coin circles rendered by JS -->
+          <g id="pig-coins-layer"></g>
+        </g>
+        <!-- Pig body (semi-transparent so fill shows through) -->
+        <ellipse cx="105" cy="118" rx="68" ry="52" fill="#FBDDDD" opacity="0.55" stroke="#E8A0A0" stroke-width="2.5"/>
+        <!-- Coin slot -->
+        <rect x="85" y="66" width="30" height="7" rx="3.5" fill="#C07070"/>
+        <!-- Pig head -->
+        <circle cx="162" cy="98" r="30" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2.5"/>
+        <!-- Ear -->
+        <ellipse cx="150" cy="72" rx="10" ry="14" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="1.8" transform="rotate(-12 150 72)"/>
+        <ellipse cx="150" cy="74" rx="6" ry="9" fill="#F4B0B0" transform="rotate(-12 150 74)"/>
+        <!-- Eye -->
+        <circle cx="157" cy="91" r="5" fill="white"/>
+        <circle cx="158.5" cy="92" r="2.5" fill="#333"/>
+        <circle cx="159.5" cy="91" r="1" fill="white" opacity="0.8"/>
+        <!-- Snout -->
+        <ellipse cx="176" cy="107" rx="15" ry="10" fill="#F0B0B0" stroke="#E8A0A0" stroke-width="1.5"/>
+        <circle cx="171" cy="108" r="2.8" fill="#C07070"/>
+        <circle cx="181" cy="108" r="2.8" fill="#C07070"/>
+        <!-- Tail -->
+        <path d="M37 110 Q22 105 26 117 Q30 129 44 120" stroke="#E8A0A0" stroke-width="3" stroke-linecap="round"/>
+        <!-- Legs -->
+        <rect x="55" y="161" width="17" height="21" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
+        <rect x="81" y="164" width="17" height="18" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
+        <rect x="110" y="164" width="17" height="18" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
+        <rect x="136" y="161" width="17" height="21" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
       </svg>
-      剩餘 <span id="credit-num">0</span> 次 ＋添加
+
+      <div class="piggy-count-badge">
+        <span id="piggy-count">0</span>
+        <span class="piggy-count-slash">/100</span>
+      </div>
     </div>
-    <div class="member-code-display" id="member-code-display">
-      會員碼：<span id="member-code-val">------</span>
-      <span class="copy-code-btn" onclick="copyMemberCode()">複製</span>
+
+    <div class="piggy-progress-wrap">
+      <div class="piggy-bar">
+        <div class="piggy-bar-fill" id="piggy-bar-fill" style="width:0%"></div>
+      </div>
+      <div class="piggy-milestones">
+        <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+      </div>
     </div>
   </div>
 
-  <!-- Step Indicator -->
-  <div class="step-indicator">
-    <div class="step-dot active" id="sdot-1">1</div>
-    <div class="step-line" id="sline-1"></div>
-    <div class="step-dot" id="sdot-2">2</div>
-    <div class="step-line" id="sline-2"></div>
-    <div class="step-dot" id="sdot-3">3</div>
-  </div>
-
-  <!-- Step 1: Face Upload -->
-  <div class="step-panel" id="step-1">
-    <div class="tip-box">
-      <div class="tip-icon">💡</div>
-      <div class="tip-text">拍攝臉部時請保持光線充足、正面拍攝，移除眼鏡與帽子</div>
+  <!-- Challenge content -->
+  <div class="challenge-body" style="padding-top:0;">
+    <!-- No report notice -->
+    <div id="challenge-no-report" class="challenge-no-report" style="display:none;">
+      🔍 尚未完成健康檢測<br>
+      請先點「檢測」完成一次面舌診分析<br>才能開啟健康任務
     </div>
-    <div class="upload-zone-wrap">
-      <div class="upload-ring-anim"></div>
-      <div class="upload-ring-anim-2"></div>
-      <div class="upload-zone" id="face-zone" onclick="document.getElementById('face-input').click()">
-        <div class="upload-zone-corners">
-          <div class="uz-corner uz-tl"></div>
-          <div class="uz-corner uz-tr"></div>
-          <div class="uz-corner uz-bl"></div>
-          <div class="uz-corner uz-br"></div>
+    <!-- Task list -->
+    <div id="challenge-tasks" style="display:none;">
+      <div class="task-card">
+        <div class="task-card-head">
+          <div class="task-card-title" id="task-risk-title">14天健康任務</div>
+          <div class="task-days-left" id="task-days-left">14天</div>
         </div>
-        <div class="upload-icon">
-          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="40" cy="34" rx="20" ry="24" stroke="#C49A5A" stroke-width="1.5"/>
-            <circle cx="32" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
-            <circle cx="48" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
-            <path d="M33 43 Q40 48 47 43" stroke="#C49A5A" stroke-width="1.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="upload-text">點擊上傳<br>臉部照片</div>
+        <div class="task-list" id="task-list"></div>
       </div>
     </div>
-    <input type="file" id="face-input" accept="image/*" capture="user" style="display:none">
-    <button class="btn-gold" id="btn-step1" style="display:none;margin:16px 0;" onclick="goStep(2)">下一步 →</button>
-  </div>
-
-  <!-- Step 2: Tongue Upload -->
-  <div class="step-panel" id="step-2" style="display:none">
-    <div class="tip-box">
-      <div class="tip-icon">☀️</div>
-      <div class="tip-text">早晨空腹拍攝效果最佳，自然光下輕輕伸出舌頭，勿用力</div>
-    </div>
-    <div class="upload-zone-wrap">
-      <div class="upload-ring-anim"></div>
-      <div class="upload-ring-anim-2"></div>
-      <div class="upload-zone" id="tongue-zone" onclick="document.getElementById('tongue-input').click()">
-        <div class="upload-zone-corners">
-          <div class="uz-corner uz-tl"></div>
-          <div class="uz-corner uz-tr"></div>
-          <div class="uz-corner uz-bl"></div>
-          <div class="uz-corner uz-br"></div>
-        </div>
-        <div class="upload-icon">
-          <!-- Tongue icon -->
-          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M28 25 Q40 18 52 25 Q58 35 55 50 Q52 62 40 65 Q28 62 25 50 Q22 35 28 25Z" stroke="#C49A5A" stroke-width="1.5" fill="none"/>
-            <path d="M35 35 Q40 30 45 35" stroke="#C49A5A" stroke-width="1" stroke-linecap="round"/>
-          </svg>
-        </div>
-        <div class="upload-text">點擊上傳<br>舌部照片</div>
-      </div>
-    </div>
-    <input type="file" id="tongue-input" accept="image/*" capture="user" style="display:none">
-    <div style="display:flex;gap:10px;margin:16px 0;">
-      <button class="btn-ghost" onclick="goStep(1)" style="flex:1">← 返回</button>
-      <button class="btn-gold" id="btn-step2" style="display:none;flex:2" onclick="goStep(3)">下一步 →</button>
+    <!-- Empty state -->
+    <div class="challenge-empty" id="challenge-empty">
+      完成健康檢測後<br>系統將自動生成你的14天任務計劃
     </div>
   </div>
 
-  <!-- Step 3: Confirm -->
-  <div class="step-panel" id="step-3" style="display:none">
-    <div class="confirm-thumbs">
-      <div class="confirm-thumb-wrap">
-        <img class="confirm-thumb" id="face-thumb" src="">
-        <div class="confirm-thumb-label">面部照片</div>
-      </div>
-      <div class="confirm-thumb-wrap">
-        <img class="confirm-thumb" id="tongue-thumb" src="">
-        <div class="confirm-thumb-label">舌部照片</div>
-      </div>
+  <!-- Hidden partner elements kept for JS compatibility -->
+  <div style="display:none;" aria-hidden="true">
+    <div id="partner-info">
+      <div id="partner-avatar"></div>
+      <div id="partner-name"></div>
     </div>
-    <div class="disclaimer-box">
-      本分析結合中醫面舌診與AI大數據<br>
-      結果僅供養生參考，非醫療診斷<br>
-      如有不適請諮詢專業醫師
-    </div>
-    <div class="error-msg" id="analyze-error"></div>
-    <button class="btn-gold" onclick="startCarousel();startAnalyze()" style="margin-bottom:10px;">開始AI分析 ✨</button>
-    <button class="btn-ghost" onclick="goStep(2)">← 重新拍攝</button>
-  </div>
-
-  <!-- Step Loading -->
-  <div id="step-loading">
-    <div class="loading-scan-wrap">
-      <div class="loading-circle">
-        <img src="owl2.png" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%;opacity:0.85;">
-        <div class="scan-line"></div>
-      </div>
-      <div class="loading-ring-1"></div>
-      <div class="loading-ring-2"></div>
-    </div>
-    <div class="loading-title">AI 深度分析中<span class="loading-dots"></span></div>
-    <div class="loading-sub">結合中醫面舌診與大數據分析</div>
-    <div class="carousel-wrap" id="carousel-wrap">
-      <div class="carousel-track" id="carousel-track"></div>
-    </div>
-    <div class="carousel-dots" id="carousel-dots"></div>
+    <div id="partner-error"></div>
+    <input id="partner-code-inp" type="hidden">
   </div>
 
   <!-- Bottom Nav -->
   <div class="bottom-nav">
-    <button class="nav-item active" onclick="showPage('page-main')">
+    <button class="nav-item active" onclick="showPage('page-main');loadChallenge()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
     </button>
-    <button class="nav-item" onclick="showPage('page-challenge');loadChallenge()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    <button class="nav-item" onclick="showPage('page-challenge');resetToStep1()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M11 8v5M8.5 11h5"/><path d="M20 20l-3-3"/></svg>檢測
     </button>
     <button class="nav-item" onclick="showPage('page-bottle');loadBottle()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
@@ -554,61 +530,142 @@
   </div>
 </div>
 
-<!-- ════════════════ CHALLENGE PAGE ════════════════ -->
+<!-- ════════════════ CHALLENGE PAGE (檢測) ════════════════ -->
 <div id="page-challenge" class="page">
-  <div class="challenge-header">
-    <div class="challenge-title">⚡ 任務挑戰</div>
-    <div class="challenge-sub">與夥伴互相監督，共同改善健康</div>
-  </div>
-
-  <div class="challenge-body">
-    <!-- Partner connect -->
-    <div class="partner-card">
-      <div class="partner-card-title">🤝 連結挑戰夥伴</div>
-      <div class="partner-card-sub">輸入夥伴的7位會員碼，開啟14天互相監督任務</div>
-      <div class="partner-inp-row">
-        <input class="partner-inp" id="partner-code-inp" type="tel" maxlength="7" placeholder="0000000">
-        <button class="btn-connect" onclick="connectPartner()">連結</button>
-      </div>
-      <div id="partner-info" style="display:none;">
-        <div class="partner-info-row">
-          <div class="partner-avatar" id="partner-avatar">?</div>
-          <div class="partner-name" id="partner-name">夥伴名稱</div>
-          <div class="partner-status-ok">✓ 已連結</div>
-        </div>
-      </div>
-      <div class="error-msg" id="partner-error"></div>
+  <div class="main-header">
+    <div class="main-title">大數據健康檢測</div>
+    <div class="main-sub">面舌診檢測</div>
+    <div class="credit-badge" onclick="openCodeModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+      </svg>
+      剩餘 <span id="credit-num">0</span> 次 ＋添加
     </div>
-
-    <!-- No report notice -->
-    <div id="challenge-no-report" class="challenge-no-report" style="display:none;">
-      🔍 尚未完成健康檢測<br>
-      請先完成一次面舌診分析<br>才能開啟任務挑戰
-    </div>
-
-    <!-- Task list -->
-    <div id="challenge-tasks" style="display:none;">
-      <div class="task-card">
-        <div class="task-card-head">
-          <div class="task-card-title" id="task-risk-title">14天健康任務</div>
-          <div class="task-days-left" id="task-days-left">14天</div>
-        </div>
-        <div class="task-list" id="task-list"></div>
-      </div>
-    </div>
-
-    <!-- Empty state -->
-    <div class="challenge-empty" id="challenge-empty">
-      完成健康檢測後<br>系統將自動生成你的14天任務計劃
+    <div class="member-code-display" id="member-code-display">
+      會員碼：<span id="member-code-val">------</span>
+      <span class="copy-code-btn" onclick="copyMemberCode()">複製</span>
     </div>
   </div>
 
-    <div class="bottom-nav">
-    <button class="nav-item" id="nav-main-chl" onclick="showPage('page-main')">
+  <!-- Step Indicator -->
+  <div class="step-indicator">
+    <div class="step-dot active" id="sdot-1">1</div>
+    <div class="step-line" id="sline-1"></div>
+    <div class="step-dot" id="sdot-2">2</div>
+    <div class="step-line" id="sline-2"></div>
+    <div class="step-dot" id="sdot-3">3</div>
+  </div>
+
+  <!-- Step 1: Face Upload -->
+  <div class="step-panel" id="step-1">
+    <div class="tip-box">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text">拍攝臉部時請保持光線充足、正面拍攝，移除眼鏡與帽子</div>
+    </div>
+    <div class="upload-zone-wrap">
+      <div class="upload-ring-anim"></div>
+      <div class="upload-ring-anim-2"></div>
+      <div class="upload-zone" id="face-zone" onclick="document.getElementById('face-input').click()">
+        <div class="upload-zone-corners">
+          <div class="uz-corner uz-tl"></div>
+          <div class="uz-corner uz-tr"></div>
+          <div class="uz-corner uz-bl"></div>
+          <div class="uz-corner uz-br"></div>
+        </div>
+        <div class="upload-icon">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="40" cy="34" rx="20" ry="24" stroke="#C49A5A" stroke-width="1.5"/>
+            <circle cx="32" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
+            <circle cx="48" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
+            <path d="M33 43 Q40 48 47 43" stroke="#C49A5A" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="upload-text">點擊上傳<br>臉部照片</div>
+      </div>
+    </div>
+    <input type="file" id="face-input" accept="image/*" capture="user" style="display:none">
+    <button class="btn-gold" id="btn-step1" style="display:none;margin:16px 0;" onclick="goStep(2)">下一步 →</button>
+  </div>
+
+  <!-- Step 2: Tongue Upload -->
+  <div class="step-panel" id="step-2" style="display:none">
+    <div class="tip-box">
+      <div class="tip-icon">☀️</div>
+      <div class="tip-text">早晨空腹拍攝效果最佳，自然光下輕輕伸出舌頭，勿用力</div>
+    </div>
+    <div class="upload-zone-wrap">
+      <div class="upload-ring-anim"></div>
+      <div class="upload-ring-anim-2"></div>
+      <div class="upload-zone" id="tongue-zone" onclick="document.getElementById('tongue-input').click()">
+        <div class="upload-zone-corners">
+          <div class="uz-corner uz-tl"></div>
+          <div class="uz-corner uz-tr"></div>
+          <div class="uz-corner uz-bl"></div>
+          <div class="uz-corner uz-br"></div>
+        </div>
+        <div class="upload-icon">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M28 25 Q40 18 52 25 Q58 35 55 50 Q52 62 40 65 Q28 62 25 50 Q22 35 28 25Z" stroke="#C49A5A" stroke-width="1.5" fill="none"/>
+            <path d="M35 35 Q40 30 45 35" stroke="#C49A5A" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="upload-text">點擊上傳<br>舌部照片</div>
+      </div>
+    </div>
+    <input type="file" id="tongue-input" accept="image/*" capture="user" style="display:none">
+    <div style="display:flex;gap:10px;margin:16px 0;">
+      <button class="btn-ghost" onclick="goStep(1)" style="flex:1">← 返回</button>
+      <button class="btn-gold" id="btn-step2" style="display:none;flex:2" onclick="goStep(3)">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Confirm -->
+  <div class="step-panel" id="step-3" style="display:none">
+    <div class="confirm-thumbs">
+      <div class="confirm-thumb-wrap">
+        <img class="confirm-thumb" id="face-thumb" src="">
+        <div class="confirm-thumb-label">面部照片</div>
+      </div>
+      <div class="confirm-thumb-wrap">
+        <img class="confirm-thumb" id="tongue-thumb" src="">
+        <div class="confirm-thumb-label">舌部照片</div>
+      </div>
+    </div>
+    <div class="disclaimer-box">
+      本分析結合中醫面舌診與AI大數據<br>
+      結果僅供養生參考，非醫療診斷<br>
+      如有不適請諮詢專業醫師
+    </div>
+    <div class="error-msg" id="analyze-error"></div>
+    <button class="btn-gold" onclick="startCarousel();startAnalyze()" style="margin-bottom:10px;">開始AI分析 ✨</button>
+    <button class="btn-ghost" onclick="goStep(2)">← 重新拍攝</button>
+  </div>
+
+  <!-- Step Loading -->
+  <div id="step-loading">
+    <div class="loading-scan-wrap">
+      <div class="loading-circle">
+        <img src="owl2.png" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%;opacity:0.85;">
+        <div class="scan-line"></div>
+      </div>
+      <div class="loading-ring-1"></div>
+      <div class="loading-ring-2"></div>
+    </div>
+    <div class="loading-title">AI 深度分析中<span class="loading-dots"></span></div>
+    <div class="loading-sub">結合中醫面舌診與大數據分析</div>
+    <div class="carousel-wrap" id="carousel-wrap">
+      <div class="carousel-track" id="carousel-track"></div>
+    </div>
+    <div class="carousel-dots" id="carousel-dots"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-item" id="nav-main-chl" onclick="showPage('page-main');loadChallenge()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
     </button>
-    <button class="nav-item" id="nav-challenge-chl" onclick="showPage('page-challenge');loadChallenge()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    <button class="nav-item active" id="nav-challenge-chl" onclick="showPage('page-challenge');resetToStep1()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M11 8v5M8.5 11h5"/><path d="M20 20l-3-3"/></svg>檢測
     </button>
     <button class="nav-item" id="nav-bottle-chl" onclick="showPage('page-bottle');loadBottle()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
@@ -661,8 +718,8 @@
     <button class="nav-item" id="nav-main-ach" onclick="showPage('page-main')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
     </button>
-    <button class="nav-item" id="nav-challenge-ach" onclick="showPage('page-challenge');loadChallenge()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    <button class="nav-item" id="nav-challenge-ach" onclick="showPage('page-challenge');resetToStep1()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M11 8v5M8.5 11h5"/><path d="M20 20l-3-3"/></svg>檢測
     </button>
     <button class="nav-item" id="nav-bottle-ach" onclick="showPage('page-bottle');loadBottle()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
@@ -762,8 +819,8 @@
     <button class="nav-item" onclick="showPage('page-main')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
     </button>
-    <button class="nav-item" onclick="showPage('page-challenge');loadChallenge()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    <button class="nav-item" onclick="showPage('page-challenge');resetToStep1()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="M11 8v5M8.5 11h5"/><path d="M20 20l-3-3"/></svg>檢測
     </button>
     <button class="nav-item active">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
@@ -789,7 +846,7 @@
 
   <!-- Admin Quick Entry -->
   <div class="admin-quick-entry">
-    <button class="btn-admin-diagnose" onclick="showPage('page-main');document.getElementById('credit-num').textContent = sb_currentUser.credits || 0;">
+    <button class="btn-admin-diagnose" onclick="showPage('page-challenge');resetToStep1();">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
         <circle cx="12" cy="8" r="5"/>
         <path d="M6 20v-1a6 6 0 0112 0v1"/>
