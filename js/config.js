@@ -1,3 +1,10 @@
+// ── Config ──────────────────────────────────────────────
+const SUPABASE_URL = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
+const EDGE_FN_URL = `${SUPABASE_URL}/functions/v1/analyze`;
+const ADMIN_PHONE = '0912345678';
+const ADMIN_NAME = 'PTGM';
+
 // ── OAuth URL 修正（必須在 createClient 前執行）────────────
 // 當 Google OAuth 回傳 %23access_token（URL 編碼的 #），
 // Supabase createClient 無法解析，必須先修正 URL
