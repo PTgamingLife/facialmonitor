@@ -67,7 +67,16 @@
       <div class="login-google-sub">使用您的 Google 帳號，無需記憶密碼</div>
     </div>
 
-    <button class="btn-google-main" onclick="handleGoogleLogin()">
+    <!-- 條款勾選 -->
+    <label class="terms-check-row" id="terms-check-label">
+      <input type="checkbox" id="terms-agree" onchange="toggleGoogleBtn()">
+      <span class="terms-check-text">
+        我已閱讀並同意
+        <a href="https://ptgaminglife.github.io/facialmonitor/about.html#terms" target="_blank" class="terms-link">服務條款與隱私政策</a>
+      </span>
+    </label>
+
+    <button class="btn-google-main" id="btn-google-login" onclick="handleGoogleLogin()" disabled>
       <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -139,15 +148,58 @@
 
 <!-- ════════════════ PAYMENT MODAL ════════════════ -->
 <div class="modal-overlay" id="payment-modal">
-  <div class="modal-box center-box" style="max-width:300px;margin:auto;border-radius:var(--radius-lg);">
-    <div style="text-align:center;padding:10px 0;">
-      <div style="font-size:40px;margin-bottom:12px;">🚧</div>
-      <div class="modal-title" style="margin-bottom:8px;">官方建置中</div>
-      <div style="font-size:13px;color:var(--text-soft);line-height:1.7;margin-bottom:20px;">
-        LINE Pay 付款功能即將上線<br>敬請期待！
+  <div class="modal-box" style="max-width:360px;">
+
+    <!-- Step 1：選方案 -->
+    <div id="pay-step-1">
+      <div class="modal-title">➕ 購買檢測次數</div>
+      <div class="modal-sub">選擇適合您的方案，透過 LINE Pay 安全付款</div>
+
+      <div class="pay-plan-list">
+        <div class="pay-plan-card" onclick="selectPlan(1,45,'單次體驗')">
+          <div class="pay-plan-name">單次體驗</div>
+          <div class="pay-plan-price">45 <span>元</span></div>
+          <div class="pay-plan-unit">1 次檢測</div>
+        </div>
+        <div class="pay-plan-card pay-plan-featured" onclick="selectPlan(3,120,'三次套餐')">
+          <div class="pay-plan-badge">🔥 最受歡迎</div>
+          <div class="pay-plan-name">三次套餐</div>
+          <div class="pay-plan-price">120 <span>元</span></div>
+          <div class="pay-plan-unit">3 次檢測・每次 40 元</div>
+        </div>
+        <div class="pay-plan-card" onclick="selectPlan(10,399,'十次暢享')">
+          <div class="pay-plan-name">十次暢享</div>
+          <div class="pay-plan-price">399 <span>元</span></div>
+          <div class="pay-plan-unit">10 次檢測・每次 39.9 元</div>
+        </div>
       </div>
-      <button class="btn-gold" onclick="document.getElementById('payment-modal').classList.remove('active')">了解</button>
+
+      <button class="btn-ghost" onclick="closePayment()" style="margin-top:12px;">取消</button>
     </div>
+
+    <!-- Step 2：LINE Pay 付款說明 -->
+    <div id="pay-step-2" style="display:none;">
+      <div class="modal-title">💳 LINE Pay 付款</div>
+      <div class="pay-confirm-box">
+        <div class="pay-confirm-plan" id="pay-confirm-plan-name"></div>
+        <div class="pay-confirm-amount" id="pay-confirm-amount"></div>
+      </div>
+
+      <div class="pay-steps-guide">
+        <div class="pay-guide-step">① 點擊下方按鈕，開啟 LINE 聯絡客服</div>
+        <div class="pay-guide-step">② 告知方案名稱及您的帳號信箱</div>
+        <div class="pay-guide-step">③ 依客服指示完成 LINE Pay 轉帳</div>
+        <div class="pay-guide-step">④ 次數確認後立即生效（通常5分鐘內）</div>
+      </div>
+
+      <a id="pay-line-btn" class="btn-gold pay-line-link" href="https://line.me/ti/p/ZC-w2BuPoi" target="_blank" onclick="closePayment()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.630 0 .348-.281.631-.63.631h-2.386c-.345 0-.627-.283-.627-.631V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+        開啟 LINE 聯絡客服付款
+      </a>
+
+      <button class="btn-ghost" onclick="document.getElementById('pay-step-1').style.display='block';document.getElementById('pay-step-2').style.display='none';" style="margin-top:10px;">← 返回選擇方案</button>
+    </div>
+
   </div>
 </div>
 

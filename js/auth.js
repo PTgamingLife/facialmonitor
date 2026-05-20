@@ -115,8 +115,25 @@ function checkAndRoute() {
   }
 }
 
+// ── 條款勾選控制 ─────────────────────────────────────────
+function toggleGoogleBtn() {
+  const checked = document.getElementById('terms-agree')?.checked;
+  const btn = document.getElementById('btn-google-login');
+  if (btn) btn.disabled = !checked;
+}
+
 // ── Google OAuth Login ───────────────────────────────────
 async function handleGoogleLogin() {
+  // 防呆：未勾選條款
+  if (!document.getElementById('terms-agree')?.checked) {
+    const errEl = document.getElementById('login-error');
+    if (errEl) {
+      errEl.style.color = 'var(--alert-color)';
+      errEl.textContent = '請先閱讀並同意服務條款';
+      errEl.style.display = 'block';
+    }
+    return;
+  }
   try {
     const { error } = await sb.auth.signInWithOAuth({
       provider: 'google',

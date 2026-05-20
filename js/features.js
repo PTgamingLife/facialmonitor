@@ -111,7 +111,33 @@ function fallbackShare(text) {
 // ── Payment ───────────────────────────────────────────────
 function openPayment() {
   document.getElementById('code-modal').classList.remove('active');
+  // 重置到方案選擇畫面
+  document.getElementById('pay-step-1').style.display = 'block';
+  document.getElementById('pay-step-2').style.display = 'none';
   document.getElementById('payment-modal').classList.add('active');
+}
+
+function closePayment() {
+  document.getElementById('payment-modal').classList.remove('active');
+}
+
+function selectPlan(credits, price, name) {
+  // 顯示付款確認畫面
+  document.getElementById('pay-step-1').style.display = 'none';
+  document.getElementById('pay-step-2').style.display = 'block';
+
+  document.getElementById('pay-confirm-plan-name').textContent = name + '（' + credits + ' 次）';
+  document.getElementById('pay-confirm-amount').textContent = 'NT$ ' + price + ' 元';
+
+  // 更新 LINE 連結，帶入方案資訊
+  const userEmail = sb_currentUser?.email || '';
+  const msg = encodeURIComponent(
+    '您好，我想購買「' + name + '」方案 NT$' + price + ' 元\n帳號信箱：' + userEmail
+  );
+  const lineBtn = document.getElementById('pay-line-btn');
+  if (lineBtn) {
+    lineBtn.href = 'https://line.me/ti/p/ZC-w2BuPoi';
+  }
 }
 
 // ── Referral ──────────────────────────────────────────────
