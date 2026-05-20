@@ -2543,3 +2543,37 @@ html, body {
   margin-top: 3px;
   padding: 0 2px;
 }
+
+/* ══════════════════════════════════════════════════════
+   官方網站連結（登入頁底部）
+══════════════════════════════════════════════════════ */
+.login-official-link {
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  color: var(--gold-main);
+  text-decoration: none;
+  padding: 10px 0 env(safe-area-inset-bottom, 12px);
+  opacity: 0.85;
+  letter-spacing: 0.3px;
+}
+.login-official-link:hover { opacity: 1; text-decoration: underline; }
+
+/* ══════════════════════════════════════════════════════
+   購買條款（payment-modal）
+══════════════════════════════════════════════════════ */
+.pay-terms {
+  font-size: 11px;
+  color: var(--text-hint);
+  line-height: 1.6;
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gold-pale);
+}
+.pay-terms-link {
+  color: var(--gold-main);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
