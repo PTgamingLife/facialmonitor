@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>大數據健康檢測｜面舌診</title>
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="大數據健康">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ════════════════ WEBVIEW WARNING ════════════════ -->
+<div class="webview-warning" id="webview-warning">
+  <div class="webview-warning-title">⚠️ 請用瀏覽器開啟</div>
+  <div class="webview-warning-desc">
+    Google 登入不支援 LINE / FB 內建瀏覽器<br>請複製連結，到 Safari 或 Chrome 開啟
+  </div>
+  <div class="webview-warning-step">
+    📋 點右上角「⋯」→「在瀏覽器中開啟」<br>
+    或複製網址貼到 Safari / Chrome
+  </div>
+  <button class="webview-warning-btn" onclick="copyAppUrl()">📋 複製網址</button>
+  <div id="webview-copy-ok" style="font-size:12px;color:var(--gold-light);display:none;">✅ 已複製！請貼到 Safari 或 Chrome</div>
+</div>
+
+<!-- ════════════════ LOGIN PAGE ════════════════ -->
+<div id="page-login" class="page active">
+  <div class="login-top-area">
+    <div class="login-brand">
+    <div class="login-brand-name">大數據健康檢測</div>
+    <div class="login-divider"></div>
+    <div class="login-brand-sub">面舌診檢測</div>
+  </div>
+
+  <div class="login-scan-deco">
+    <div class="login-scan-ring"></div>
+    <div class="login-scan-ring-2"></div>
+    <div class="login-scan-face">
+      <img src="owl1.png" alt="健康貓頭鷹" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+    </div>
+    <div class="login-scan-corner corner-tl"></div>
+    <div class="login-scan-corner corner-tr"></div>
+    <div class="login-scan-corner corner-bl"></div>
+    <div class="login-scan-corner corner-br"></div>
+    </div>
+  </div>
+
+  <div class="login-card">
+    <div class="login-google-intro">
+      <div class="login-google-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+      </div>
+      <div class="login-google-text">安全快速登入</div>
+      <div class="login-google-sub">使用您的 Google 帳號，無需記憶密碼</div>
+    </div>
+
+    <button class="btn-google-main" onclick="handleGoogleLogin()">
+      <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      使用 Google 帳號登入
+    </button>
+
+    <div class="error-msg" id="login-error"></div>
+
+    <div class="login-privacy">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      您的隱私安全我們嚴格保護
+    </div>
+  </div>
+
+  <div class="login-team">超艋健康團隊</div>
+</div>
+
+
+</div>
+
+<!-- ════════════════ SHARE FRIEND MODAL ════════════════ -->
+<div class="modal-overlay" id="share-friend-modal">
+  <div class="modal-box">
+    <div class="modal-title">🌿 推薦新朋友加入</div>
+    <div class="modal-sub">寫下想對朋友說的話，一起分享健康</div>
+    <textarea class="bottle-textarea" id="share-msg-inp" placeholder="想對朋友說的話…（可留空）" maxlength="100" style="min-height:80px;"></textarea>
+    <div class="modal-result" id="share-result"></div>
+    <button class="btn-gold" onclick="doShareFriend()" style="margin-bottom:10px;">分享給朋友</button>
+    <button class="btn-ghost" onclick="closeShareFriend()">取消</button>
+  </div>
+</div>
+
+<!-- ════════════════ CREDIT MODAL ════════════════ -->
+<div class="modal-overlay" id="code-modal">
+  <div class="modal-box">
+    <div class="modal-title">➕ 增加檢測次數</div>
+
+    <!-- Section 1: Referral code -->
+    <div style="margin-bottom:18px;">
+      <div style="font-size:13px;font-weight:600;color:var(--text-dark);margin-bottom:4px;">🤝 填入推薦碼</div>
+      <div style="font-size:11px;color:var(--text-soft);margin-bottom:10px;line-height:1.6;">填入朋友的7位會員碼，你可獲得 +1 次機會<br>每個帳號只能填一次，每個會員碼最多被推薦28次</div>
+      <input class="modal-input" id="referral-code-inp" type="tel" maxlength="7" placeholder="輸入朋友的7位會員碼" style="margin-bottom:8px;">
+      <button class="btn-gold" id="btn-referral" onclick="submitReferral()" style="width:100%;margin-bottom:6px;">確認填入</button>
+      <div class="modal-result" id="referral-result"></div>
+    </div>
+
+    <!-- Divider -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+      <div style="flex:1;height:1px;background:var(--gold-pale);"></div>
+      <span style="font-size:11px;color:var(--text-hint);">或</span>
+      <div style="flex:1;height:1px;background:var(--gold-pale);"></div>
+    </div>
+
+    <!-- Section 2: Payment (disabled) -->
+    <div style="margin-bottom:14px;">
+      <button disabled style="width:100%;height:52px;border:none;border-radius:var(--radius-sm);background:#C8C8C8;color:#888;font-size:15px;font-weight:600;cursor:not-allowed;font-family:'Noto Sans TC',sans-serif;letter-spacing:1px;">
+        付費功能🚧 官方建置中
+      </button>
+    </div>
+
+    <button class="btn-ghost" onclick="closeCodeModal()">取消</button>
+  </div>
+</div>
+
+<!-- ════════════════ PAYMENT MODAL ════════════════ -->
+<div class="modal-overlay" id="payment-modal">
+  <div class="modal-box center-box" style="max-width:300px;margin:auto;border-radius:var(--radius-lg);">
+    <div style="text-align:center;padding:10px 0;">
+      <div style="font-size:40px;margin-bottom:12px;">🚧</div>
+      <div class="modal-title" style="margin-bottom:8px;">官方建置中</div>
+      <div style="font-size:13px;color:var(--text-soft);line-height:1.7;margin-bottom:20px;">
+        LINE Pay 付款功能即將上線<br>敬請期待！
+      </div>
+      <button class="btn-gold" onclick="document.getElementById('payment-modal').classList.remove('active')">了解</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ MAIN PAGE ════════════════ -->
+<div id="page-main" class="page">
+  <div class="main-header">
+    <div class="main-title">大數據健康檢測</div>
+    <div class="main-sub">面舌診檢測</div>
+    <div class="credit-badge" onclick="openCodeModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+      </svg>
+      剩餘 <span id="credit-num">0</span> 次 ＋添加
+    </div>
+    <div class="member-code-display" id="member-code-display">
+      會員碼：<span id="member-code-val">------</span>
+      <span class="copy-code-btn" onclick="copyMemberCode()">複製</span>
+    </div>
+  </div>
+
+  <!-- Step Indicator -->
+  <div class="step-indicator">
+    <div class="step-dot active" id="sdot-1">1</div>
+    <div class="step-line" id="sline-1"></div>
+    <div class="step-dot" id="sdot-2">2</div>
+    <div class="step-line" id="sline-2"></div>
+    <div class="step-dot" id="sdot-3">3</div>
+  </div>
+
+  <!-- Step 1: Face Upload -->
+  <div class="step-panel" id="step-1">
+    <div class="tip-box">
+      <div class="tip-icon">💡</div>
+      <div class="tip-text">拍攝臉部時請保持光線充足、正面拍攝，移除眼鏡與帽子</div>
+    </div>
+    <div class="upload-zone-wrap">
+      <div class="upload-ring-anim"></div>
+      <div class="upload-ring-anim-2"></div>
+      <div class="upload-zone" id="face-zone" onclick="document.getElementById('face-input').click()">
+        <div class="upload-zone-corners">
+          <div class="uz-corner uz-tl"></div>
+          <div class="uz-corner uz-tr"></div>
+          <div class="uz-corner uz-bl"></div>
+          <div class="uz-corner uz-br"></div>
+        </div>
+        <div class="upload-icon">
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="40" cy="34" rx="20" ry="24" stroke="#C49A5A" stroke-width="1.5"/>
+            <circle cx="32" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
+            <circle cx="48" cy="30" r="2.5" stroke="#C49A5A" stroke-width="1.2"/>
+            <path d="M33 43 Q40 48 47 43" stroke="#C49A5A" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="upload-text">點擊上傳<br>臉部照片</div>
+      </div>
+    </div>
+    <input type="file" id="face-input" accept="image/*" capture="user" style="display:none">
+    <button class="btn-gold" id="btn-step1" style="display:none;margin:16px 0;" onclick="goStep(2)">下一步 →</button>
+  </div>
+
+  <!-- Step 2: Tongue Upload -->
+  <div class="step-panel" id="step-2" style="display:none">
+    <div class="tip-box">
+      <div class="tip-icon">☀️</div>
+      <div class="tip-text">早晨空腹拍攝效果最佳，自然光下輕輕伸出舌頭，勿用力</div>
+    </div>
+    <div class="upload-zone-wrap">
+      <div class="upload-ring-anim"></div>
+      <div class="upload-ring-anim-2"></div>
+      <div class="upload-zone" id="tongue-zone" onclick="document.getElementById('tongue-input').click()">
+        <div class="upload-zone-corners">
+          <div class="uz-corner uz-tl"></div>
+          <div class="uz-corner uz-tr"></div>
+          <div class="uz-corner uz-bl"></div>
+          <div class="uz-corner uz-br"></div>
+        </div>
+        <div class="upload-icon">
+          <!-- Tongue icon -->
+          <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M28 25 Q40 18 52 25 Q58 35 55 50 Q52 62 40 65 Q28 62 25 50 Q22 35 28 25Z" stroke="#C49A5A" stroke-width="1.5" fill="none"/>
+            <path d="M35 35 Q40 30 45 35" stroke="#C49A5A" stroke-width="1" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="upload-text">點擊上傳<br>舌部照片</div>
+      </div>
+    </div>
+    <input type="file" id="tongue-input" accept="image/*" capture="user" style="display:none">
+    <div style="display:flex;gap:10px;margin:16px 0;">
+      <button class="btn-ghost" onclick="goStep(1)" style="flex:1">← 返回</button>
+      <button class="btn-gold" id="btn-step2" style="display:none;flex:2" onclick="goStep(3)">下一步 →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Confirm -->
+  <div class="step-panel" id="step-3" style="display:none">
+    <div class="confirm-thumbs">
+      <div class="confirm-thumb-wrap">
+        <img class="confirm-thumb" id="face-thumb" src="">
+        <div class="confirm-thumb-label">面部照片</div>
+      </div>
+      <div class="confirm-thumb-wrap">
+        <img class="confirm-thumb" id="tongue-thumb" src="">
+        <div class="confirm-thumb-label">舌部照片</div>
+      </div>
+    </div>
+    <div class="disclaimer-box">
+      本分析結合中醫面舌診與AI大數據<br>
+      結果僅供養生參考，非醫療診斷<br>
+      如有不適請諮詢專業醫師
+    </div>
+    <div class="error-msg" id="analyze-error"></div>
+    <button class="btn-gold" onclick="startCarousel();startAnalyze()" style="margin-bottom:10px;">開始AI分析 ✨</button>
+    <button class="btn-ghost" onclick="goStep(2)">← 重新拍攝</button>
+  </div>
+
+  <!-- Step Loading -->
+  <div id="step-loading">
+    <div class="loading-scan-wrap">
+      <div class="loading-circle">
+        <img src="owl2.png" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%;opacity:0.85;">
+        <div class="scan-line"></div>
+      </div>
+      <div class="loading-ring-1"></div>
+      <div class="loading-ring-2"></div>
+    </div>
+    <div class="loading-title">AI 深度分析中<span class="loading-dots"></span></div>
+    <div class="loading-sub">結合中醫面舌診與大數據分析</div>
+    <div class="carousel-wrap" id="carousel-wrap">
+      <div class="carousel-track" id="carousel-track"></div>
+    </div>
+    <div class="carousel-dots" id="carousel-dots"></div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-item active" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
+    </button>
+    <button class="nav-item" onclick="showPage('page-challenge');loadChallenge()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    </button>
+    <button class="nav-item" onclick="showPage('page-bottle');loadBottle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
+    </button>
+    <button class="nav-item" onclick="showPage('page-achievement');loadAchievement()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>成就
+    </button>
+    <button class="nav-item" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>記錄
+    </button>
+    <button class="nav-item admin-back-btn" style="display:none;" onclick="showPage('page-admin');loadAdminUsers()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>後台
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ REPORT PAGE ════════════════ -->
+<div id="page-report" class="page">
+  <div class="report-header">
+    <div class="report-title">健康分析報告</div>
+    <div class="report-date" id="report-date"></div>
+  </div>
+
+  <div id="report-content">
+    <!-- Score -->
+    <div class="score-section">
+      <div class="score-circle">
+        <div class="score-number" id="r-score">--</div>
+        <div class="score-unit">/ 100</div>
+      </div>
+      <div class="score-label" id="r-score-label"></div>
+      <div class="score-bar-wrap">
+        <div class="score-bar" id="r-score-bar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Risk Warning -->
+    <div class="risk-section" id="r-risk-section" style="display:none">
+      <div class="risk-warning-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C49A5A" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        主要風險提示
+      </div>
+      <div id="r-risks"></div>
+      <div class="risk-disclaimer">以上為養生參考，非醫療診斷，如有不適請就醫</div>
+    </div>
+
+    <!-- 9 Report Cards -->
+    <div class="report-cards">
+      <!-- 4. Nutrients (moved before face zones) -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l2 2 4-4"/></svg>
+          </div>
+          <div class="rcard-title">關鍵營養素建議</div>
+        </div>
+        <div class="rcard-body" id="r-nutrients"></div>
+      </div>
+
+      <!-- 新增：失調注意 -->
+      <div class="rcard" id="r-disorder-card">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          </div>
+          <div class="rcard-title">失調注意</div>
+        </div>
+        <div class="rcard-body" id="r-disorder"></div>
+      </div>
+
+      <!-- 1. Face Zones -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><circle cx="12" cy="8" r="5"/><path d="M6 20v-1a6 6 0 0112 0v1"/></svg>
+          </div>
+          <div class="rcard-title">面部六區診斷</div>
+        </div>
+        <div class="rcard-body" id="r-face-zones"></div>
+      </div>
+
+      <!-- 2. Tongue -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><path d="M12 3C8 3 5 7 5 12s2 9 7 9 7-4 7-9-3-9-7-9z"/><path d="M9 10h6M9 14h4"/></svg>
+          </div>
+          <div class="rcard-title">舌診五項分析</div>
+        </div>
+        <div class="rcard-body" id="r-tongue"></div>
+      </div>
+
+      <!-- 3. Constitution -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div class="rcard-title">體質判斷</div>
+        </div>
+        <div class="rcard-body" id="r-constitution"></div>
+      </div>
+
+
+
+      <!-- 5. Diet -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><path d="M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+          </div>
+          <div class="rcard-title">食療建議</div>
+        </div>
+        <div class="rcard-body" id="r-diet"></div>
+      </div>
+
+      <!-- 6. Acupoints -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </div>
+          <div class="rcard-title">推薦穴位保健</div>
+        </div>
+        <div class="rcard-body" id="r-acupoints"></div>
+      </div>
+
+      <!-- 7. Lifestyle -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div class="rcard-title">作息調整建議</div>
+        </div>
+        <div class="rcard-body" id="r-lifestyle"></div>
+      </div>
+
+      <!-- 8. Western Notes -->
+      <div class="rcard">
+        <div class="rcard-head">
+          <div class="rcard-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#9E7A3F" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+          </div>
+          <div class="rcard-title">西醫觀察提示</div>
+        </div>
+        <div class="rcard-body" id="r-western"></div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="report-actions">
+      <button class="btn-line" onclick="openLine()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.630 0 .348-.281.631-.63.631h-2.386c-.345 0-.627-.283-.627-.631V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+        LINE 聯絡超艋健康團隊
+      </button>
+      <button class="btn-outline" onclick="downloadReport()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下載報告
+      </button>
+      <button class="btn-restart" onclick="restartScan()">← 重新診斷</button>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>
+      首頁
+    </button>
+    <button class="nav-item" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      記錄
+    </button>
+    <button class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      報告
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ HISTORY PAGE ════════════════ -->
+<div id="page-history" class="page">
+  <div class="history-header">
+    <div class="history-title">診斷記錄</div>
+    <div class="history-sub">病歷檔案</div>
+  </div>
+
+  <div class="history-scroll" id="history-list">
+    <div class="history-empty">
+      <div class="history-empty-icon">📋</div>
+      <div class="history-empty-text">尚無診斷記錄<br>完成第一次診斷後會顯示在這裡</div>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>
+      首頁
+    </button>
+    <button class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      記錄
+    </button>
+    <button class="nav-item" onclick="logout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      登出
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ CHALLENGE PAGE ════════════════ -->
+<div id="page-challenge" class="page">
+  <div class="challenge-header">
+    <div class="challenge-title">⚡ 任務挑戰</div>
+    <div class="challenge-sub">與夥伴互相監督，共同改善健康</div>
+  </div>
+
+  <div class="challenge-body">
+    <!-- Partner connect -->
+    <div class="partner-card">
+      <div class="partner-card-title">🤝 連結挑戰夥伴</div>
+      <div class="partner-card-sub">輸入夥伴的7位會員碼，開啟14天互相監督任務</div>
+      <div class="partner-inp-row">
+        <input class="partner-inp" id="partner-code-inp" type="tel" maxlength="7" placeholder="0000000">
+        <button class="btn-connect" onclick="connectPartner()">連結</button>
+      </div>
+      <div id="partner-info" style="display:none;">
+        <div class="partner-info-row">
+          <div class="partner-avatar" id="partner-avatar">?</div>
+          <div class="partner-name" id="partner-name">夥伴名稱</div>
+          <div class="partner-status-ok">✓ 已連結</div>
+        </div>
+      </div>
+      <div class="error-msg" id="partner-error"></div>
+    </div>
+
+    <!-- No report notice -->
+    <div id="challenge-no-report" class="challenge-no-report" style="display:none;">
+      🔍 尚未完成健康檢測<br>
+      請先完成一次面舌診分析<br>才能開啟任務挑戰
+    </div>
+
+    <!-- Task list -->
+    <div id="challenge-tasks" style="display:none;">
+      <div class="task-card">
+        <div class="task-card-head">
+          <div class="task-card-title" id="task-risk-title">14天健康任務</div>
+          <div class="task-days-left" id="task-days-left">14天</div>
+        </div>
+        <div class="task-list" id="task-list"></div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="challenge-empty" id="challenge-empty">
+      完成健康檢測後<br>系統將自動生成你的14天任務計劃
+    </div>
+  </div>
+
+    <div class="bottom-nav">
+    <button class="nav-item" id="nav-main-chl" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
+    </button>
+    <button class="nav-item" id="nav-challenge-chl" onclick="showPage('page-challenge');loadChallenge()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    </button>
+    <button class="nav-item" id="nav-bottle-chl" onclick="showPage('page-bottle');loadBottle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
+    </button>
+    <button class="nav-item" id="nav-achieve-chl" onclick="showPage('page-achievement');loadAchievement()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>成就
+    </button>
+    <button class="nav-item" id="nav-history-chl" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>記錄
+    </button>
+    <button class="nav-item admin-back-btn" style="display:none;" onclick="showPage('page-admin');loadAdminUsers()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>後台
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ ACHIEVEMENT PAGE ════════════════ -->
+<div id="page-achievement" class="page">
+  <div class="lb-header">
+    <div class="lb-title">🏅 成就</div>
+    <div class="lb-sub">健康勳章 × 分數排行</div>
+  </div>
+
+  <!-- Badges: Task count -->
+  <div class="badge-section">
+    <div class="badge-section-title">⚡ 任務成就</div>
+    <div class="badge-grid" id="badge-task-grid"></div>
+  </div>
+
+  <!-- Badges: Bottle count -->
+  <div class="badge-section">
+    <div class="badge-section-title">🍶 漂流瓶成就</div>
+    <div class="badge-grid" id="badge-bottle-grid"></div>
+  </div>
+
+  <!-- Badges: Referral count -->
+  <div class="badge-section">
+    <div class="badge-section-title">🤝 推薦成就</div>
+    <div class="badge-grid" id="badge-referral-grid"></div>
+  </div>
+
+  <!-- Score Leaderboard -->
+  <div class="badge-section" style="padding-bottom:20px;">
+    <div class="badge-section-title">🏆 健康分數排行</div>
+    <div class="lb-podium" id="lb-podium2" style="padding:0;"></div>
+    <div class="lb-list" id="lb-list2"></div>
+  </div>
+
+    <div class="bottom-nav">
+    <button class="nav-item" id="nav-main-ach" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
+    </button>
+    <button class="nav-item" id="nav-challenge-ach" onclick="showPage('page-challenge');loadChallenge()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    </button>
+    <button class="nav-item" id="nav-bottle-ach" onclick="showPage('page-bottle');loadBottle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
+    </button>
+    <button class="nav-item" id="nav-achieve-ach" onclick="showPage('page-achievement');loadAchievement()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>成就
+    </button>
+    <button class="nav-item" id="nav-history-ach" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>記錄
+    </button>
+    <button class="nav-item admin-back-btn" style="display:none;" onclick="showPage('page-admin');loadAdminUsers()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>後台
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ LEADERBOARD PAGE ════════════════ -->
+<div id="page-leaderboard" class="page">
+  <div class="lb-header">
+    <div class="lb-title">🏆 健康排行榜</div>
+    <div class="lb-sub">至今最高健康分數前三名</div>
+  </div>
+
+  <div class="lb-podium" id="lb-podium">
+    <div style="text-align:center;color:var(--text-hint);padding:40px 0;width:100%;">載入中…</div>
+  </div>
+
+  <div class="lb-list" id="lb-list"></div>
+
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>
+      首頁
+    </button>
+    <button class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      排行榜
+    </button>
+    <button class="nav-item" onclick="showPage('page-bottle');loadBottle()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/><path d="M10 11h4M10 15h4"/></svg>
+      漂流瓶
+    </button>
+    <button class="nav-item" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      記錄
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ BOTTLE PAGE ════════════════ -->
+<div id="page-bottle" class="page">
+  <div class="bottle-header">
+    <div class="bottle-title">🍶 漂流瓶</div>
+    <div class="bottle-sub">送出你的心情，與陌生人連結</div>
+  </div>
+
+  <div class="bottle-body">
+    <!-- Received bottle -->
+    <div id="bottle-received-section">
+      <div class="bottle-received" id="bottle-card">
+        <div class="bottle-ocean">
+          <div class="bottle-emoji">🍶</div>
+        </div>
+        <div class="bottle-msg-wrap">
+          <div class="bottle-msg-from" id="bottle-from">來自遠方的訊息…</div>
+          <div class="bottle-msg-text" id="bottle-text">正在尋找漂流瓶…</div>
+          <div class="bottle-msg-sign" id="bottle-sign"></div>
+        </div>
+        <div class="bottle-actions">
+          <button class="btn-heart" id="btn-heart" onclick="likeBottle()">
+            🤍 送出愛心
+          </button>
+          <button class="btn-next" onclick="loadBottle()">下一封 →</button>
+        </div>
+      </div>
+      <div class="bottle-empty" id="bottle-empty" style="display:none">
+        🌊 目前沒有新的漂流瓶<br>等待更多人寄出訊息吧
+      </div>
+    </div>
+
+    <!-- Send bottle -->
+    <div class="bottle-send-card">
+      <div class="bottle-send-title">✉️ 寄出漂流瓶</div>
+      <textarea class="bottle-textarea" id="bottle-msg-inp" placeholder="寫下你想說的話…（最多200字）" maxlength="200"></textarea>
+      <input class="bottle-sign-inp" id="bottle-sign-inp" type="text" placeholder="署名（可匿名）" maxlength="20">
+      <button class="btn-gold" onclick="sendBottle()">🍶 投入大海</button>
+      <div class="error-msg" id="bottle-send-error"></div>
+      <div class="success-msg" id="bottle-send-ok"></div>
+      <div style="height:10px;"></div>
+      <button class="btn-outline" onclick="openShareFriend()" style="width:100%;height:48px;display:flex;align-items:center;justify-content:center;gap:8px;">
+        🌿 推薦新朋友加入
+      </button>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <button class="nav-item" onclick="showPage('page-main')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12L12 3l9 9M5 10v9a1 1 0 001 1h4v-4h4v4h4a1 1 0 001-1v-9"/></svg>首頁
+    </button>
+    <button class="nav-item" onclick="showPage('page-challenge');loadChallenge()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>挑戰
+    </button>
+    <button class="nav-item active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3h6l1 4H8L9 3z"/><path d="M8 7v13a1 1 0 001 1h6a1 1 0 001-1V7"/></svg>漂流瓶
+    </button>
+    <button class="nav-item" onclick="showPage('page-achievement');loadAchievement()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>成就
+    </button>
+    <button class="nav-item" onclick="showPage('page-history');loadHistory()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>記錄
+    </button>
+    <button class="nav-item admin-back-btn" style="display:none;" onclick="showPage('page-admin');loadAdminUsers()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>後台
+    </button>
+  </div>
+</div>
+
+<!-- ════════════════ ADMIN PAGE ════════════════ -->
+<div id="page-admin" class="page">
+  <div class="admin-header">
+    <div class="admin-title">⚙️ 管理後台</div>
+    <button class="admin-logout" onclick="logout()">登出</button>
+  </div>
+
+  <!-- Admin Quick Entry -->
+  <div class="admin-quick-entry">
+    <button class="btn-admin-diagnose" onclick="showPage('page-main');document.getElementById('credit-num').textContent = sb_currentUser.credits || 0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8">
+        <circle cx="12" cy="8" r="5"/>
+        <path d="M6 20v-1a6 6 0 0112 0v1"/>
+        <path d="M12 13v4M10 15h4" opacity="0.7"/>
+      </svg>
+      進入面舌診測試
+    </button>
+  </div>
+
+  <div class="admin-body">
+    <!-- Batch Add Credits -->
+    <div class="sec-card">
+      <div class="sec-title">🎁 批次新增次數</div>
+      <div class="bulk-add-row">
+        <span class="bulk-label">手機號碼</span>
+        <input class="bulk-inp" id="bulk-phone" type="text" placeholder="手機號碼 或 信箱">
+      </div>
+      <div class="bulk-add-row">
+        <span class="bulk-label">新增次數</span>
+        <input class="bulk-inp" id="bulk-amount" type="number" value="5" min="1" max="100">
+      </div>
+      <button class="btn-gold" onclick="bulkAddCredits()" style="margin-top:8px;">確認新增</button>
+      <div class="error-msg" id="bulk-error"></div>
+      <div class="success-msg" id="bulk-success"></div>
+    </div>
+
+    <!-- Password Change -->
+    <!-- Health Codes Management -->
+    <div class="sec-card">
+      <div class="sec-title">🔑 健康密碼管理</div>
+      <div class="bulk-add-row">
+        <span class="bulk-label">7位密碼</span>
+        <input class="bulk-inp" id="new-code-inp" type="tel" maxlength="7" placeholder="例：8888888">
+      </div>
+      <div class="bulk-add-row">
+        <span class="bulk-label">兌換次數</span>
+        <input class="bulk-inp" id="new-code-credits" type="number" value="1" min="1" max="99">
+      </div>
+      <button class="btn-gold" onclick="addHealthCode()" style="margin-bottom:14px;">新增密碼</button>
+      <div class="error-msg" id="code-mgmt-error"></div>
+      <div class="success-msg" id="code-mgmt-ok"></div>
+      <div id="health-code-list"><div class="empty-state">載入中…</div></div>
+    </div>
+
+    <!-- User List -->
+    <div class="sec-card">
+      <div class="sec-title">👥 用戶管理</div>
+      <div class="search-bar">
+        <input class="search-input" id="admin-search" type="text" placeholder="搜尋姓名或手機…" oninput="filterUsers()">
+        <button class="search-btn" onclick="loadAdminUsers()">刷新</button>
+      </div>
+      <div id="admin-user-list"><div class="empty-state">載入中…</div></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- JS Modules (載入順序不可調換) -->
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/analyze.js"></script>
+<script src="js/report.js"></script>
+<script src="js/features.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>
