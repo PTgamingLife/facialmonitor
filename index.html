@@ -228,51 +228,15 @@
     </div>
 
     <div class="piggy-wrap">
-      <svg class="piggy-svg" viewBox="0 0 240 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <clipPath id="pig-clip">
-            <ellipse cx="105" cy="118" rx="68" ry="52"/>
-          </clipPath>
-          <linearGradient id="gold-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#F5D17A"/>
-            <stop offset="100%" stop-color="#C49A5A"/>
-          </linearGradient>
-        </defs>
-        <!-- Gold coin fill rising from bottom -->
-        <g clip-path="url(#pig-clip)">
-          <rect id="pig-fill" x="37" y="170" width="136" height="0" fill="url(#gold-grad)" opacity="0.75"/>
-          <!-- Dynamic coin circles rendered by JS -->
-          <g id="pig-coins-layer"></g>
-        </g>
-        <!-- Pig body (semi-transparent so fill shows through) -->
-        <ellipse cx="105" cy="118" rx="68" ry="52" fill="#FBDDDD" opacity="0.55" stroke="#E8A0A0" stroke-width="2.5"/>
-        <!-- Coin slot -->
-        <rect x="85" y="66" width="30" height="7" rx="3.5" fill="#C07070"/>
-        <!-- Pig head -->
-        <circle cx="162" cy="98" r="30" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2.5"/>
-        <!-- Ear -->
-        <ellipse cx="150" cy="72" rx="10" ry="14" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="1.8" transform="rotate(-12 150 72)"/>
-        <ellipse cx="150" cy="74" rx="6" ry="9" fill="#F4B0B0" transform="rotate(-12 150 74)"/>
-        <!-- Eye -->
-        <circle cx="157" cy="91" r="5" fill="white"/>
-        <circle cx="158.5" cy="92" r="2.5" fill="#333"/>
-        <circle cx="159.5" cy="91" r="1" fill="white" opacity="0.8"/>
-        <!-- Snout -->
-        <ellipse cx="176" cy="107" rx="15" ry="10" fill="#F0B0B0" stroke="#E8A0A0" stroke-width="1.5"/>
-        <circle cx="171" cy="108" r="2.8" fill="#C07070"/>
-        <circle cx="181" cy="108" r="2.8" fill="#C07070"/>
-        <!-- Tail -->
-        <path d="M37 110 Q22 105 26 117 Q30 129 44 120" stroke="#E8A0A0" stroke-width="3" stroke-linecap="round"/>
-        <!-- Legs -->
-        <rect x="55" y="161" width="17" height="21" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
-        <rect x="81" y="164" width="17" height="18" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
-        <rect x="110" y="164" width="17" height="18" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
-        <rect x="136" y="161" width="17" height="21" rx="8.5" fill="#FBDDDD" stroke="#E8A0A0" stroke-width="2"/>
-      </svg>
-
-      <div class="piggy-count-badge">
-        <span id="piggy-count">0</span>
-        <span class="piggy-count-slash">/100</span>
+      <!-- Stitch 手繪水彩豬公插圖 -->
+      <div class="piggy-img-wrap">
+        <img src="piggy.png" alt="健康存錢筒" class="piggy-img" id="piggy-img">
+        <!-- 金幣飛入動畫層 -->
+        <div class="piggy-coins-overlay" id="pig-coins-layer" aria-hidden="true"></div>
+        <div class="piggy-count-badge">
+          <span id="piggy-count">0</span>
+          <span class="piggy-count-slash">/100</span>
+        </div>
       </div>
     </div>
 

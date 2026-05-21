@@ -359,46 +359,37 @@ function renderPiggyBank(count) {
   const clamped = Math.min(Math.max(count, 0), 100);
   const pct = clamped / 100;
 
-  // Update count badge
+  // 更新數量
   const countEl = document.getElementById('piggy-count');
   if (countEl) countEl.textContent = clamped;
 
-  // Update fill rect: pig body bottom ≈ y=170, max fill height = 100 SVG units
-  const maxH = 100;
-  const fillH = Math.round(pct * maxH);
-  const fillRect = document.getElementById('pig-fill');
-  if (fillRect) {
-    fillRect.setAttribute('y', 170 - fillH);
-    fillRect.setAttribute('height', fillH);
-  }
-
-  // Update progress bar
+  // 更新進度條
   const bar = document.getElementById('piggy-bar-fill');
   if (bar) bar.style.width = (pct * 100) + '%';
 
-  // Render coin circles with "H" in pig body (grid from bottom)
+  // 在豬公圖片上疊加金幣（覆蓋層，從底部堆疊）
   const layer = document.getElementById('pig-coins-layer');
   if (!layer) return;
 
-  const coinR = 7;       // coin radius
-  const spacing = 18;    // spacing between coins
-  const cols = 7;        // coins per row
-  const bodyCx = 105;    // pig body center x
-  const bodyBottom = 168; // y of pig body bottom (inside fill)
+  // 金幣格狀排列，從底部往上堆（容器 220×220px）
+  const coinSize = 26; // px
+  const gap = 4;
+  const step = coinSize + gap;
+  const cols = 6;
+  const startX = (220 - cols * step + gap) / 2;
+  const startY = 220 - coinSize - 10; // 底部留邊
 
-  let svg = '';
+  let html = '';
   for (let i = 0; i < clamped; i++) {
-    const col = (i % cols) - Math.floor(cols / 2); // -3..+3
+    const col = i % cols;
     const row = Math.floor(i / cols);
-    const cx = bodyCx + col * spacing;
-    const cy = bodyBottom - coinR - row * spacing;
-    if (cy < 72) break; // don't overflow above pig body
-    svg += `<g transform="translate(${cx},${cy})">` +
-      `<circle r="${coinR}" fill="#F5D17A" stroke="#C49A5A" stroke-width="1.2"/>` +
-      `<text text-anchor="middle" dominant-baseline="central" font-size="8" font-weight="bold" fill="#9E7A3F">H</text>` +
-      `</g>`;
+    const x = startX + col * step;
+    const y = startY - row * step;
+    if (y < 40) break; // 不超出豬公圖片頂部
+    const delay = (i * 30) % 400; // 交錯動畫延遲（ms）
+    html += `<div class="piggy-coin" style="left:${x}px;top:${y}px;animation-delay:${delay}ms">H</div>`;
   }
-  layer.innerHTML = svg;
+  layer.innerHTML = html;
 }
 
 // ── Challenge ─────────────────────────────────────────────
