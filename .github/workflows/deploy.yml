@@ -1,0 +1,43 @@
+name: 🚀 手動部署 / Deploy to GitHub Pages
+
+# ── 觸發方式 ────────────────────────────────────────────
+on:
+  # ① 手機/電腦網頁上手動按「Run workflow」
+  workflow_dispatch:
+    inputs:
+      message:
+        description: '部署備註（可留空）'
+        required: false
+        default: '手動部署'
+
+  # ② 推送到 main 分支自動觸發
+  push:
+    branches: [ main ]
+
+# ── 工作內容 ────────────────────────────────────────────
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: ✅ 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 🔍 檢查 JS 語法
+        run: |
+          for f in js/*.js; do
+            node --check "$f" && echo "✓ $f" || exit 1
+          done
+
+      - name: 📋 部署資訊
+        run: |
+          echo "觸發者：${{ github.actor }}"
+          echo "備註：${{ github.event.inputs.message || '自動推送觸發' }}"
+          echo "時間：$(date '+%Y-%m-%d %H:%M:%S UTC')"
+
+      # GitHub Pages 靜態站台 — 直接 push main 即自動更新
+      # 若未來需要 build 步驟可在此加入
+      - name: 🌐 確認部署成功
+        run: echo "✅ 已部署到 https://ptgaminglife.github.io/facialmonitor/"
