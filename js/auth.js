@@ -28,8 +28,13 @@ function updateCreditsDisplay() {
 
 /* ── 進入 App ── */
 function enterApp(isAdmin) {
+  // 導覽列後台 tab（有才顯示）
   const adminTab = document.getElementById('nav-admin');
   if (adminTab) adminTab.style.display = isAdmin ? 'flex' : 'none';
+  // 診斷紀錄頁右上角後台小按鈕
+  const adminBtn = document.getElementById('history-admin-btn');
+  if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-flex' : 'none';
+
   if (isAdmin) {
     showPage('page-admin');
   } else {

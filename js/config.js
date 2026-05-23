@@ -1,10 +1,25 @@
 /* ── Supabase 設定 ── */
-window.SUPABASE_URL  = 'https://YOUR_PROJECT.supabase.co';  // ← 填入你的 URL
-window.SUPABASE_ANON = 'YOUR_ANON_KEY';                      // ← 填入 anon key
+window.SUPABASE_URL  = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
+window.SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
+window.EDGE_FN_URL   = window.SUPABASE_URL + '/functions/v1/analyze';
 
-/* 建立 Supabase Client（判斷是否已建立，避免重複執行時衝突） */
+/* ── OAuth URL 修正（必須在 createClient 前執行）──
+   Google OAuth 有時回傳 %23access_token（URL 編碼的 #），
+   Supabase 無法解析，需先還原為正常的 # fragment  ── */
+(function fixAuthUrl() {
+  const href = window.location.href;
+  if (href.includes('%23access_token')) {
+    const tokenPart = decodeURIComponent(href.split('%23')[1] || '');
+    if (tokenPart.includes('access_token')) {
+      history.replaceState({}, document.title,
+        window.location.pathname + '#' + tokenPart);
+    }
+  }
+})();
+
+/* 建立 Supabase Client */
 if (!window.supabase?.from) {
-  var _lib = window.supabase; // CDN 匯出的 library
+  var _lib = window.supabase;
   window.supabase = _lib.createClient(window.SUPABASE_URL, window.SUPABASE_ANON);
 }
 
