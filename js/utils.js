@@ -36,11 +36,74 @@ function isRestrictedWebView() {
   return /line|fbav|instagram|micromessenger/.test(ua);
 }
 
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase())
+      && !window.MSStream;
+}
+
 function checkWebView() {
   if (isRestrictedWebView()) {
     const banner = document.getElementById('webview-banner');
     if (banner) banner.style.display = 'flex';
+    return;
   }
+  // iOS Safari 不支援 beforeinstallprompt，需手動引導
+  if (isIOS() && !isStandalone() && !localStorage.getItem('hq_install_dismissed')) {
+    setTimeout(() => showInstallBanner(), 4000);
+  }
+}
+
+/* ── PWA 安裝處理 ── */
+let _pwaInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _pwaInstallPrompt = e;
+  if (!isStandalone() && !isRestrictedWebView() && !localStorage.getItem('hq_install_dismissed')) {
+    setTimeout(() => showInstallBanner(), 3000);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  dismissInstallBanner();
+  _pwaInstallPrompt = null;
+});
+
+function showInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (!banner) return;
+  banner.style.display = 'flex';
+}
+
+function dismissInstallBanner() {
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'none';
+  localStorage.setItem('hq_install_dismissed', '1');
+}
+
+async function triggerInstall() {
+  if (_pwaInstallPrompt) {
+    _pwaInstallPrompt.prompt();
+    const { outcome } = await _pwaInstallPrompt.userChoice;
+    if (outcome === 'accepted') dismissInstallBanner();
+    _pwaInstallPrompt = null;
+  } else if (isIOS()) {
+    openIosInstallModal();
+  }
+}
+
+function openIosInstallModal() {
+  document.getElementById('ios-install-modal').classList.add('show');
+}
+
+function closeIosInstallModal() {
+  document.getElementById('ios-install-modal').classList.remove('show');
+  localStorage.setItem('hq_install_dismissed', '1');
 }
 
 /* ── 圖片 → base64 ── */

@@ -19,6 +19,40 @@
   <button onclick="copyText(location.href)">複製連結</button>
 </div>
 
+<!-- PWA 安裝提示橫幅 -->
+<div id="install-banner" class="install-banner">
+  <span class="install-banner-icon">📲</span>
+  <div class="install-banner-text">
+    <strong>加入主畫面</strong>
+    像 App 一樣快速啟動，無需商店下載
+  </div>
+  <button class="install-banner-btn" onclick="triggerInstall()">安裝</button>
+  <button class="install-banner-dismiss" onclick="dismissInstallBanner()" aria-label="關閉">✕</button>
+</div>
+
+<!-- iOS 安裝步驟指引 -->
+<div id="ios-install-modal" class="ios-install-modal" onclick="closeIosInstallModal()">
+  <div class="ios-install-card" onclick="event.stopPropagation()">
+    <div class="ios-install-title">📲 加入主畫面</div>
+    <div class="ios-install-sub">依照以下步驟，像 App 一樣開啟看健</div>
+    <ol class="ios-install-steps">
+      <li class="ios-install-step">
+        <div class="ios-step-num">1</div>
+        <div class="ios-step-text">點擊 Safari 底部的 <strong>分享按鈕</strong> <span class="ios-step-icon">⬆️</span></div>
+      </li>
+      <li class="ios-install-step">
+        <div class="ios-step-num">2</div>
+        <div class="ios-step-text">向下滑動，選擇 <strong>「加入主畫面」</strong></div>
+      </li>
+      <li class="ios-install-step">
+        <div class="ios-step-num">3</div>
+        <div class="ios-step-text">點右上角 <strong>「加入」</strong>，完成安裝！</div>
+      </li>
+    </ol>
+    <button class="ios-install-close" onclick="closeIosInstallModal()">好的，知道了</button>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <div class="app">
