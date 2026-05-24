@@ -2,7 +2,6 @@
    報告渲染 — 整合中醫面舌診診斷框架
    ═══════════════════════════════════════════════ */
 
-/* ── 體質類型說明（九種體質） ── */
 const CONSTITUTION_DESC = {
   '平和質': { emoji:'🌿', desc:'陰陽平衡，氣血調和，為最理想的體質狀態。', advice:'維持現有生活習慣，適度運動，均衡飲食。' },
   '氣虛質': { emoji:'🍃', desc:'元氣不足，容易疲勞，說話聲低，易感冒。', advice:'多食山藥、紅棗、党參等補氣食物，避免過勞。' },
@@ -15,50 +14,30 @@ const CONSTITUTION_DESC = {
   '特稟質': { emoji:'🌸', desc:'先天稟賦不足，對某些物質有過敏反應。', advice:'避開過敏源，多食益氣固表食物，如黃耆、白術。' },
 };
 
-/* ── 面部六區對應臟腑（中醫面診映射） ── */
-const FACE_ZONES = [
-  { zone:'額頭', organ:'心・小腸', key:'forehead' },
-  { zone:'鼻',   organ:'脾・胃',   key:'nose' },
-  { zone:'左頰', organ:'肝・膽',   key:'leftCheek' },
-  { zone:'右頰', organ:'肺・大腸', key:'rightCheek' },
-  { zone:'眼周', organ:'腎・膀胱', key:'eyeArea' },
-  { zone:'下頜', organ:'腎・生殖', key:'chin' },
-];
-
-/* ── 舌診五項指標 ── */
-const TONGUE_KEYS = [
-  { key:'color',   label:'舌色' },
-  { key:'coating', label:'苔色' },
-  { key:'texture', label:'苔質' },
-  { key:'shape',   label:'舌形' },
-  { key:'state',   label:'舌態' },
-];
-
 /* ── 主渲染函式 ── */
 function renderReport(r) {
   const el = document.getElementById('report-content');
   if (!el || !r) return;
 
-  const score    = r.score ?? 75;
+  // API 新格式: scores.total；舊格式: score
+  const score    = r.scores?.total ?? r.score ?? 75;
   const date     = formatDate();
   const userName = currentUser?.name ?? '用戶';
 
   el.innerHTML = `
     ${scoreSection(score, userName, date)}
-    ${riskAlert(r.risks)}
+    ${topRisksSection(r.topRisks, r.disorder)}
     ${nutrientsSection(r.nutrients)}
-    ${disorderSection(r.disorders)}
     ${faceZoneSection(r.faceZones)}
-    ${tongueSection(r.tongue)}
+    ${tongueSection(r)}
     ${constitutionSection(r.constitution)}
-    ${dietSection(r.diet)}
+    ${dietSection(r)}
     ${acupointSection(r.acupoints)}
     ${lifestyleSection(r.lifestyle)}
-    ${westernSection(r.western)}
+    ${westernSection(r)}
     <div class="report-footer-disc">⚠️ 本分析為中醫養生參考，不構成醫療診斷。<br>如有身體不適，請即時就醫。</div>
   `;
 
-  // 分數動畫
   animateScore(score);
 }
 
@@ -94,15 +73,38 @@ function animateScore(target) {
   }, 35);
 }
 
-function riskAlert(risks) {
-  if (!risks?.length) return '';
+/* ── 兩大風險 + 古典與現代改善建議 ── */
+function topRisksSection(topRisks, disorder) {
+  if (!topRisks?.length) return '';
+  const show = topRisks.slice(0, 2);
   return `
-  <div class="sec-card" style="border-left:3px solid var(--alert-color)">
-    <div class="sec-title">⚠️ 主要風險提示</div>
-    ${risks.map(r => `<div class="list-row"><div class="dot red"></div><div class="list-main">${r}</div></div>`).join('')}
+  <div class="sec-card risk-card">
+    <div class="sec-title">⚠️ 身體最有可能發生的兩大風險</div>
+    ${show.map((r, i) => `
+    <div class="risk-block">
+      <div class="risk-number">${i + 1}</div>
+      <div class="risk-content">
+        <div class="risk-title">${r.issue}</div>
+        <div class="risk-disease">${r.diseases}</div>
+        <div class="risk-advice">💡 ${r.advice}</div>
+      </div>
+    </div>`).join('')}
+    ${disorder ? `
+    <div class="remedy-divider">改善建議</div>
+    <div class="risk-remedy">
+      <div class="remedy-title">📖 《黃帝內經》調養</div>
+      <div class="remedy-text">${disorder.huangdi?.theory ?? ''}</div>
+      ${disorder.huangdi?.foods?.length ? `<div class="remedy-foods">推薦食材：${disorder.huangdi.foods.join('、')}</div>` : ''}
+    </div>
+    <div class="risk-remedy" style="margin-top:10px">
+      <div class="remedy-title">🔬 《吃的營養學》科學建議</div>
+      <div class="remedy-text">${disorder.nutrition?.advice ?? ''}</div>
+      ${disorder.nutrition?.nutrients?.length ? `<div class="remedy-foods">關鍵營養素：${disorder.nutrition.nutrients.join('、')}</div>` : ''}
+    </div>` : ''}
   </div>`;
 }
 
+/* ── 關鍵營養素 ── */
 function nutrientsSection(items) {
   if (!items?.length) return '';
   return `
@@ -120,35 +122,35 @@ function nutrientsSection(items) {
   </div>`;
 }
 
-function disorderSection(items) {
-  if (!items?.length) return '';
-  return `
-  <div class="sec-card">
-    <div class="sec-title">🔍 失調注意</div>
-    ${items.map(d => `
-    <div class="list-row">
-      <div class="dot jade"></div>
-      <div>
-        <div class="list-main">${d.title}</div>
-        <div class="list-sub">${d.detail}</div>
-      </div>
-    </div>`).join('')}
-  </div>`;
-}
-
+/* ── 面部六區（兼容新陣列格式與舊物件格式）── */
 function faceZoneSection(zones) {
-  const data = zones ?? {};
+  if (!zones) return '';
+
+  let rows;
+  if (Array.isArray(zones)) {
+    rows = zones.map(z => ({ zone: z.zone, organ: z.organ, status: z.status, detail: z.detail }));
+  } else {
+    const MAP = [
+      { key:'forehead',   zone:'額頭', organ:'心・小腸' },
+      { key:'nose',       zone:'鼻',   organ:'脾・胃'   },
+      { key:'leftCheek',  zone:'左頰', organ:'肝・膽'   },
+      { key:'rightCheek', zone:'右頰', organ:'肺・大腸' },
+      { key:'eyeArea',    zone:'眼周', organ:'腎・膀胱' },
+      { key:'chin',       zone:'下頜', organ:'腎・生殖' },
+    ];
+    rows = MAP.map(f => ({ zone: f.zone, organ: f.organ, status: zones[f.key]?.status, detail: zones[f.key]?.detail }));
+  }
+
   return `
   <div class="sec-card">
     <div class="sec-title">👤 面部六區診斷</div>
-    ${FACE_ZONES.map(f => {
-      const z     = data[f.key] ?? {};
-      const badge = z.status === '正常' ? 'badge-ok' : z.status === '輕微失調' ? 'badge-warn' : z.status ? 'badge-alert' : 'badge-ok';
+    ${rows.map(z => {
+      const badge  = z.status === '正常' ? 'badge-ok' : z.status === '輕微失調' ? 'badge-warn' : z.status ? 'badge-alert' : 'badge-ok';
       const status = z.status ?? '正常';
       return `
       <div class="zone-row">
-        <div class="zone-name">${f.zone}</div>
-        <div class="zone-organ">${f.organ}</div>
+        <div class="zone-name">${z.zone}</div>
+        <div class="zone-organ">${z.organ}</div>
         <span class="badge ${badge}">${status}</span>
       </div>
       ${z.detail ? `<div style="font-size:13px;color:var(--text-soft);padding:2px 0 8px 48px;line-height:1.7">${z.detail}</div>` : ''}`;
@@ -156,14 +158,37 @@ function faceZoneSection(zones) {
   </div>`;
 }
 
-function tongueSection(tongue) {
-  const t = tongue ?? {};
+/* ── 舌診（兼容新 tongueAnalysis 陣列與舊 tongue 物件）── */
+function tongueSection(r) {
+  if (r.tongueAnalysis?.length) {
+    return `
+    <div class="sec-card">
+      <div class="sec-title">👅 舌診分析</div>
+      ${r.tongueAnalysis.map(t => `
+      <div class="tongue-row">
+        <div class="tongue-lbl">${t.item}</div>
+        <div>
+          <div class="tongue-val">${t.observation}</div>
+          ${t.meaning ? `<div class="tongue-meaning">${t.meaning}</div>` : ''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+  }
+
+  const TONGUE_KEYS = [
+    { key:'color',   label:'舌色' },
+    { key:'coating', label:'苔色' },
+    { key:'texture', label:'苔質' },
+    { key:'shape',   label:'舌形' },
+    { key:'state',   label:'舌態' },
+  ];
+  const t = r.tongue ?? {};
   return `
   <div class="sec-card">
     <div class="sec-title">👅 舌診五項分析</div>
     ${TONGUE_KEYS.map(k => {
-      const val     = t[k.key]     ?? '淡紅';
-      const meaning = t[k.key+'_meaning'] ?? '';
+      const val     = t[k.key]            ?? '淡紅';
+      const meaning = t[k.key + '_meaning'] ?? '';
       return `
       <div class="tongue-row">
         <div class="tongue-lbl">${k.label}</div>
@@ -176,20 +201,56 @@ function tongueSection(tongue) {
   </div>`;
 }
 
+/* ── 體質判斷 ── */
 function constitutionSection(con) {
-  const type = con?.type ?? '氣虛質';
-  const info = CONSTITUTION_DESC[type] ?? CONSTITUTION_DESC['氣虛質'];
+  const type    = con?.type ?? '氣虛質';
+  const matched = CONSTITUTION_DESC[type];
+  const emoji   = matched?.emoji ?? '🌿';
+  const stdDesc = matched?.desc  ?? '';
+  const advice  = matched?.advice ?? '';
+  // API 新格式用 description；舊格式用 detail
+  const apiDesc = con?.description ?? con?.detail ?? '';
+
   return `
   <div class="sec-card">
     <div class="sec-title">🧬 體質判斷</div>
-    <div class="const-type">${info.emoji} ${type}</div>
-    <div class="const-desc">${info.desc}</div>
-    ${con?.detail ? `<div class="cross-verify">${con.detail}</div>` : ''}
-    <div class="cross-verify" style="margin-top:8px">💡 ${info.advice}</div>
+    <div class="const-type">${emoji} ${type}</div>
+    ${stdDesc ? `<div class="const-desc">${stdDesc}</div>` : ''}
+    ${apiDesc && apiDesc !== stdDesc ? `<div class="cross-verify">${apiDesc}</div>` : ''}
+    ${con?.crossVerify ? `<div class="cross-verify">🔍 ${con.crossVerify}</div>` : ''}
+    ${advice ? `<div class="cross-verify" style="margin-top:8px">💡 ${advice}</div>` : ''}
   </div>`;
 }
 
-function dietSection(items) {
+/* ── 食療建議（兼容新 dietAdvice 與舊 diet）── */
+function dietSection(r) {
+  if (r.dietAdvice) {
+    const eat   = r.dietAdvice.eat   ?? [];
+    const avoid = r.dietAdvice.avoid ?? null;
+    if (!eat.length && !avoid) return '';
+    return `
+    <div class="sec-card">
+      <div class="sec-title">🥗 食療建議</div>
+      ${eat.map(d => `
+      <div class="list-row">
+        <div class="dot jade"></div>
+        <div>
+          <div class="list-main">${d.food}</div>
+          ${d.reason ? `<div class="list-sub">${d.reason}</div>` : ''}
+        </div>
+      </div>`).join('')}
+      ${avoid ? `
+      <div class="list-row" style="margin-top:4px">
+        <div class="dot red"></div>
+        <div>
+          <div class="list-main">避免：${avoid.food}</div>
+          ${avoid.reason ? `<div class="list-sub">${avoid.reason}</div>` : ''}
+        </div>
+      </div>` : ''}
+    </div>`;
+  }
+
+  const items = r.diet;
   if (!items?.length) return '';
   return `
   <div class="sec-card">
@@ -205,6 +266,7 @@ function dietSection(items) {
   </div>`;
 }
 
+/* ── 穴位（effect + location 取代 desc）── */
 function acupointSection(pts) {
   if (!pts?.length) return '';
   return `
@@ -213,11 +275,13 @@ function acupointSection(pts) {
     ${pts.map(p => `
     <div class="acu-item">
       <div class="acu-name">▸ ${p.name}</div>
-      <div class="acu-desc">${p.desc}</div>
+      <div class="acu-desc">${p.effect ?? p.desc ?? ''}</div>
+      ${p.location ? `<div class="acu-location">📍 ${p.location}</div>` : ''}
     </div>`).join('')}
   </div>`;
 }
 
+/* ── 作息調整 ── */
 function lifestyleSection(tips) {
   if (!tips?.length) return '';
   return `
@@ -231,7 +295,9 @@ function lifestyleSection(tips) {
   </div>`;
 }
 
-function westernSection(notes) {
+/* ── 西醫觀察（兼容新 westernNotes 與舊 western）── */
+function westernSection(r) {
+  const notes = r.westernNotes ?? r.western;
   if (!notes?.length) return '';
   return `
   <div class="sec-card">
@@ -277,7 +343,7 @@ async function loadHistory() {
 
   list.innerHTML = data.map(row => {
     const r     = row.report ?? {};
-    const score = r.score ?? '—';
+    const score = r.scores?.total ?? r.score ?? '—';
     const type  = r.constitution?.type ?? '—';
     return `
     <div class="hist-item" onclick="viewHistoryReport(${JSON.stringify(JSON.stringify(r))})">
