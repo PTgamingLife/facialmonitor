@@ -250,14 +250,27 @@ async function loadHistory() {
   if (!list || !currentUser) return;
   list.innerHTML = '<div class="empty-state">載入中…</div>';
 
-  const { data } = await supabase
-    .from('sb_analysis_records')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false })
-    .limit(20);
+  let data = [];
 
-  if (!data?.length) {
+  if (window._demoMode) {
+    data = JSON.parse(sessionStorage.getItem('hq_demo_records') || '[]');
+  } else {
+    const { data: dbData, error } = await supabase
+      .from('sb_analysis_records')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('loadHistory error:', error);
+      list.innerHTML = '<div class="empty-state">載入失敗，請重新整理後再試</div>';
+      return;
+    }
+    data = dbData || [];
+  }
+
+  if (!data.length) {
     list.innerHTML = '<div class="empty-state">尚無診斷記錄<br>完成第一次面舌診後即可查看</div>';
     return;
   }
