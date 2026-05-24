@@ -251,7 +251,7 @@ async function loadHistory() {
   list.innerHTML = '<div class="empty-state">載入中…</div>';
 
   const { data } = await supabase
-    .from('analyses')
+    .from('sb_analysis_records')
     .select('*')
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false })
@@ -263,7 +263,7 @@ async function loadHistory() {
   }
 
   list.innerHTML = data.map(row => {
-    const r     = row.result ?? {};
+    const r     = row.report ?? {};
     const score = r.score ?? '—';
     const type  = r.constitution?.type ?? '—';
     return `

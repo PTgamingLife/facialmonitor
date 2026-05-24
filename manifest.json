@@ -1,0 +1,25 @@
+{
+  "name": "看健 — 大數據健康檢測",
+  "short_name": "看健",
+  "description": "AI 面舌診分析 · 大數據健康檢測系統",
+  "start_url": "/facialmonitor/",
+  "scope": "/facialmonitor/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#22C1C3",
+  "background_color": "#EEF7F8",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

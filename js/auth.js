@@ -91,7 +91,7 @@ async function loginWithGoogle() {
   // 無 error → 瀏覽器跳轉至 Google，後續流程由 onAuthStateChange 接管
 }
 
-/* ── 處理 OAuth 用戶（新建或讀取） ── */
+/* ── 處理 OAuth 用戶（查 sb_users 或自動建立）── */
 async function handleOAuthUser(session) {
   const authUser = session.user;
   const name  = authUser.user_metadata?.full_name
@@ -100,48 +100,40 @@ async function handleOAuthUser(session) {
               || '用戶';
   const email = authUser.email || '';
 
-  const { data: existing } = await supabase
-    .from('users')
+  // 查詢 sb_users（以 auth_id 對應 Supabase Auth UUID）
+  let { data: existing } = await supabase
+    .from('sb_users')
     .select('*')
-    .eq('id', authUser.id)
+    .eq('auth_id', authUser.id)
     .single();
 
-  if (existing) {
-    currentUser = existing;
-    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-    enterApp(existing.is_admin);
-    return;
+  if (!existing) {
+    // 新用戶 — 自動建立
+    const { data: newUser, error } = await supabase
+      .from('sb_users')
+      .insert({ auth_id: authUser.id, name, email, phone: email, credits: 0, total_used: 0 })
+      .select()
+      .single();
+
+    if (error) { showToast('建立帳號失敗：' + (error.message ?? '請重試')); return; }
+    existing = newUser;
+    showToast(`🌿 歡迎加入！${name}`);
   }
 
-  // 新用戶 — 建立記錄
-  const code = generateMemberCode();
-  const { data: newUser, error } = await supabase
-    .from('users')
-    .insert({
-      id: authUser.id,
-      name,
-      email,
-      phone: '',
-      credits: 3,
-      coins: 0,
-      streak: 0,
-      total_scans: 0,
-      bottles_sent: 0,
-      member_code: code,
-      is_admin: false
-    })
-    .select()
-    .single();
-
-  if (error) {
-    showToast('建立帳號失敗：' + (error.message ?? '請重試'));
-    return;
-  }
-
-  currentUser = newUser;
+  // 統一欄位：補齊 V2 用到的欄位（舊 schema 沒有時給預設值）
+  currentUser = {
+    ...existing,
+    total_scans: existing.total_used ?? 0,
+    coins:       existing.coins      ?? 0,
+    streak:      existing.streak     ?? 0,
+    member_code: existing.member_code ?? '',
+  };
   sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-  showToast(`🌿 歡迎加入！${name}`);
-  enterApp(false);
+
+  // Admin 判斷（電話+姓名 或 特定 email）
+  const isAdmin = (existing.phone === window.ADMIN_PHONE && existing.name === window.ADMIN_NAME)
+               || existing.email === 'poting75321@gmail.com';
+  enterApp(isAdmin);
 }
 
 /* ── 登出 ── */

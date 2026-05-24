@@ -92,6 +92,30 @@ function initUploads() {
   });
 }
 
+/* ── 圖片轉 Base64 Helper ── */
+function fileToBase64JPEG(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = c.toDataURL('image/jpeg', 0.75);
+        resolve({ base64: dataUrl.split(',')[1], type: 'image/jpeg' });
+      };
+      img.onerror = () => reject(new Error('圖片載入失敗'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('讀取失敗'));
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ── 開始分析 ── */
 async function startAnalyze() {
   if (!faceFile || !tongueFile) {
@@ -100,7 +124,7 @@ async function startAnalyze() {
     return;
   }
   if (!currentUser || currentUser.credits <= 0) {
-    document.getElementById('analyze-error').textContent = '剩餘次數不足，請添加健康密碼或購買方案';
+    document.getElementById('analyze-error').textContent = '剩餘次數不足，請添加健康密碼';
     document.getElementById('analyze-error').style.display = 'block';
     return;
   }
@@ -109,60 +133,60 @@ async function startAnalyze() {
   startCarousel();
 
   try {
-    // 扣除次數
-    await supabase.from('users').update({ credits: currentUser.credits - 1 }).eq('id', currentUser.id);
-    currentUser.credits--;
-    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-
-    // 上傳圖片
-    const ts   = Date.now();
-    const uid  = currentUser.id;
-    const facePath   = `${uid}/face_${ts}.jpg`;
-    const tonguePath = `${uid}/tongue_${ts}.jpg`;
-
-    await Promise.all([
-      supabase.storage.from('uploads').upload(facePath,   faceFile,   { upsert:true }),
-      supabase.storage.from('uploads').upload(tonguePath, tongueFile, { upsert:true }),
+    // 轉 base64
+    const [faceData, tongueData] = await Promise.all([
+      fileToBase64JPEG(faceFile),
+      fileToBase64JPEG(tongueFile),
     ]);
 
-    const { data: { publicUrl: faceUrl   } } = supabase.storage.from('uploads').getPublicUrl(facePath);
-    const { data: { publicUrl: tongueUrl } } = supabase.storage.from('uploads').getPublicUrl(tonguePath);
-
-    // 呼叫 Edge Function
-    const { data, error } = await supabase.functions.invoke('analyze', {
-      body: { faceUrl, tongueUrl, userName: currentUser.name, userId: uid }
-    });
-    if (error) throw error;
-
-    currentReport = typeof data === 'string' ? JSON.parse(data) : data;
-
-    // 存入資料庫
-    await supabase.from('analyses').insert({
-      user_id:    uid,
-      face_url:   faceUrl,
-      tongue_url: tongueUrl,
-      result:     currentReport,
+    // 呼叫 Edge Function（原始 fetch 方式，ANON key 作 Bearer）
+    const res = await fetch(window.EDGE_FN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${window.SUPABASE_ANON}`,
+      },
+      body: JSON.stringify({
+        faceBase64:   faceData.base64,
+        faceType:     faceData.type,
+        tongueBase64: tongueData.base64,
+        tongueType:   tongueData.type,
+      })
     });
 
-    // 更新 totalScans + coins
-    const newScans = (currentUser.total_scans || 0) + 1;
-    const newCoins = Math.min((currentUser.coins || 0) + 5, 100);
-    await supabase.from('users').update({ total_scans: newScans, coins: newCoins }).eq('id', uid);
-    currentUser.total_scans = newScans;
-    currentUser.coins = newCoins;
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json.error || 'API 錯誤');
+
+    currentReport = json.report;
+
+    // 扣除次數 & 更新 total_used（sb_users 欄位）
+    const newCredits = Math.max(0, (currentUser.credits || 1) - 1);
+    const newUsed    = (currentUser.total_used || 0) + 1;
+    await supabase.from('sb_users')
+      .update({ credits: newCredits, total_used: newUsed })
+      .eq('id', currentUser.id);
+    currentUser.credits    = newCredits;
+    currentUser.total_used = newUsed;
+    currentUser.total_scans = newUsed;
     sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
+
+    // 存入 sb_analysis_records
+    await supabase.from('sb_analysis_records').insert({
+      user_id:    currentUser.id,
+      user_name:  currentUser.name,
+      user_phone: currentUser.phone || '',
+      report:     currentReport,
+    });
 
     stopCarousel();
     renderReport(currentReport);
     showPage('page-report');
+
   } catch (e) {
     stopCarousel();
     renderStep(3);
     document.getElementById('analyze-error').textContent = '分析失敗：' + (e.message || '請稍後再試');
     document.getElementById('analyze-error').style.display = 'block';
-    // 退還次數
-    currentUser.credits++;
-    await supabase.from('users').update({ credits: currentUser.credits }).eq('id', currentUser.id);
   }
 }
 

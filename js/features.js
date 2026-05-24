@@ -21,10 +21,14 @@ async function refreshUserData() {
   if (window._demoMode) return;
   try {
     const { data } = await dbQuery(
-      supabase.from('users').select('*').eq('id', currentUser.id).single()
+      supabase.from('sb_users').select('*').eq('id', currentUser.id).single()
     );
     if (data) {
-      Object.assign(currentUser, data);
+      Object.assign(currentUser, data, {
+        total_scans: data.total_used ?? currentUser.total_scans ?? 0,
+        coins:       data.coins      ?? currentUser.coins       ?? 0,
+        streak:      data.streak     ?? currentUser.streak      ?? 0,
+      });
       sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
     }
   } catch { /* 離線：保留現有 currentUser */ }
