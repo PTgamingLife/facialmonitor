@@ -39,29 +39,24 @@ async function loadAdminUsers() {
 
   if (!users?.length) { list.innerHTML = '<div class="empty-state">尚無用戶資料</div>'; return; }
 
-  list.innerHTML = `
-  <table class="admin-table">
-    <thead>
-      <tr>
-        <th>姓名</th><th>帳號</th><th>會員碼</th><th>次數</th><th>掃描</th><th>操作</th>
-      </tr>
-    </thead>
-    <tbody>
-    ${users.map(u => `
-      <tr>
-        <td>${escapeHtml(u.name)}</td>
-        <td style="font-size:11px">${escapeHtml(u.email ?? u.phone ?? '')}</td>
-        <td style="font-size:11px;letter-spacing:1px">${u.member_code ?? '—'}</td>
-        <td>
-          <input class="admin-edit-input" id="cr-${u.id}" type="number" value="${u.credits ?? 0}" min="0">
-        </td>
-        <td>${u.total_used ?? 0}</td>
-        <td>
-          <button class="btn-save-credits" onclick="saveCredits('${u.id}')">儲存</button>
-        </td>
-      </tr>`).join('')}
-    </tbody>
-  </table>`;
+  list.innerHTML = users.map(u => `
+  <div class="admin-user-card">
+    <div class="auc-top">
+      <div>
+        <div class="auc-name">${escapeHtml(u.name)}</div>
+        <div class="auc-email">${escapeHtml(u.email ?? u.phone ?? '')}</div>
+      </div>
+      <div class="auc-code">${u.member_code ?? '—'}</div>
+    </div>
+    <div class="auc-bottom">
+      <div class="auc-stat"><span>掃描</span><strong>${u.total_used ?? 0}</strong></div>
+      <div class="auc-credits-row">
+        <span class="auc-stat-label">次數</span>
+        <input class="admin-edit-input" id="cr-${u.id}" type="number" value="${u.credits ?? 0}" min="0">
+        <button class="btn-save-credits" onclick="saveCredits('${u.id}')">儲存</button>
+      </div>
+    </div>
+  </div>`).join('');
 }
 
 async function saveCredits(userId) {
