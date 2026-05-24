@@ -80,11 +80,11 @@ async function renderChallenge() {
       await Promise.race([
         (async () => {
           const { data: completedRows } = await supabase
-            .from('task_completions').select('day').eq('user_id', currentUser.id);
-          completedDays = new Set((completedRows ?? []).map(r => r.day));
+            .from('sb_challenge_progress').select('task_index').eq('user_id', currentUser.id);
+          completedDays = new Set((completedRows ?? []).map(r => r.task_index + 1));
 
           const { data: firstScan } = await supabase
-            .from('analyses').select('created_at').eq('user_id', currentUser.id)
+            .from('sb_analysis_records').select('created_at').eq('user_id', currentUser.id)
             .order('created_at', { ascending: true }).limit(1).single();
           if (firstScan) {
             const diff = Math.floor((Date.now() - new Date(firstScan.created_at)) / 86400000);
@@ -137,12 +137,12 @@ async function completeTask(day) {
     } else {
       // 真實模式：先確認是否已完成，避免重複加幣
       const { data: existing } = await dbQuery(
-        supabase.from('task_completions').select('day').eq('user_id', currentUser.id).eq('day', day).single()
+        supabase.from('sb_challenge_progress').select('task_index').eq('user_id', currentUser.id).eq('task_index', day - 1).single()
       );
       if (existing) { showToast('✅ 此任務已完成'); return; }
 
       const { error } = await dbQuery(
-        supabase.from('task_completions').insert({ user_id: currentUser.id, day, completed_at: new Date().toISOString() })
+        supabase.from('sb_challenge_progress').insert({ user_id: currentUser.id, task_index: day - 1, done: true })
       );
       if (error) throw error;
     }
@@ -151,7 +151,7 @@ async function completeTask(day) {
     const newCoins = Math.min((currentUser.coins ?? 0) + 1, 100);
 
     if (!window._demoMode) {
-      await dbQuery(supabase.from('users').update({ coins: newCoins }).eq('id', currentUser.id));
+      await dbQuery(supabase.from('sb_users').update({ coins: newCoins }).eq('id', currentUser.id));
     }
 
     currentUser.coins = newCoins;
@@ -282,7 +282,7 @@ async function loadBottle() {
     container.innerHTML = '<div class="empty-state">載入中…</div>';
     try {
       const res = await dbQuery(
-        supabase.from('bottles').select('*').order('created_at', { ascending: false }).limit(10)
+        supabase.from('sb_bottles').select('*').order('created_at', { ascending: false }).limit(10)
       );
       if (res.data?.length) {
         bottles = res.data.map(b => ({
@@ -332,9 +332,9 @@ async function sendBottle() {
   if (msg.length > 300) { showToast('訊息請在 300 字以內'); return; }
 
   try {
-    await supabase.from('bottles').insert({ message: msg, category: cat, user_id: currentUser.id });
+    await supabase.from('sb_bottles').insert({ message: msg, category: cat, user_id: currentUser.id, sender_id: currentUser.id, sender_name: currentUser.name ?? '' });
     const newSent = (currentUser.bottles_sent ?? 0) + 1;
-    await supabase.from('users').update({ bottles_sent: newSent }).eq('id', currentUser.id);
+    await supabase.from('sb_users').update({ bottles_sent: newSent }).eq('id', currentUser.id);
     currentUser.bottles_sent = newSent;
     sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
 
@@ -366,7 +366,7 @@ async function loadAchievement() {
   if (!window._demoMode) {
     try {
       const { count } = await dbQuery(
-        supabase.from('task_completions').select('day', { count:'exact' }).eq('user_id', currentUser.id)
+        supabase.from('sb_challenge_progress').select('task_index', { count:'exact' }).eq('user_id', currentUser.id)
       );
       userCtx.completedDays = count ?? 0;
     } catch { }
@@ -390,7 +390,7 @@ async function checkAchievements() {
   if (!window._demoMode) {
     try {
       const { count } = await dbQuery(
-        supabase.from('task_completions').select('day',{count:'exact'}).eq('user_id',currentUser.id)
+        supabase.from('sb_challenge_progress').select('task_index',{count:'exact'}).eq('user_id',currentUser.id)
       );
       completedDays = count ?? 0;
     } catch { }
@@ -427,7 +427,7 @@ async function loadLeaderboard() {
       <div class="leader-rank">${medals[i] ?? (i+1)}</div>
       <div class="leader-name">${u.name}</div>
       <div class="leader-coins">🪙 ${u.coins}</div>
-      <div class="leader-scans">${u.total_scans} 次</div>
+      <div class="leader-scans">${u.total_used} 次</div>
     </div>`).join('');
     return;
   }
@@ -435,7 +435,7 @@ async function loadLeaderboard() {
   let data = null;
   try {
     const res = await dbQuery(
-      supabase.from('users').select('name, coins, total_scans, streak').order('coins', { ascending: false }).limit(20)
+      supabase.from('sb_users').select('name, coins, total_used, streak').order('coins', { ascending: false }).limit(20)
     );
     data = res.data;
   } catch { }
@@ -451,7 +451,7 @@ async function loadLeaderboard() {
     <div class="leader-rank">${medals[i] ?? (i+1)}</div>
     <div class="leader-name">${escapeHtml(u.name)}</div>
     <div class="leader-coins">🪙 ${u.coins ?? 0}</div>
-    <div class="leader-scans">${u.total_scans ?? 0} 次</div>
+    <div class="leader-scans">${u.total_used ?? 0} 次</div>
   </div>`).join('');
 }
 
