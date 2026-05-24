@@ -171,12 +171,23 @@ async function startAnalyze() {
     sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
 
     // 存入 sb_analysis_records
-    await supabase.from('sb_analysis_records').insert({
-      user_id:    currentUser.id,
-      user_name:  currentUser.name,
-      user_phone: currentUser.phone || '',
-      report:     currentReport,
-    });
+    if (window._demoMode) {
+      // Demo 模式：存入 sessionStorage 模擬紀錄
+      const demoRecs = JSON.parse(sessionStorage.getItem('hq_demo_records') || '[]');
+      demoRecs.unshift({ id: Date.now().toString(), user_id: 'demo', report: currentReport, created_at: new Date().toISOString() });
+      sessionStorage.setItem('hq_demo_records', JSON.stringify(demoRecs.slice(0, 20)));
+    } else {
+      const { error: saveError } = await supabase.from('sb_analysis_records').insert({
+        user_id:    currentUser.id,
+        user_name:  currentUser.name,
+        user_phone: currentUser.phone || '',
+        report:     currentReport,
+      });
+      if (saveError) {
+        console.error('儲存紀錄失敗:', saveError);
+        showToast('⚠️ 紀錄儲存失敗，結果仍可查看');
+      }
+    }
 
     stopCarousel();
     renderReport(currentReport);
