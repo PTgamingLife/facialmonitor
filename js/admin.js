@@ -4,17 +4,26 @@ async function loadAdminUsers() {
   const list = document.getElementById('admin-user-list');
   if (!list) return;
 
+  // 用戶列表
   const { data: users } = await supabase
-    .from('users')
-    .select('id,name,phone,credits,coins,total_scans,member_code,created_at')
+    .from('sb_users')
+    .select('id,name,phone,email,credits,total_used,member_code,created_at')
     .order('created_at', { ascending: false });
 
-  const { data: settings } = await supabase.from('settings').select('*').single();
-  if (settings) {
-    const c1  = document.getElementById('admin-code1-input');
-    const c10 = document.getElementById('admin-code10-input');
-    if (c1)  c1.value  = settings.code_1  ?? '';
-    if (c10) c10.value = settings.code_10 ?? '';
+  // 密碼設定：讀取未使用的 health codes
+  const { data: codes } = await supabase
+    .from('sb_health_codes')
+    .select('id,code,credits')
+    .is('used_by', null)
+    .order('credits');
+
+  if (codes) {
+    const c1  = codes.find(c => c.credits === 1);
+    const c10 = codes.find(c => c.credits === 10);
+    const c1El  = document.getElementById('admin-code1-input');
+    const c10El = document.getElementById('admin-code10-input');
+    if (c1El)  { c1El.value  = c1?.code  ?? ''; c1El.dataset.id  = c1?.id  ?? ''; }
+    if (c10El) { c10El.value = c10?.code ?? ''; c10El.dataset.id = c10?.id ?? ''; }
   }
 
   const stats = document.getElementById('admin-stats');
@@ -24,7 +33,7 @@ async function loadAdminUsers() {
       <span>👥 總用戶</span><strong>${users.length}</strong>
     </div>
     <div class="admin-stat-row">
-      <span>🔬 總掃描</span><strong>${users.reduce((s,u)=>s+(u.total_scans??0),0)}</strong>
+      <span>🔬 總掃描</span><strong>${users.reduce((s, u) => s + (u.total_used ?? 0), 0)}</strong>
     </div>`;
   }
 
@@ -34,20 +43,19 @@ async function loadAdminUsers() {
   <table class="admin-table">
     <thead>
       <tr>
-        <th>姓名</th><th>手機</th><th>會員碼</th><th>次數</th><th>金幣</th><th>掃描</th><th>操作</th>
+        <th>姓名</th><th>帳號</th><th>會員碼</th><th>次數</th><th>掃描</th><th>操作</th>
       </tr>
     </thead>
     <tbody>
     ${users.map(u => `
       <tr>
         <td>${escapeHtml(u.name)}</td>
-        <td>${u.phone}</td>
+        <td style="font-size:11px">${escapeHtml(u.email ?? u.phone ?? '')}</td>
         <td style="font-size:11px;letter-spacing:1px">${u.member_code ?? '—'}</td>
         <td>
           <input class="admin-edit-input" id="cr-${u.id}" type="number" value="${u.credits ?? 0}" min="0">
         </td>
-        <td>${u.coins ?? 0}</td>
-        <td>${u.total_scans ?? 0}</td>
+        <td>${u.total_used ?? 0}</td>
         <td>
           <button class="btn-save-credits" onclick="saveCredits('${u.id}')">儲存</button>
         </td>
@@ -62,29 +70,38 @@ async function saveCredits(userId) {
   const val = parseInt(input.value);
   if (isNaN(val) || val < 0) { showToast('請輸入有效次數'); return; }
 
-  const { error } = await supabase.from('users').update({ credits: val }).eq('id', userId);
+  const { error } = await supabase.from('sb_users').update({ credits: val }).eq('id', userId);
   if (error) { showToast('儲存失敗'); return; }
   showToast('✅ 次數已更新');
 }
 
 async function updateCode(type) {
-  const inputId = type === 1 ? 'admin-code1-input' : 'admin-code10-input';
+  const inputId  = type === 1 ? 'admin-code1-input' : 'admin-code10-input';
   const resultId = type === 1 ? 'admin-code1-result' : 'admin-code10-result';
-  const input  = document.getElementById(inputId);
-  const result = document.getElementById(resultId);
+  const input    = document.getElementById(inputId);
+  const result   = document.getElementById(resultId);
 
   const code = input?.value.trim();
   if (!code || !/^\d{7}$/.test(code)) {
     result.textContent = '請輸入 7 位數字'; result.style.color = 'var(--alert-color)'; return;
   }
 
-  const field = type === 1 ? 'code_1' : 'code_10';
-  const { error } = await supabase.from('settings').upsert({ id: 1, [field]: code });
-  if (error) { result.textContent = '更新失敗'; result.style.color='var(--alert-color)'; return; }
+  const existingId = input?.dataset.id;
+  let error;
+
+  if (existingId) {
+    // 更新現有未使用的 code
+    ({ error } = await supabase.from('sb_health_codes').update({ code }).eq('id', existingId));
+  } else {
+    // 新增一筆
+    ({ error } = await supabase.from('sb_health_codes').insert({ code, credits: type }));
+  }
+
+  if (error) { result.textContent = '更新失敗'; result.style.color = 'var(--alert-color)'; return; }
   result.textContent = '✓ 已更新'; result.style.color = 'var(--ok-color)';
   setTimeout(() => { result.textContent = ''; }, 3000);
 }
 
 function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

@@ -341,25 +341,30 @@ async function loadHistory() {
     return;
   }
 
-  list.innerHTML = data.map(row => {
-    const r     = row.report ?? {};
+  // 存入全域陣列，onclick 用 index 避免 HTML 屬性引號衝突
+  window._historyReports = data.map(row => row.report ?? {});
+
+  list.innerHTML = window._historyReports.map((r, i) => {
     const score = r.scores?.total ?? r.score ?? '—';
     const type  = r.constitution?.type ?? '—';
+    const date  = data[i]?.created_at ?? '';
     return `
-    <div class="hist-item" onclick="viewHistoryReport(${JSON.stringify(JSON.stringify(r))})">
+    <div class="hist-item" onclick="viewHistoryReport(${i})">
       <div class="hist-top">
         <div class="hist-type">健康分數 ${score}</div>
-        <div class="hist-date">${relativeTime(row.created_at)}</div>
+        <div class="hist-date">${relativeTime(date)}</div>
       </div>
       <div class="hist-desc">體質：${type}</div>
     </div>`;
   }).join('');
 }
 
-function viewHistoryReport(jsonStr) {
+function viewHistoryReport(index) {
   try {
-    currentReport = JSON.parse(jsonStr);
-    renderReport(currentReport);
+    const r = window._historyReports?.[index];
+    if (!r) throw new Error('report not found');
+    currentReport = r;
+    renderReport(r);
     showPage('page-report');
   } catch { showToast('無法載入此報告'); }
 }
