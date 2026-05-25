@@ -96,6 +96,8 @@ async function renderChallenge() {
     } catch { }
   }
 
+  const catIcon = { '食補':'🌿','飲食':'🥗','運動':'🏃','睡眠':'🌙','呼吸':'🌬️','穴位':'👐','心理':'🧘','水分':'💧','總結':'🏅' };
+
   container.innerHTML = TASK_PLAN.map(task => {
     const done   = completedDays.has(task.day);
     const today  = task.day === todayDay;
@@ -105,22 +107,20 @@ async function renderChallenge() {
     if (today)  cls += ' task-today';
     if (locked) cls += ' task-locked';
 
-    const icon = done ? '✓' : locked ? '🔒' : '▶';
-    const descHtml = (!locked && task.desc)
-      ? `<div class="task-desc">${task.desc.replace(/\n/g,'<br>')}</div>` : '';
-    const catIcon = { '食補':'🌿','飲食':'🥗','運動':'🏃','睡眠':'🌙','呼吸':'🌬️','穴位':'👐','心理':'🧘','水分':'💧','總結':'🏅' };
+    const icon = done ? '✓' : locked ? '🔒' : (today ? '▶' : '○');
     return `
-    <div class="${cls}" onclick="${(locked || done) ? '' : `completeTask(${task.day})`}">
+    <div class="${cls}" onclick="openTaskModal(${task.day})">
       <span class="task-day-icon">${icon}</span>
       <div class="task-body">
         <div class="task-title">Day ${task.day}｜${task.title}</div>
         <span class="task-cat-chip">${catIcon[task.category] ?? ''}${task.category}</span>
-        ${today ? '<div class="task-badge-today">今日任務</div>' : ''}
-        ${descHtml}
+        ${today && !done ? '<div class="task-badge-today">今日任務</div>' : ''}
       </div>
       ${!done && !locked ? `<div class="task-xp">+${task.xp} XP</div>` : ''}
     </div>`;
   }).join('');
+
+  window._taskRenderState = { completedDays, todayDay, catIcon };
 }
 
 async function completeTask(day) {
@@ -162,6 +162,47 @@ async function completeTask(day) {
     renderChallenge();
     await checkAchievements();
   } catch { showToast('紀錄失敗，請再試一次'); }
+}
+
+/* ── 任務詳情 Modal ── */
+function openTaskModal(day) {
+  const task = TASK_PLAN.find(t => t.day === day);
+  if (!task) return;
+
+  const state = window._taskRenderState ?? {};
+  const completedDays = state.completedDays ?? new Set();
+  const todayDay      = state.todayDay ?? 1;
+  const catIcon       = state.catIcon  ?? {};
+
+  const done   = completedDays.has(day);
+  const locked = day > todayDay;
+
+  document.getElementById('task-modal-cat').textContent   = (catIcon[task.category] ?? '') + task.category;
+  document.getElementById('task-modal-day').textContent   = `Day ${task.day}`;
+  document.getElementById('task-modal-title').textContent = task.title;
+  document.getElementById('task-modal-desc').textContent  = task.desc ?? '';
+
+  const actions = document.getElementById('task-modal-actions');
+  if (done) {
+    actions.innerHTML = `<div style="text-align:center;color:var(--ok-color);font-weight:700;font-size:15px;">✅ 已完成</div>`;
+  } else if (locked) {
+    actions.innerHTML = `<div style="text-align:center;color:var(--text-hint);font-size:14px;">🔒 尚未解鎖</div>`;
+  } else {
+    actions.innerHTML = `
+      <button class="btn-gold" style="margin-bottom:10px" onclick="completeTaskFromModal(${day})">✅ 完成任務</button>
+      <button class="btn-ghost" onclick="closeTaskModal()">稍後再做</button>`;
+  }
+
+  document.getElementById('task-detail-modal').classList.add('show');
+}
+
+function closeTaskModal() {
+  document.getElementById('task-detail-modal').classList.remove('show');
+}
+
+async function completeTaskFromModal(day) {
+  closeTaskModal();
+  await completeTask(day);
 }
 
 /* ── 推薦碼 Modal ── */

@@ -351,9 +351,8 @@ body.font-lg .nav-tab { font-size:12px; }
 .task-row.task-done .task-title { text-decoration:line-through; color:var(--text-hint); }
 .task-badge-today { display:inline-block; font-size:10px; background:var(--gold-main); color:white; padding:1px 8px; border-radius:99px; margin-top:4px; }
 .task-cat-chip { display:inline-block; font-size:10px; color:var(--gold-deep); background:var(--gold-pale); padding:1px 7px; border-radius:99px; margin-top:3px; margin-right:4px; }
-.task-desc { font-size:12px; color:var(--text-soft); line-height:1.6; margin-top:6px; white-space:pre-line; }
-.task-row.task-locked .task-desc { display:none; }
 .task-xp { font-size:12px; font-weight:700; color:var(--gold-main); flex-shrink:0; }
+.modal-close-btn { background:none; border:none; font-size:18px; color:var(--text-hint); cursor:pointer; padding:2px 6px; line-height:1; }
 
 /* ── Challenge Page ── */
 .challenge-content { padding:0 16px; }
