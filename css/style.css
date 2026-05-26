@@ -35,11 +35,10 @@ body {
   font-family: 'Noto Sans TC', 'Noto Serif TC', sans-serif;
   color: var(--text-dark);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
 
 /* ── App Shell ── */
-.app { max-width:480px; margin:0 auto; min-height:100vh; position:relative; }
+.app { max-width:480px; margin:0 auto; min-height:100vh; position:relative; overflow-x:hidden; }
 
 /* ── Page 切換 ── */
 .page { display:none; animation:pageEnter 0.35s ease; padding-bottom:80px; }
