@@ -447,10 +447,14 @@ body.font-lg .nav-tab { font-size:12px; }
 .score-bar-fill { height:100%; border-radius:4px; background:linear-gradient(90deg,var(--alert-color),var(--gold-main),var(--ok-color)); transition:width 1.5s ease; }
 
 /* Face zones */
-.zone-row { display:flex; align-items:center; padding:10px 0; border-bottom:1px solid var(--gold-pale); gap:10px; }
+.zone-row { display:flex; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--gold-pale); gap:10px; }
 .zone-row:last-child { border-bottom:none; }
-.zone-name { font-size:14px; font-weight:700; color:var(--text-dark); width:40px; flex-shrink:0; }
-.zone-organ { font-size:13px; color:var(--text-soft); flex:1; }
+.zone-name { font-size:14px; font-weight:700; color:var(--text-dark); width:40px; flex-shrink:0; padding-top:2px; }
+.zone-organ-wrap { flex:1; }
+.zone-organ { font-size:13px; color:var(--text-soft); }
+.zone-prod-row { margin-top:5px; display:flex; flex-wrap:wrap; gap:4px; }
+.prod-link-btn { display:inline-flex; align-items:center; gap:3px; font-size:11px; padding:3px 9px; border-radius:99px; background:rgba(196,154,90,.1); color:var(--gold-deep); border:1px solid var(--gold-main); text-decoration:none; white-space:nowrap; transition:background .2s; }
+.prod-link-btn:hover { background:var(--gold-main); color:white; }
 .badge { font-size:11px; padding:3px 10px; border-radius:99px; flex-shrink:0; font-weight:600; }
 .badge-ok    { background:rgba(90,158,107,.12); color:var(--ok-color); border:1px solid rgba(90,158,107,.25); }
 .badge-warn  { background:rgba(196,154,90,.12); color:var(--warn-color); border:1px solid rgba(196,154,90,.3); }
