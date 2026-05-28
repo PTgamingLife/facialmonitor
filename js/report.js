@@ -2,6 +2,46 @@
    報告渲染 — 整合中醫面舌診診斷框架
    ═══════════════════════════════════════════════ */
 
+/* ── 臟器 → 紐崔萊產品 ── */
+const ORGAN_PRODUCTS = {
+  '心': { name:'順欣飲',      url:'https://www.amway.com.tw/iShare/Post/Detail/41036' },
+  '肝': { name:'好甘萃錠',    url:'https://www.amway.com.tw/iShare/Post/Detail/12810' },
+  '脾': { name:'蔚葆飲',      url:'https://www.amway.com.tw/iShare/Monthly/Inner/38871/38876' },
+  '胃': { name:'蔚葆飲',      url:'https://www.amway.com.tw/iShare/Monthly/Inner/38871/38876' },
+  '肺': { name:'養氣飲',      url:'https://www.amway.com.tw/iShare/Post/Detail/38911' },
+  '腎': { name:'管花肉蓯蓉錠', url:'https://www.amway.com.tw/iShare/Post/Detail/38078' },
+};
+
+/* ── 營養素 → 紐崔萊產品 ── */
+const NUTRIENT_PRODUCTS = [
+  { keys:['B群','維生素B','B12','B6','B1','菸鹼酸','泛酸','生物素'],  name:'雙效B群能量錠',   url:'https://www.amway.com.tw/iShare/Post/Detail/41641' },
+  { keys:['維生素C','維他命C','抗壞血酸'],                            name:'強效C營養片',     url:'https://www.amway.com.tw/iShare/Post/Detail/27066' },
+  { keys:['Omega-3','魚油','EPA','DHA','深海'],                       name:'全方位優護魚油',  url:'https://www.amway.com.tw/iShare/Post/Detail/38095' },
+  { keys:['益生菌','乳酸菌'],                                         name:'強效複合益生菌',  url:'https://www.amway.com.tw/iShare/Monthly/Catalog/25465' },
+  { keys:['鈣','鎂','維生素D','D3'],                                  name:'加美D鈣片',       url:'https://www.amway.com.tw/iShare/Post/Detail/25626' },
+  { keys:['鐵','葉酸'],                                               name:'葉酸鐵營養片',    url:'https://www.amway.com.tw/iShare/Monthly/Inner/41272/41281' },
+  { keys:['蛋白質','蛋白素','胺基酸'],                                name:'優質蛋白素',      url:'https://www.amway.com.tw/iShare/Monthly/Inner/41810/41825' },
+  { keys:['膳食纖維','纖維質','纖維'],                                name:'膳食纖維系列',    url:'https://www.amway.com.tw/iShare/Post/Tags/5604' },
+  { keys:['鋅','維生素A'],                                            name:'倍欣營養片',      url:'https://www.amway.com.tw/iShare/Monthly/Inner/41272/41277' },
+];
+
+function productBtn(url, name) {
+  return `<a href="${url}" target="_blank" rel="noopener" class="prod-link-btn">🛒 ${name}</a>`;
+}
+
+function organProductBtns(organText) {
+  const seen = new Set();
+  return Object.entries(ORGAN_PRODUCTS)
+    .filter(([organ, p]) => organText.includes(organ) && !seen.has(p.url) && seen.add(p.url))
+    .map(([, p]) => productBtn(p.url, p.name))
+    .join(' ');
+}
+
+function nutrientProductBtn(nameText) {
+  const found = NUTRIENT_PRODUCTS.find(np => np.keys.some(k => nameText.includes(k)));
+  return found ? productBtn(found.url, found.name) : '';
+}
+
 const CONSTITUTION_DESC = {
   '平和質': { emoji:'🌿', desc:'陰陽平衡，氣血調和，為最理想的體質狀態。', advice:'維持現有生活習慣，適度運動，均衡飲食。' },
   '氣虛質': { emoji:'🍃', desc:'元氣不足，容易疲勞，說話聲低，易感冒。', advice:'多食山藥、紅棗、党參等補氣食物，避免過勞。' },
@@ -110,15 +150,19 @@ function nutrientsSection(items) {
   return `
   <div class="sec-card">
     <div class="sec-title">💊 關鍵營養素建議</div>
-    ${items.map(n => `
+    ${items.map(n => {
+      const btn = nutrientProductBtn(n.name);
+      return `
     <div class="nutrient-item">
       <span class="nutrient-icon">${n.icon ?? '🌿'}</span>
-      <div>
+      <div style="flex:1">
         <div class="nutrient-name">${n.name}</div>
+        ${btn ? `<div style="margin-top:5px">${btn}</div>` : ''}
         <div class="nutrient-reason">${n.reason}</div>
         <div class="nutrient-foods">食材：${n.foods}</div>
       </div>
-    </div>`).join('')}
+    </div>`;
+    }).join('')}
   </div>`;
 }
 
@@ -145,13 +189,17 @@ function faceZoneSection(zones) {
   <div class="sec-card">
     <div class="sec-title">👤 面部六區診斷</div>
     ${rows.map(z => {
-      const badge  = z.status === '正常' ? 'badge-ok' : z.status === '輕微失調' ? 'badge-warn' : z.status ? 'badge-alert' : 'badge-ok';
-      const status = z.status ?? '正常';
+      const badge   = z.status === '正常' ? 'badge-ok' : z.status === '輕微失調' ? 'badge-warn' : z.status ? 'badge-alert' : 'badge-ok';
+      const status  = z.status ?? '正常';
+      const orgBtns = organProductBtns(z.organ ?? '');
       return `
       <div class="zone-row">
         <div class="zone-name">${z.zone}</div>
-        <div class="zone-organ">${z.organ}</div>
-        <span class="badge ${badge}">${status}</span>
+        <div class="zone-organ-wrap">
+          <div class="zone-organ">${z.organ}</div>
+          ${orgBtns ? `<div class="zone-prod-row">${orgBtns}</div>` : ''}
+        </div>
+        <span class="badge ${badge}" style="flex-shrink:0">${status}</span>
       </div>
       ${z.detail ? `<div style="font-size:13px;color:var(--text-soft);padding:2px 0 8px 48px;line-height:1.7">${z.detail}</div>` : ''}`;
     }).join('')}
