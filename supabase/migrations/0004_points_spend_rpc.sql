@@ -181,41 +181,10 @@ begin
     'total_used', (select total_used from sb_users where id = v_me));
 end $$;
 
--- ============================================================
--- 8. 兌換碼加次數(取代前端寫死的碼與直接 update)
--- ============================================================
-create or replace function rpc_redeem_health_code(
-  p_code text, p_user_id uuid default null
-) returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare v_me uuid; v_row sb_health_codes%rowtype;
-begin
-  v_me := resolve_user_id(p_user_id);
-  p_code := trim(coalesce(p_code, ''));
-
-  if p_code !~ '^[0-9]{7}$' then
-    return jsonb_build_object('ok', false, 'error', 'bad_code',
-                              'message', '兌換碼是 7 位數字');
-  end if;
-
-  select * into v_row from sb_health_codes
-   where code = p_code and used_by is null for update;
-  if not found then
-    return jsonb_build_object('ok', false, 'error', 'invalid',
-                              'message', '兌換碼無效或已被使用');
-  end if;
-
-  if exists (select 1 from code_usages where user_id = v_me and code = p_code) then
-    return jsonb_build_object('ok', false, 'error', 'used',
-                              'message', '這個兌換碼你已經用過了');
-  end if;
-
-  insert into code_usages(user_id, code) values (v_me, p_code);
-  update sb_users set credits = coalesce(credits, 0) + v_row.credits where id = v_me;
-
-  return jsonb_build_object('ok', true, 'credits_added', v_row.credits,
-    'credits', (select credits from sb_users where id = v_me));
-end $$;
+-- 8. 兌換碼加次數 → 見 0006_fix_code_usage.sql
+--    這支原本寫在這裡,但它參照的 code_usages 表在正式庫並不存在
+--    (真實的表是 code_usage,單數,且外鍵指向舊的 users 表)。
+--    改由 0006 建立正確版本,這裡刻意不定義,避免先建一支壞的再覆蓋。
 
 -- ============================================================
 -- 9. 後台調整次數 / 積點(取代 admin.js 直接 update sb_users)
@@ -272,6 +241,5 @@ grant execute on function
   rpc_draw_lottery(uuid),
   rpc_my_reward_summary(uuid),
   rpc_consume_credit(uuid),
-  rpc_redeem_health_code(text, uuid),
   rpc_admin_set_balance(uuid, integer, integer, text)
 to authenticated, service_role;
