@@ -33,7 +33,9 @@
 |---|---|
 | `supabase/migrations/0001_line_bot.sql` | 6 張 `line_` 表 + RLS |
 | `supabase/migrations/0002_referral_points.sql` | 推薦 / 積點 / 抽獎 6 張表、`sb_users.points`、`is_admin`、推薦碼補齊與唯一索引、RLS |
-| `supabase/migrations/0003_referral_rpc.sql` | 9 支 `SECURITY DEFINER` RPC |
+| `supabase/migrations/0003_referral_rpc.sql` | 推薦 / 結算 RPC(`SECURITY DEFINER`) |
+| `supabase/migrations/0004_points_spend_rpc.sql` | 兌換 / 抽獎 / 扣次數 / 後台調整 RPC |
+| `supabase/migrations/0005_seed_lottery.sql` | 首批獎品與抽獎成本(資料設定,可重複執行) |
 
 **0002 會做三件對既有資料有影響的事,執行前先看清楚:**
 
@@ -57,16 +59,39 @@ select u.id, u.points, coalesce(sum(l.delta), 0) as ledger
 having u.points <> coalesce(sum(l.delta), 0);
 ```
 
-### 建立抽獎獎品
+### 抽獎獎品
+
+`0005_seed_lottery.sql` 已經建好首批設定:
+
+| 項目 | 值 |
+|---|---|
+| 獎品 | 個人健康全面高級諮詢 |
+| 庫存 | 10 份 |
+| 抽一次 | 100 點 |
+
+目前池子裡只有這一個獎品,所以**每次抽獎都必中**,直到庫存歸零
+(歸零後會顯示「獎品補貨中」,而且**不會扣點**)。
+
+要加第二個獎品:
 
 ```sql
-insert into sb_lottery_prizes (name, description, image_url, stock, weight, sort) values
-  ('免費檢測 1 次', '面舌診檢測一次',      'https://.../p1.png', 50,  60, 1),
-  ('養生茶包組',   '桂圓紅棗茶 10 入',    'https://.../p2.png', 20,  30, 2),
-  ('一對一健康諮詢','30 分鐘線上諮詢',     'https://.../p3.png',  5,  10, 3);
+insert into sb_lottery_prizes (name, description, image_url, stock, weight, sort)
+values ('養生茶包組', '桂圓紅棗茶 10 入', 'https://.../p2.png', 20, 300, 2);
 ```
 
-`weight` 是中獎權重(不是百分比),抽中機率 = 自己的 weight ÷ 所有有庫存獎品的 weight 總和。
+`weight` 是中獎權重(不是百分比),機率 = 自己的 weight ÷ 所有**有庫存**獎品的
+weight 總和。上面這筆 300 對現有的 100,等於茶包 75%、諮詢 25%。
+
+補庫存、改成本都是改資料,不用重新部署:
+
+```sql
+update sb_lottery_prizes set stock = 20 where name = '個人健康全面高級諮詢';
+update sb_point_rules set points = 150 where rule_key = 'lottery_draw';
+```
+
+> 💡 值得留意的匯率:目前「填小天使 +10、推薦 1 人首檢 +30、對方當月進步 +50」
+> 加起來 90 點,而抽一次是 100 點。也就是**認真帶一個人變健康,差不多就換到
+> 一次諮詢**。諮詢是要真的排時間的人力服務,覺得太快就把 `lottery_draw` 調高。
 
 ---
 
@@ -78,7 +103,7 @@ supabase link --project-ref wcemkmwrlvijxxwybrgs   # 一定要確認是這個專
 supabase secrets set LINE_CHANNEL_SECRET=你的_channel_secret
 supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=你的_access_token
 supabase secrets set ANTHROPIC_API_KEY=你的_anthropic_key
-supabase secrets set APP_BASE_URL=https://<你的 GitHub Pages 網址>
+supabase secrets set APP_BASE_URL=https://ptgaminglife.github.io/facialmonitor
 
 # LINE 不會帶 Supabase JWT,這支一定要關掉 JWT 驗證
 supabase functions deploy line-webhook --no-verify-jwt
@@ -100,11 +125,16 @@ supabase functions deploy line-broadcast
 ## 四、建立 2 分頁圖文選單
 
 先準備兩張底圖:`img/richmenu-health.png`、`img/richmenu-reward.png`,
-**2500 × 1686 PNG,單張 1MB 以內**。版位與配色見第五節。
+**2500 × 1686 PNG,單張 1MB 以內**。
+尺寸、格線座標、配色與 ChatGPT Image 2.0 提示詞見 **[`RICHMENU_DESIGN.md`](RICHMENU_DESIGN.md)**。
+
+⚠️ 建立選單前**先用瀏覽器開一次 `https://ptgaminglife.github.io/facialmonitor`
+確認是 200 不是 404**。選單有三格是連回網頁的,網址不通的話客戶點下去會看到錯誤頁,
+而且要修就得重跑整個建立流程。
 
 ```bash
 LINE_CHANNEL_ACCESS_TOKEN=xxx \
-APP_BASE_URL=https://<你的 Pages 網址> \
+APP_BASE_URL=https://ptgaminglife.github.io/facialmonitor \
   node scripts/line/setup-richmenu.mjs
 ```
 
@@ -161,7 +191,7 @@ APP_BASE_URL=https://<你的 Pages 網址> \
 | 自己當月分數提升 ≥10 分 | 自己 | +20 |
 | 推薦的人當月分數提升 ≥10 分 | 小天使 | +50 |
 | 兌換 1 次檢測 | — | −100 |
-| 抽獎一次 | — | −30 |
+| 抽獎一次 | — | −100 |
 
 點數都存在 `sb_point_rules`,直接改資料就生效,**不用改程式也不用重新部署**:
 
