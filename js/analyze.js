@@ -163,12 +163,12 @@ async function startAnalyze() {
 
     currentReport = json.report;
 
-    // 扣除次數 & 更新 total_used（sb_users 欄位）
-    const newCredits = Math.max(0, (currentUser.credits || 1) - 1);
-    const newUsed    = (currentUser.total_used || 0) + 1;
-    await supabase.from('sb_users')
-      .update({ credits: newCredits, total_used: newUsed })
-      .eq('id', currentUser.id);
+    // 扣除次數 & 更新 total_used。
+    // 一定要走 RPC：前端已無權直接改 sb_users.credits / total_used，
+    // 而且扣次數與計數必須在同一個 transaction 完成。
+    const { data: consumed } = await supabase.rpc('rpc_consume_credit');
+    const newCredits = consumed?.ok ? consumed.credits    : Math.max(0, (currentUser.credits || 1) - 1);
+    const newUsed    = consumed?.ok ? consumed.total_used : (currentUser.total_used || 0) + 1;
     currentUser.credits    = newCredits;
     currentUser.total_used = newUsed;
     currentUser.total_scans = newUsed;

@@ -1,0 +1,364 @@
+// 12 格選單與文字指令的行為
+
+import {
+  appUrl, carousel, confirmCard, infoCard, LineMessage,
+  postbackAction, textMsg, toBubble, uriAction,
+} from "../_shared/line.ts";
+import { rpc, select, selectOne } from "../_shared/db.ts";
+import { CATEGORY_ICON, taskOfDay } from "../_shared/tasks.ts";
+import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
+
+const NEED_BIND = infoCard({
+  title: "先綁定會員才看得到喔",
+  subtitle: "在 App 首頁找到你的 7 位會員碼,直接傳「綁定 1234567」給我就完成了。",
+  buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", appUrl("page-main")), primary: true }],
+  altText: "請先綁定會員",
+});
+
+// ── 分頁 A:健康 ───────────────────────────────────────────
+async function scoreTrend(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const monthKey = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" }).slice(0, 7);
+  const snap = await selectOne<{
+    first_score: number; best_score: number; delta: number; rewarded: boolean;
+  }>("sb_score_snapshots",
+    `user_id=eq.${u.sb_user_id}&month_key=eq.${monthKey}`
+      + `&select=first_score,best_score,delta,rewarded`);
+
+  const rates = await rpc<{ rates: { threshold: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const threshold = rates?.rates?.threshold ?? 10;
+
+  if (!snap) {
+    return infoCard({
+      title: "本月還沒有可比較的分數",
+      subtitle: `這個月做兩次面舌診,分數進步 ${threshold} 分以上,你和你的小天使都能拿積點。`,
+      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", appUrl("page-challenge")), primary: true }],
+      altText: "本月分數",
+    });
+  }
+
+  const gap = threshold - (snap.delta ?? 0);
+  return infoCard({
+    title: "📈 本月健康分數",
+    bigValue: `${snap.delta > 0 ? "+" : ""}${snap.delta}`,
+    bigLabel: "本月進步幅度",
+    rows: [
+      { label: "本月起始分數", value: String(snap.first_score) },
+      { label: "本月最佳分數", value: String(snap.best_score), accent: true },
+    ],
+    note: snap.rewarded
+      ? `已達標,進步獎積點已經入帳 🎉`
+      : gap > 0
+        ? `再進步 ${gap} 分就達標,你和小天使都能拿積點。`
+        : `已達標,結算後就會入帳。`,
+    buttons: [{ label: "再測一次", action: uriAction("再測一次", appUrl("page-challenge")), primary: true }],
+    altText: "本月健康分數",
+  });
+}
+
+async function credits(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ credits: number; points: number; rates: { redeem_credit: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const cost = s?.rates?.redeem_credit ?? 100;
+
+  return infoCard({
+    title: "🎟 我的檢測次數",
+    bigValue: String(s?.credits ?? 0),
+    bigLabel: "剩餘次數",
+    rows: [{ label: "積點餘額", value: `${s?.points ?? 0} 點` }],
+    note: `${cost} 點可以換 1 次檢測。`,
+    buttons: [
+      { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), primary: true },
+      { label: "開始檢測", action: uriAction("開始檢測", appUrl("page-challenge")) },
+    ],
+    altText: "我的檢測次數",
+  });
+}
+
+async function taskToday(u: LineUser): Promise<LineMessage> {
+  let day = 1;
+  if (u.sb_user_id) {
+    const first = await firstScanAt(u.sb_user_id);
+    if (first) day = challengeDay(first);
+  }
+
+  const t = taskOfDay(day);
+  const icon = CATEGORY_ICON[t.category] ?? "🌿";
+
+  return infoCard({
+    title: `${icon} Day ${t.day}｜${t.title}`,
+    subtitle: t.desc,
+    rows: [{ label: "類別", value: t.category }, { label: "完成可得", value: `${t.xp} XP`, accent: true }],
+    buttons: [
+      { label: "去 App 打卡", action: uriAction("去 App 打卡", appUrl("page-main")), primary: true },
+      { label: "問 AI 這樣做對嗎", action: postbackAction("問 AI", `action=ask_task&day=${t.day}`) },
+    ],
+    altText: `今日任務 Day ${t.day}`,
+  });
+}
+
+// ── 分頁 B:推薦與積點 ─────────────────────────────────────
+async function myReward(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{
+    member_code: string; points: number;
+    angel: { name: string } | null;
+    invitee_stats: { total: number; confirmed: number };
+    recent_ledger: { delta: number; note: string; reason: string }[];
+  }>("rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+
+  if (!s) return textMsg("⚠️ 資料讀取失敗,請稍後再試。");
+
+  const rows = [
+    { label: "我的推薦碼", value: s.member_code ?? "—", accent: true },
+    { label: "我的小天使", value: s.angel?.name ?? "還沒填" },
+    { label: "已推薦人數", value: `${s.invitee_stats?.confirmed ?? 0} / ${s.invitee_stats?.total ?? 0} 人` },
+  ];
+
+  for (const l of (s.recent_ledger ?? []).slice(0, 3)) {
+    rows.push({
+      label: l.note ?? l.reason,
+      value: `${l.delta > 0 ? "+" : ""}${l.delta} 點`,
+      accent: l.delta > 0,
+    });
+  }
+
+  return infoCard({
+    title: "👼 我的小天使 / 推薦碼",
+    bigValue: `${s.points ?? 0}`,
+    bigLabel: "積點餘額",
+    rows,
+    note: "把推薦碼給朋友,他完成第一次檢測你就得點;他當月進步 10 分,你再得一次。",
+    buttons: [
+      { label: "分享我的推薦碼", action: postbackAction("分享推薦碼", "action=share_code"), primary: true },
+      ...(s.angel ? [] : [{ label: "填寫我的小天使", action: postbackAction("填寫小天使", "action=set_angel") }]),
+    ],
+    altText: "我的小天使與推薦碼",
+  });
+}
+
+async function myInvitees(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{
+    invitees: { name: string; status: string; delta: number | null }[];
+  }>("rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+
+  const list = s?.invitees ?? [];
+  if (list.length === 0) {
+    return infoCard({
+      title: "👥 還沒有人填你當小天使",
+      subtitle: "把你的 7 位推薦碼傳給朋友,他在 App 或這裡輸入「小天使 你的碼」就算數。",
+      buttons: [{ label: "看我的推薦碼", action: postbackAction("看我的推薦碼", "action=my_reward"), primary: true }],
+      altText: "我推薦的人",
+    });
+  }
+
+  return infoCard({
+    title: `👥 我推薦的人（${list.length}）`,
+    rows: list.slice(0, 10).map((i) => ({
+      label: i.name ?? "會員",
+      value: i.status === "confirmed"
+        ? (i.delta != null ? `已檢測 ${i.delta > 0 ? "+" : ""}${i.delta} 分` : "已完成首檢")
+        : "尚未首檢",
+      accent: i.status === "confirmed",
+    })),
+    note: "尚未首檢的朋友完成第一次面舌診,你就會拿到積點。",
+    altText: "我推薦的人",
+  });
+}
+
+async function rewardShop(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ points: number; rates: { redeem_credit: number; lottery_draw: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const balance = s?.points ?? 0;
+  const costRedeem = s?.rates?.redeem_credit ?? 100;
+  const costDraw = s?.rates?.lottery_draw ?? 30;
+
+  const prizes = await select<{ name: string; description: string; image_url: string; stock: number }>(
+    "sb_lottery_prizes", `active=eq.true&stock=gt.0&select=name,description,image_url,stock&order=sort.asc`);
+
+  const bubbles: LineMessage[] = [
+    toBubble(infoCard({
+      title: "🔄 積點兌換檢測次數",
+      bigValue: `${costRedeem}`,
+      bigLabel: "點 = 1 次檢測",
+      rows: [{ label: "目前積點", value: `${balance} 點`, accent: balance >= costRedeem }],
+      buttons: [{
+        label: "立即兌換 1 次",
+        action: postbackAction("立即兌換", "action=redeem_confirm&n=1"),
+        primary: true,
+      }],
+      altText: "積點兌換",
+    })),
+  ];
+
+  for (const p of prizes) {
+    bubbles.push(toBubble(infoCard({
+      title: `🎁 ${p.name}`,
+      subtitle: p.description ?? undefined,
+      hero: p.image_url || undefined,
+      rows: [{ label: "剩餘數量", value: `${p.stock} 份` }],
+      note: `每抽 ${costDraw} 點,獎品依機率隨機抽出。`,
+      buttons: [{ label: `馬上抽（${costDraw} 點）`, action: postbackAction("馬上抽", "action=draw_confirm"), primary: true }],
+      altText: p.name,
+    })));
+  }
+
+  if (prizes.length === 0) {
+    bubbles.push(toBubble(infoCard({
+      title: "🎁 獎品補貨中",
+      subtitle: "目前沒有可抽的獎品,積點先存著,下一波活動就能用。",
+      altText: "獎品補貨中",
+    })));
+  }
+
+  return carousel(bubbles, "兌換與抽獎");
+}
+
+// ── 扣點動作(都要先二次確認) ──────────────────────────────
+async function doRedeem(u: LineUser, n: number): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+  const r = await rpc<{ ok: boolean; message?: string; credits?: number; balance?: number }>(
+    "rpc_redeem_credits", { p_count: n, p_user_id: u.sb_user_id });
+
+  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "兌換失敗,請稍後再試。"}`);
+  return infoCard({
+    title: "✅ 兌換成功",
+    rows: [
+      { label: "檢測次數", value: `${r.credits} 次`, accent: true },
+      { label: "剩餘積點", value: `${r.balance} 點` },
+    ],
+    buttons: [{ label: "現在就去檢測", action: uriAction("去檢測", appUrl("page-challenge")), primary: true }],
+    altText: "兌換成功",
+  });
+}
+
+async function doDraw(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+  const r = await rpc<{
+    ok: boolean; message?: string; prize_name?: string; prize_image?: string; balance?: number;
+  }>("rpc_draw_lottery", { p_user_id: u.sb_user_id });
+
+  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "抽獎失敗,請稍後再試。"}`);
+  return infoCard({
+    title: `🎉 抽中 ${r.prize_name}`,
+    hero: r.prize_image || undefined,
+    rows: [{ label: "剩餘積點", value: `${r.balance} 點` }],
+    note: "我們會盡快與你聯繫兌獎方式。",
+    altText: `抽中 ${r.prize_name}`,
+  });
+}
+
+// ── postback 總入口 ───────────────────────────────────────
+export async function handlePostback(
+  u: LineUser, action: string, params: URLSearchParams,
+): Promise<LineMessage | LineMessage[] | null> {
+  switch (action) {
+    case "noop":
+      return null;
+
+    case "score_trend":
+      return await scoreTrend(u);
+    case "credits":
+      return await credits(u);
+    case "task_today":
+      return await taskToday(u);
+
+    case "bind_start":
+      return infoCard({
+        title: "🔗 綁定會員",
+        subtitle: "打開 App 首頁,右上角那組 7 位數字就是你的會員碼。\n"
+          + "直接傳「綁定 1234567」給我就完成。",
+        buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", appUrl("page-main")), primary: true }],
+        altText: "綁定會員",
+      });
+
+    case "my_reward":
+      return await myReward(u);
+    case "my_invitees":
+      return await myInvitees(u);
+
+    case "set_angel":
+      return infoCard({
+        title: "✍️ 填寫我的小天使",
+        subtitle: "把介紹你來的人的 7 位推薦碼傳給我,格式:小天使 1234567\n"
+          + "填寫後你會拿到積點,對方也會。綁定後不能更改,請確認再送出。",
+        altText: "填寫小天使",
+      });
+
+    case "share_code": {
+      if (!u.sb_user_id) return NEED_BIND;
+      const s = await rpc<{ member_code: string }>(
+        "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+      return textMsg(
+        `我在用「大數據健康檢測」測體質、做 14 天養生任務,滿有感的 🌿\n\n`
+        + `用我的推薦碼加入,你我都有積點可以換檢測次數:\n`
+        + `推薦碼：${s?.member_code ?? "—"}\n\n`
+        + `加入後在 LINE 傳「小天使 ${s?.member_code ?? ""}」就完成囉。`,
+      );
+    }
+
+    case "reward_shop":
+      return await rewardShop(u);
+
+    case "redeem_confirm": {
+      const n = Math.max(1, Math.min(10, Number(params.get("n") ?? 1)));
+      const s = await rpc<{ rates: { redeem_credit: number } }>(
+        "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+      const cost = (s?.rates?.redeem_credit ?? 100) * n;
+      return confirmCard({
+        title: "確認兌換",
+        body: `要用 ${cost} 點兌換 ${n} 次檢測嗎?兌換後積點不退回。`,
+        confirmLabel: "確認兌換",
+        confirmData: `action=redeem_do&n=${n}`,
+      });
+    }
+    case "redeem_do":
+      return await doRedeem(u, Math.max(1, Math.min(10, Number(params.get("n") ?? 1))));
+
+    case "draw_confirm": {
+      const s = await rpc<{ rates: { lottery_draw: number } }>(
+        "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+      return confirmCard({
+        title: "確認抽獎",
+        body: `抽一次要 ${s?.rates?.lottery_draw ?? 30} 點,獎品隨機。要抽嗎?`,
+        confirmLabel: "馬上抽",
+        confirmData: "action=draw_do",
+      });
+    }
+    case "draw_do":
+      return await doDraw(u);
+
+    case "help":
+      return helpCard();
+
+    default:
+      return null;
+  }
+}
+
+export function helpCard(): LineMessage {
+  return infoCard({
+    title: "❓ 這個帳號可以做什麼",
+    rows: [
+      { label: "綁定 1234567", value: "綁定會員" },
+      { label: "小天使 1234567", value: "填寫推薦人" },
+      { label: "兌換 1234567", value: "用兌換碼加次數" },
+      { label: "積點 / 次數 / 推薦碼", value: "查自己的資料" },
+      { label: "真人", value: "轉真人客服" },
+      { label: "其他任何訊息", value: "AI 健康問答" },
+    ],
+    note: "下方選單分兩頁:左邊是健康功能,右邊是推薦與積點。",
+    altText: "使用說明",
+  });
+}
+
+export { bindMember, NEED_BIND };

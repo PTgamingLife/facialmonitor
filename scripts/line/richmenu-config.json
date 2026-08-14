@@ -1,0 +1,44 @@
+{
+  "canvas": { "width": 2500, "height": 1686 },
+  "layout": {
+    "tabBarHeight": 222,
+    "rows": 2,
+    "cols": 3,
+    "cellHeight": 732,
+    "note": "222 + 732*2 = 1686;833 + 833 + 834 = 2500。兩個分頁版型相同,切換時視覺零位移。"
+  },
+  "tabs": [
+    {
+      "key": "health",
+      "alias": "tab_health",
+      "name": "健康顧問 - 健康",
+      "chatBarText": "健康選單",
+      "image": "img/richmenu-health.png",
+      "default": true,
+      "cells": [
+        { "label": "面舌診檢測", "type": "uri", "target": "page-challenge" },
+        { "label": "我的報告", "type": "uri", "target": "page-history" },
+        { "label": "我的分數", "type": "postback", "action": "score_trend" },
+        { "label": "剩餘次數", "type": "postback", "action": "credits" },
+        { "label": "今日任務", "type": "postback", "action": "task_today" },
+        { "label": "問健康 AI", "type": "message", "text": "我想問健康問題" }
+      ]
+    },
+    {
+      "key": "reward",
+      "alias": "tab_reward",
+      "name": "健康顧問 - 推薦",
+      "chatBarText": "推薦與積點",
+      "image": "img/richmenu-reward.png",
+      "default": false,
+      "cells": [
+        { "label": "綁定會員", "type": "postback", "action": "bind_start" },
+        { "label": "我的小天使", "type": "postback", "action": "my_reward" },
+        { "label": "填寫小天使", "type": "postback", "action": "set_angel" },
+        { "label": "我推薦的人", "type": "postback", "action": "my_invitees" },
+        { "label": "14 天挑戰", "type": "uri", "target": "page-main" },
+        { "label": "兌換 / 抽獎", "type": "postback", "action": "reward_shop" }
+      ]
+    }
+  ]
+}
