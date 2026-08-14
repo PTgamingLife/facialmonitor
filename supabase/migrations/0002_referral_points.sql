@@ -53,10 +53,9 @@ begin
   end loop;
 end $$;
 
+-- member_code 欄位本身已經有 unique 約束(既有 schema 就有),
+-- 這裡只要補上自動產生的預設值,不需要再建一個重複的唯一索引。
 alter table sb_users alter column member_code set default gen_member_code();
-
-create unique index if not exists uniq_sb_users_member_code
-  on sb_users(member_code) where member_code is not null;
 
 -- ── 1. 推薦關係 ────────────────────────────────────────────
 create table if not exists sb_referrals (
@@ -212,7 +211,11 @@ create policy p_rules_read on sb_point_rules
 --    結果會是一行沒有作用的假防護。正確作法是先收掉整表,再逐欄放行。
 do $$
 declare
-  v_allowed text[] := array['name','phone','email','coins','streak','bottles_sent','is_admin'];
+  v_allowed text[] := array[
+    'name','phone','email',
+    'coins','streak','bottles_sent','bottle_rewarded',
+    'referral_used','referral_count',
+    'is_admin'];
   v_cols text;
 begin
   revoke update on sb_users from anon, authenticated;
