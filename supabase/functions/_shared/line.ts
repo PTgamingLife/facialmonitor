@@ -1,9 +1,16 @@
 // LINE Messaging API 共用模組
 // 驗簽與 reply 的作法移植自 mainwork/line-translate-bot(已在正式環境驗過)。
 
-export const LINE_CHANNEL_SECRET = Deno.env.get("LINE_CHANNEL_SECRET") ?? "";
-export const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("LINE_CHANNEL_ACCESS_TOKEN") ?? "";
-export const APP_BASE_URL = (Deno.env.get("APP_BASE_URL") ?? "").replace(/\/$/, "");
+// 這個 Supabase 專案同時跑好幾套 App(smr_ / curve_ / wfa_ / analyze),
+// 通用名稱如 LINE_CHANNEL_SECRET 已經被其他系統佔用,所以一律加 HEALTHBOT_ 前綴。
+//
+// 刻意不做「新名稱找不到就退回舊名稱」的 fallback:
+// 舊名稱指向的是別套系統的憑證,萬一退回去,這個 bot 會拿別人的 token
+// 去回覆訊息 —— 用錯 LINE 帳號發話比直接失敗糟糕得多。
+// 沒設好就讓它 fail closed(驗簽一律失敗回 401)。
+export const LINE_CHANNEL_SECRET = Deno.env.get("HEALTHBOT_LINE_SECRET") ?? "";
+export const LINE_CHANNEL_ACCESS_TOKEN = Deno.env.get("HEALTHBOT_LINE_TOKEN") ?? "";
+export const APP_BASE_URL = (Deno.env.get("HEALTHBOT_APP_URL") ?? "").replace(/\/$/, "");
 
 const API = "https://api.line.me/v2/bot";
 const encoder = new TextEncoder();

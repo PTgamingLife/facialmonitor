@@ -8,8 +8,9 @@
 // Webhook URL:
 //   https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/line-webhook
 //
-// 需要的 secrets:
-//   LINE_CHANNEL_SECRET / LINE_CHANNEL_ACCESS_TOKEN / ANTHROPIC_API_KEY / APP_BASE_URL
+// 需要的 secrets(這個專案跑多套 App,一律加 HEALTHBOT_ 前綴避免撞名):
+//   HEALTHBOT_LINE_SECRET / HEALTHBOT_LINE_TOKEN / HEALTHBOT_APP_URL
+//   HEALTHBOT_ANTHROPIC_KEY(可退回專案既有的 ANTHROPIC_API_KEY)
 
 import {
   appUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,

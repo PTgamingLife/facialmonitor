@@ -1,7 +1,12 @@
 // Claude API 呼叫 + 健康顧問 system prompt
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-const MODEL = Deno.env.get("CLAUDE_MODEL") ?? "claude-opus-4-8";
+// Anthropic key 允許退回專案既有的通用名稱 —— 它跟 analyze 用的是同一家的 key,
+// 共用是合理的,拿到別套系統的 Anthropic key 不會造成對外身分錯亂。
+// (LINE 的憑證就沒有這個 fallback,理由見 _shared/line.ts)
+const ANTHROPIC_API_KEY = Deno.env.get("HEALTHBOT_ANTHROPIC_KEY")
+  ?? Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const MODEL = Deno.env.get("HEALTHBOT_CLAUDE_MODEL")
+  ?? Deno.env.get("CLAUDE_MODEL") ?? "claude-opus-4-8";
 
 export type Turn = { role: "user" | "assistant"; content: string };
 

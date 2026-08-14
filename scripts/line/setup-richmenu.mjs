@@ -3,7 +3,7 @@
  * 建立 2 分頁圖文選單(一支跑完)
  *
  * 用法(在 repo 根目錄):
- *   LINE_CHANNEL_ACCESS_TOKEN=xxx APP_BASE_URL=https://xxx.github.io/facialmonitor \
+ *   HEALTHBOT_LINE_TOKEN=xxx HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor \
  *     node scripts/line/setup-richmenu.mjs
  *
  * 加 --dry-run 只印出要送的 payload,不呼叫 LINE API。
@@ -23,8 +23,8 @@ import path from "node:path";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../..");
 
-const TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN ?? "";
-const APP_BASE_URL = (process.env.APP_BASE_URL ?? "").replace(/\/$/, "");
+const TOKEN = process.env.HEALTHBOT_LINE_TOKEN ?? "";
+const APP_BASE_URL = (process.env.HEALTHBOT_APP_URL ?? "").replace(/\/$/, "");
 const DRY_RUN = process.argv.includes("--dry-run");
 
 const API = "https://api.line.me/v2/bot";
@@ -80,7 +80,7 @@ function buildAreas(config, tab) {
 
     let action;
     if (cell.type === "uri") {
-      if (!APP_BASE_URL) die("這份設定有 uri 格子,必須提供 APP_BASE_URL");
+      if (!APP_BASE_URL) die("這份設定有 uri 格子,必須提供 HEALTHBOT_APP_URL");
       action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
     } else if (cell.type === "message") {
       action = { type: "message", label: cell.label, text: cell.text };
@@ -143,7 +143,7 @@ async function main() {
     return;
   }
 
-  if (!TOKEN) die("缺少 LINE_CHANNEL_ACCESS_TOKEN");
+  if (!TOKEN) die("缺少 HEALTHBOT_LINE_TOKEN");
 
   console.log("① 清掉舊的 alias 與選單(讓這支腳本可以重複執行)");
   await cleanup(config);

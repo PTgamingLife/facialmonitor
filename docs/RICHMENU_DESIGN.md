@@ -158,8 +158,8 @@ lighting. No text, no words, no numbers, no watermark.
 裡的 `image` 欄位,要改檔名就改那裡),然後執行:
 
 ```bash
-LINE_CHANNEL_ACCESS_TOKEN=xxx \
-APP_BASE_URL=https://ptgaminglife.github.io/facialmonitor \
+HEALTHBOT_LINE_TOKEN=xxx \
+HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor \
   node scripts/line/setup-richmenu.mjs
 ```
 

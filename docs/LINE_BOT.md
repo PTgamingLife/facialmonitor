@@ -100,10 +100,13 @@ update sb_point_rules set points = 150 where rule_key = 'lottery_draw';
 ```bash
 supabase link --project-ref wcemkmwrlvijxxwybrgs   # 一定要確認是這個專案
 
-supabase secrets set LINE_CHANNEL_SECRET=你的_channel_secret
-supabase secrets set LINE_CHANNEL_ACCESS_TOKEN=你的_access_token
-supabase secrets set ANTHROPIC_API_KEY=你的_anthropic_key
-supabase secrets set APP_BASE_URL=https://ptgaminglife.github.io/facialmonitor
+supabase secrets set HEALTHBOT_LINE_SECRET=你的_channel_secret
+supabase secrets set HEALTHBOT_LINE_TOKEN=你的_access_token
+supabase secrets set HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor
+
+# Anthropic key：專案裡若已經有 ANTHROPIC_API_KEY 就會自動沿用，不必重設。
+# 想給這個 bot 專用的 key 才設下面這個（會蓋過通用的那把）。
+# supabase secrets set HEALTHBOT_ANTHROPIC_KEY=你的_anthropic_key
 
 # LINE 不會帶 Supabase JWT,這支一定要關掉 JWT 驗證
 supabase functions deploy line-webhook --no-verify-jwt
@@ -113,8 +116,18 @@ supabase functions deploy score-settle
 supabase functions deploy line-broadcast
 ```
 
-> secrets 不跨專案。就算原本的翻譯 bot 已經設過同樣的 key,
-> 在 `wcemkmwrlvijxxwybrgs` 還是要重設一份。
+> **為什麼加 `HEALTHBOT_` 前綴**:這個 Supabase 專案同時跑好幾套 App
+> (`smr_`、`curve_`、`wfa_`、`analyze` / `ai-analyze`),
+> `LINE_CHANNEL_SECRET`、`APP_BASE_URL` 這種通用名稱已經被別套系統佔用了。
+>
+> 程式**刻意不做「新名稱找不到就退回舊名稱」的 fallback**。舊名稱指向的是
+> 別套系統的憑證,萬一退回去,這個 bot 會拿別人的 token 去回覆訊息 ——
+> 用錯 LINE 帳號發話比直接失敗糟糕得多。沒設好就 fail closed(驗簽一律 401)。
+>
+> 只有 Anthropic key 保留 fallback,因為它跟 `analyze` 用的是同一家的 key,
+> 共用是合理的,也不會造成對外身分錯亂。
+>
+> secrets 不跨專案,一定要設在 `wcemkmwrlvijxxwybrgs`。
 
 部署完回 LINE 後台 **Messaging API → Webhook URL** 貼上
 `https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/line-webhook`,
@@ -133,8 +146,8 @@ supabase functions deploy line-broadcast
 而且要修就得重跑整個建立流程。
 
 ```bash
-LINE_CHANNEL_ACCESS_TOKEN=xxx \
-APP_BASE_URL=https://ptgaminglife.github.io/facialmonitor \
+HEALTHBOT_LINE_TOKEN=xxx \
+HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor \
   node scripts/line/setup-richmenu.mjs
 ```
 
