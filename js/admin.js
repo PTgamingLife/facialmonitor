@@ -65,8 +65,12 @@ async function saveCredits(userId) {
   const val = parseInt(input.value);
   if (isNaN(val) || val < 0) { showToast('請輸入有效次數'); return; }
 
-  const { error } = await supabase.from('sb_users').update({ credits: val }).eq('id', userId);
-  if (error) { showToast('儲存失敗'); return; }
+  // 走 RPC：前端已無權直接改 sb_users.credits，且後台調整要留在積點總帳裡
+  const { data, error } = await supabase.rpc('rpc_admin_set_balance', {
+    p_target_user_id: userId,
+    p_credits: val,
+  });
+  if (error || !data?.ok) { showToast('儲存失敗'); return; }
   showToast('✅ 次數已更新');
 }
 

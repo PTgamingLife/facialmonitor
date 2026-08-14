@@ -227,39 +227,33 @@ async function submitCode() {
   res.textContent = '驗證中…'; res.className = 'modal-result';
 
   try {
-    // 查詢設定的推薦碼
-    const { data: settings } = await supabase.from('settings').select('*').single();
-    let addCredits = 0;
-    if (settings) {
-      if (code === settings.code_1)   addCredits = 1;
-      if (code === settings.code_10)  addCredits = 10;
-      if (code === '7540336')         addCredits = 100;
+    // 先當兌換碼試（sb_health_codes）。加次數只能由 RPC 執行，
+    // 前端已無權直接改 sb_users.credits。
+    const { data: redeem } = await supabase.rpc('rpc_redeem_health_code', { p_code: code });
+
+    if (redeem?.ok) {
+      currentUser.credits = redeem.credits;
+      sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
+      updateCreditsDisplay();
+      res.textContent = `✓ 成功！已增加 ${redeem.credits_added} 次檢測次數`;
+      res.className = 'modal-result ok';
+      return;
     }
 
-    if (!addCredits) {
-      // 檢查是否為其他用戶的會員碼（推薦碼）
-      const { data: refUser } = await supabase.from('users').select('id').eq('member_code', code).single();
-      if (!refUser || refUser.id === currentUser.id) {
-        res.textContent = '密碼無效'; res.className = 'modal-result err'; return;
-      }
-      // 已使用過？
-      const { data: usedCheck } = await supabase.from('code_usages').select('id').eq('user_id', currentUser.id).eq('code', code).single();
-      if (usedCheck) { res.textContent = '此密碼已使用過'; res.className = 'modal-result err'; return; }
+    // 不是兌換碼，就當成別人的推薦碼（認定小天使）
+    const { data: angel } = await supabase.rpc('rpc_bind_angel', { p_code: code, p_source: 'web' });
 
-      addCredits = 1;
-      await supabase.from('code_usages').insert({ user_id: currentUser.id, code });
-      // 推薦者也加一次
-      const { data: refFull } = await supabase.from('users').select('credits').eq('id', refUser.id).single();
-      await supabase.from('users').update({ credits: (refFull?.credits ?? 0) + 1 }).eq('id', refUser.id);
+    if (angel?.ok) {
+      currentUser.points = angel.balance;
+      sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
+      res.textContent = `✓ 已認定「${angel.angel_name}」為你的小天使，獲得 ${angel.points_awarded} 點`;
+      res.className = 'modal-result ok';
+      if (typeof loadReward === 'function') loadReward();
+      return;
     }
 
-    const newCredits = (currentUser.credits ?? 0) + addCredits;
-    await supabase.from('users').update({ credits: newCredits }).eq('id', currentUser.id);
-    currentUser.credits = newCredits;
-    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-    updateCreditsDisplay();
-    res.textContent = `✓ 成功！已增加 ${addCredits} 次檢測次數`;
-    res.className = 'modal-result ok';
+    res.textContent = angel?.message ?? redeem?.message ?? '密碼無效';
+    res.className = 'modal-result err';
   } catch { res.textContent = '驗證失敗，請稍後再試'; res.className = 'modal-result err'; }
 }
 

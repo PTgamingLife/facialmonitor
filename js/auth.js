@@ -13,6 +13,7 @@ function showPage(pageId) {
   if (pageId === 'page-history')      loadHistory();
   if (pageId === 'page-achievement')  loadAchievement();
   if (pageId === 'page-leaderboard')  loadLeaderboard();
+  if (pageId === 'page-reward')       loadReward();
   if (pageId === 'page-bottle')       loadBottle();
   if (pageId === 'page-admin')        loadAdminUsers();
 
