@@ -104,6 +104,9 @@ supabase secrets set HEALTHBOT_LINE_SECRET=你的_channel_secret
 supabase secrets set HEALTHBOT_LINE_TOKEN=你的_access_token
 supabase secrets set HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor
 
+# 建圖文選單用的（見第四節）。隨便一組長字串就行。
+supabase secrets set HEALTHBOT_SETUP_KEY=一組夠長的隨機字串
+
 # Anthropic key：專案裡若已經有 ANTHROPIC_API_KEY 就會自動沿用，不必重設。
 # 想給這個 bot 專用的 key 才設下面這個（會蓋過通用的那把）。
 # supabase secrets set HEALTHBOT_ANTHROPIC_KEY=你的_anthropic_key
@@ -145,22 +148,43 @@ supabase functions deploy line-broadcast
 確認是 200 不是 404**。選單有三格是連回網頁的,網址不通的話客戶點下去會看到錯誤頁,
 而且要修就得重跑整個建立流程。
 
+### 方式 A(建議):`richmenu-setup` Edge Function
+
+底圖 push 到 main 之後,瀏覽器開:
+
+```
+https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/richmenu-setup?key=<HEALTHBOT_SETUP_KEY>&dry=1
+```
+
+確認座標沒問題就拿掉 `&dry=1` 再開一次。
+
+- LINE token 留在 Supabase secrets,不用複製到自己電腦,也不用裝 Node。
+- 設定與底圖是從 GitHub raw 讀的(repo 是 public),所以**改完要先 push**;
+  要跑別的分支加 `&ref=<branch>`。
+- 第一次用要先加一個 secret `HEALTHBOT_SETUP_KEY`(隨便一組長字串)。
+  沒設的話這支會回 503,不會有一個誰都能重設選單的公開網址。
+- 底圖會**全部抓齊、確認都在 1MB 以內之後**才開始動 LINE 上的東西;
+  不然刪完舊選單才發現圖 404,選單會直接從客戶手機上消失。
+- 建好會自動 upsert 進 `line_rich_menus`,不用手動貼 SQL。
+
+### 方式 B:本機腳本
+
 ```bash
 HEALTHBOT_LINE_TOKEN=xxx \
 HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor \
   node scripts/line/setup-richmenu.mjs
 ```
 
-- 加 `--dry-run` 只會印出座標與 action,不呼叫 LINE API,適合先檢查。
-- 這支腳本**可以重複執行**:每次會先刪掉舊的 alias 與同名選單再重建。
-- 執行順序寫死在腳本裡且不可調換:
-  **建 menu → 上傳底圖 → 建 alias → 設預設**。
-  (沒有底圖的 menu 不能設成預設;alias 還指著 menu 時 menu 刪不掉。)
-- 跑完會印一段 `insert into line_rich_menus ...`,貼到 SQL Editor 執行,
-  把 richMenuId 記錄下來。
+跑完會印一段 `insert into line_rich_menus ...`,貼到 SQL Editor 執行。
 
-格子行為要改的話**改 `scripts/line/richmenu-config.json` 就好**,不用動程式;
-改完重跑腳本即可。
+### 兩種方式共通
+
+- 加 `--dry-run` / `&dry=1` 只印座標與 action,不呼叫 LINE API。
+- **可以重複執行**:每次會先刪掉舊的 alias 與同名選單再重建。
+- 執行順序寫死且不可調換:**建 menu → 上傳底圖 → 建 alias → 設預設**。
+  (沒有底圖的 menu 不能設成預設;alias 還指著 menu 時 menu 刪不掉。)
+- 格子行為要改**改 `scripts/line/richmenu-config.json` 就好**,不用動程式,
+  兩邊都吃同一份設定。
 
 ---
 
