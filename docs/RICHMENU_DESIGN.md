@@ -166,14 +166,30 @@ lighting. No text, no words, no numbers, no watermark.
 ## 完成後
 
 把兩張圖放進 `img/`,檔名必須是
-`richmenu-health.png` 與 `richmenu-reward.png`(腳本讀 `scripts/line/richmenu-config.json`
-裡的 `image` 欄位,要改檔名就改那裡),然後執行:
+`richmenu-health.png` 與 `richmenu-reward.png`(讀 `scripts/line/richmenu-config.json`
+裡的 `image` 欄位,要改檔名就改那裡),**push 到 main**,然後二選一:
+
+### 方式 A(建議):用 Edge Function 建立
+
+```
+https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/richmenu-setup?key=<HEALTHBOT_SETUP_KEY>&dry=1
+```
+
+瀏覽器直接開,確認座標沒問題再拿掉 `&dry=1`。
+LINE token 從頭到尾留在 Supabase secrets,不用複製到自己電腦,也不用裝 Node。
+設定與底圖是從 GitHub raw 讀的,所以**要先 push**;要跑別的分支就加
+`&ref=<branch>`。
+
+第一次用要先在 Supabase secrets 新增 `HEALTHBOT_SETUP_KEY`(隨便一組長字串,
+只是不想讓這個網址被路人打)。
+
+### 方式 B:本機腳本
 
 ```bash
 HEALTHBOT_LINE_TOKEN=xxx \
 HEALTHBOT_APP_URL=https://ptgaminglife.github.io/facialmonitor \
-  node scripts/line/setup-richmenu.mjs
+  node scripts/line/setup-richmenu.mjs --dry-run
 ```
 
-先加 `--dry-run` 看一次座標沒問題再正式跑。
-腳本可以重複執行,圖改了就重跑一次,不會殘留舊選單。
+兩邊算出來的可點區塊完全一樣。任一種都可以重複執行,圖改了就重跑,
+不會殘留舊選單。
