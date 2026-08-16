@@ -8,7 +8,7 @@ window.LIFF_AUTH_URL = window.SUPABASE_URL + '/functions/v1/liff-auth';
    LIFF ID 來自 LINE Developers Console 的 LINE Login channel。
    ⚠️ 那個 channel 必須與 Messaging API channel 在同一個 Provider，
    否則 LIFF 拿到的 userId 與 webhook 收到的不是同一組，帳號會對不起來。 */
-window.LIFF_ID = '';   // 例：'2008604370-abcd1234'
+window.LIFF_ID = '2011132698-FNcAIg39';
 
 /* ── OAuth URL 修正（必須在 createClient 前執行）──
    Google OAuth 有時回傳 %23access_token（URL 編碼的 #），
