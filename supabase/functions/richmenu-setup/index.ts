@@ -148,6 +148,10 @@ async function run(ref: string, dry: boolean, log: string[]) {
   const config: Config = await (await fetchRaw(ref, "scripts/line/richmenu-config.json")).json();
   assertLayout(config);
   log.push(`設定來源:${ref} / scripts/line/richmenu-config.json`);
+  // 印出來,才看得出線上這版有沒有吃到 liffId ——
+  // 這次就是 config 加了 liffId 但函式沒重新部署,結果 uri 還是舊網址,
+  // 而輸出裡完全看不出原因。
+  log.push(`liffId:${config.liffId || "(未設定,uri 格子直接開網頁)"}`);
 
   if (dry) {
     for (const tab of config.tabs) {
