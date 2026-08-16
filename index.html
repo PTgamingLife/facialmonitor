@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="img/icon-192.png">
@@ -36,16 +37,13 @@
         <div class="login-card">
           <p class="login-tagline">根據醫藥大學大數據模型<br>TCM 資料集訓練結果判斷</p>
           <div id="login-error" class="error-box" style="display:none"></div>
-          <button class="btn-google" id="btn-google-login" onclick="loginWithGoogle()">
-            <svg viewBox="0 0 24 24" width="22" height="22" xmlns="http://www.w3.org/2000/svg">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          <button class="btn-line" id="btn-line-login" onclick="loginWithLine()">
+            <svg viewBox="0 0 24 24" width="22" height="22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path fill="#fff" d="M12 3C6.9 3 2.75 6.36 2.75 10.5c0 3.71 3.29 6.82 7.73 7.41.3.06.71.2.81.46.09.23.06.6.03.84l-.13.79c-.04.23-.19.9.79.49s5.28-3.11 7.2-5.32c1.33-1.46 1.97-2.94 1.97-4.67C21.15 6.36 17 3 12 3zM8.3 12.9H6.46a.24.24 0 0 1-.24-.24V9.03c0-.14.11-.25.24-.25h.46c.14 0 .25.11.25.25v2.94H8.3c.14 0 .24.11.24.25v.44c0 .13-.1.24-.24.24zm1.44 0h-.46a.24.24 0 0 1-.25-.24V9.03c0-.14.11-.25.25-.25h.46c.13 0 .24.11.24.25v3.63c0 .13-.11.24-.24.24zm4.02 0h-.46a.24.24 0 0 1-.2-.1l-1.66-2.25v2.11c0 .13-.11.24-.25.24h-.46a.24.24 0 0 1-.24-.24V9.03c0-.14.11-.25.24-.25h.5l.03.01.03.02.02.02 1.65 2.23V9.03c0-.14.11-.25.25-.25h.46c.13 0 .24.11.24.25v3.63c0 .13-.11.24-.24.24zm3.1-3.19h-1.59v.61h1.59c.13 0 .24.11.24.25v.44c0 .14-.11.25-.24.25h-1.59v.61h1.59c.13 0 .24.11.24.25v.44c0 .13-.11.24-.24.24h-2.3a.24.24 0 0 1-.24-.24V9.03c0-.14.11-.25.24-.25h2.3c.13 0 .24.11.24.25v.44c0 .14-.11.24-.24.24z"/>
             </svg>
-            <span class="btn-google-text">使用 Google 帳號登入</span>
+            <span class="btn-line-text">使用 LINE 登入</span>
           </button>
-          <div class="login-secure-note">🔒 安全登入 · 資料隱私保障</div>
+          <div class="login-secure-note">🔒 在 LINE 裡開啟會自動登入</div>
         </div>
 
         <div style="margin-top:20px;font-size:11px;color:rgba(255,255,255,.55);text-align:center;letter-spacing:1px;text-shadow:0 1px 4px rgba(0,0,0,.3)">
@@ -127,9 +125,6 @@
     </button>
     <button class="nav-tab" data-page="page-challenge" onclick="showPage('page-challenge')">
       <img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測
-    </button>
-    <button class="nav-tab" data-page="page-bottle" onclick="showPage('page-bottle')">
-      <img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶
     </button>
     <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')">
       <img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就
@@ -251,7 +246,6 @@
   <nav class="bottom-nav">
     <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
     <button class="nav-tab active" data-page="page-challenge" onclick="showPage('page-challenge')"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab" data-page="page-bottle" onclick="showPage('page-bottle')"><img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶</button>
     <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
     <button class="nav-tab" data-page="page-history" onclick="showPage('page-history')"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
   </nav>
@@ -284,7 +278,6 @@
   <nav class="bottom-nav">
     <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
     <button class="nav-tab active" data-page="page-challenge"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab" data-page="page-bottle" onclick="showPage('page-bottle')"><img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶</button>
     <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
     <button class="nav-tab" data-page="page-history" onclick="showPage('page-history')"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
   </nav>
@@ -310,46 +303,26 @@
   </div>
 
   <div style="padding:0 16px">
+    <!-- 舊 Google 帳號資料轉移（轉移完就自己收起來，不再打擾） -->
+    <div class="migrate-card" id="migrate-card">
+      <div class="migrate-title">🔁 之前用 Google 登入過？</div>
+      <p class="migrate-desc">
+        把舊帳號的檢測紀錄、剩餘次數與積點一次搬到現在這個 LINE 帳號。
+        搬完舊帳號就會封存，資料不會重複計算。
+      </p>
+      <button class="migrate-btn" id="migrate-btn" onclick="startLegacyMigration()">
+        用 Google 登入並轉移
+      </button>
+      <div class="migrate-note" id="migrate-note">會先跳到 Google 確認身分，完成後自動回到這裡。</div>
+    </div>
+
     <div id="history-list"><div class="empty-state">載入中…</div></div>
   </div>
   <nav class="bottom-nav">
     <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
     <button class="nav-tab" data-page="page-challenge" onclick="showPage('page-challenge')"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab" data-page="page-bottle" onclick="showPage('page-bottle')"><img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶</button>
     <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
     <button class="nav-tab active" data-page="page-history"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
-  </nav>
-</div>
-
-<!-- ═══════════════════════════════════════ PAGE: BOTTLE ═══ -->
-<div class="page" id="page-bottle">
-  <div class="top-bar">
-    <span class="top-bar-brand">🫙 健康漂流瓶</span>
-  </div>
-  <div style="padding:0 16px">
-    <div class="bottle-compose">
-      <div class="section-title">發送漂流瓶</div>
-      <textarea class="bottle-textarea" id="bottle-textarea" placeholder="分享你的健康心聲、養生心得或今日感受…（最多 300 字）" maxlength="300"></textarea>
-      <div class="bottle-footer">
-        <select class="bottle-select" id="bottle-category">
-          <option>健康心聲</option>
-          <option>養生心得</option>
-          <option>今日感受</option>
-          <option>飲食記錄</option>
-          <option>運動分享</option>
-        </select>
-        <button class="bottle-send-btn" onclick="sendBottle()">🌊 送出</button>
-      </div>
-    </div>
-    <div class="section-title" style="padding:0">收到的漂流瓶</div>
-    <div id="bottle-list"><div class="empty-state">載入中…</div></div>
-  </div>
-  <nav class="bottom-nav">
-    <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
-    <button class="nav-tab" data-page="page-challenge" onclick="showPage('page-challenge')"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab active" data-page="page-bottle"><img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶</button>
-    <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
-    <button class="nav-tab" data-page="page-history" onclick="showPage('page-history')"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
   </nav>
 </div>
 
@@ -366,7 +339,6 @@
   <nav class="bottom-nav">
     <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
     <button class="nav-tab" data-page="page-challenge" onclick="showPage('page-challenge')"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab" data-page="page-bottle" onclick="showPage('page-bottle')"><img class="nav-tab-icon-img" src="img/tab-3.png" alt="">漂流瓶</button>
     <button class="nav-tab active" data-page="page-achievement"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
     <button class="nav-tab" data-page="page-history" onclick="showPage('page-history')"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
   </nav>
@@ -540,22 +512,6 @@
 </div>
 
 </div><!-- .app -->
-
-<!-- ════════ 漂流瓶訊息 Modal ════════ -->
-<div id="bottle-msg-modal" class="bottle-msg-modal" onclick="closeBottleMessage()">
-  <div class="bottle-msg-card" onclick="event.stopPropagation()">
-    <div class="bottle-msg-top">
-      <span class="bottle-msg-icon">🫙</span>
-      <div class="bottle-msg-meta">
-        <div class="bottle-msg-anon">匿名旅人</div>
-        <div id="bottle-msg-time" class="bottle-msg-time"></div>
-      </div>
-      <span id="bottle-msg-cat" class="bottle-msg-cat"></span>
-    </div>
-    <p id="bottle-msg-text" class="bottle-msg-text"></p>
-    <button class="bottle-msg-close" onclick="closeBottleMessage()">關閉</button>
-  </div>
-</div>
 
 <!-- ════════════════════ SCRIPTS ════════════════════ -->
 <script src="js/config.js?v=8"></script>

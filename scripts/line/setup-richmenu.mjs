@@ -80,8 +80,15 @@ function buildAreas(config, tab) {
 
     let action;
     if (cell.type === "uri") {
-      if (!APP_BASE_URL) die("這份設定有 uri 格子,必須提供 HEALTHBOT_APP_URL");
-      action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
+      // 有 liffId 就走 LIFF:在 LINE 裡開會自動帶身分,使用者不用再登入一次。
+      // LIFF 只保證帶過去 query string,不保證帶 hash,所以頁面用 ?p= 指定。
+      if (config.liffId) {
+        action = { type: "uri", label: cell.label,
+                   uri: `https://liff.line.me/${config.liffId}?p=${cell.target}` };
+      } else {
+        if (!APP_BASE_URL) die("這份設定有 uri 格子,必須提供 HEALTHBOT_APP_URL 或 config.liffId");
+        action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
+      }
     } else if (cell.type === "message") {
       action = { type: "message", label: cell.label, text: cell.text };
     } else {

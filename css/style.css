@@ -88,8 +88,6 @@ body.font-lg .section-title,
 body.font-lg .history-card-title,
 body.font-lg .history-card-sub,
 body.font-lg .report-text,
-body.font-lg .bottle-msg,
-body.font-lg .bottle-msg-text,
 body.font-lg .achievement-title,
 body.font-lg .achievement-desc,
 body.font-lg .leader-name,
@@ -234,22 +232,22 @@ body.font-lg .nav-tab { font-size:12px; }
 }
 
 /* Google 登入按鈕 */
-.btn-google {
+.btn-line {
   width:100%; display:flex; align-items:center; justify-content:center; gap:12px;
-  padding:15px 20px; background:white;
-  border:1.5px solid rgba(34,193,195,.35); border-radius:var(--radius-md);
-  color:var(--text-dark); font-family:'Noto Serif TC',serif;
+  padding:15px 20px; background:#06C755;
+  border:1.5px solid #06C755; border-radius:var(--radius-md);
+  color:#fff; font-family:'Noto Serif TC',serif;
   font-size:15px; font-weight:500; letter-spacing:1px;
   cursor:pointer; transition:all .3s;
   box-shadow:0 2px 8px rgba(0,0,0,.08);
 }
-.btn-google:hover {
-  border-color:var(--gold-main);
-  box-shadow:0 4px 16px rgba(34,193,195,.22);
+.btn-line:hover {
+  background:#05B54C; border-color:#05B54C;
+  box-shadow:0 4px 16px rgba(6,199,85,.3);
   transform:translateY(-1px);
 }
-.btn-google:active { transform:translateY(0); }
-.btn-google:disabled { opacity:.55; cursor:not-allowed; transform:none; }
+.btn-line:active { transform:translateY(0); }
+.btn-line:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 
 .login-secure-note {
   text-align:center; margin-top:12px;
@@ -532,94 +530,6 @@ body.font-lg .nav-tab { font-size:12px; }
 
 .empty-state { text-align:center; padding:50px 20px; font-size:14px; color:var(--text-hint); line-height:2.2; }
 
-/* ── Bottle Page ── */
-.bottle-compose { background:white; border-radius:var(--radius-lg); padding:20px 16px; margin-bottom:16px; border:1px solid var(--gold-pale); box-shadow:var(--shadow-card); }
-.bottle-textarea { width:100%; min-height:100px; background:var(--bg-primary); border:1px solid var(--gold-pale); border-radius:var(--radius-sm); padding:12px 14px; font-family:'Noto Sans TC',sans-serif; font-size:14px; color:var(--text-dark); resize:none; outline:none; margin-bottom:12px; transition:border-color .3s; }
-.bottle-textarea:focus { border-color:var(--gold-main); }
-.bottle-footer { display:flex; gap:10px; align-items:center; }
-.bottle-select { flex:1; background:var(--bg-secondary); border:1px solid var(--gold-pale); border-radius:var(--radius-sm); padding:10px 12px; font-size:13px; color:var(--text-mid); outline:none; }
-.bottle-send-btn { padding:10px 20px; background:var(--gold-main); color:white; border:none; border-radius:var(--radius-sm); font-size:13px; font-weight:700; cursor:pointer; transition:all .2s; }
-.bottle-send-btn:hover { opacity:.9; }
-.bottle-card { background:white; border-radius:var(--radius-md); padding:16px; margin-bottom:12px; border:1px solid var(--gold-pale); box-shadow:0 2px 8px rgba(180,140,90,.1); }
-.bottle-header { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-.bottle-icon { font-size:20px; }
-.bottle-anon { font-size:13px; color:var(--text-soft); flex:1; }
-.bottle-time { font-size:11px; color:var(--text-hint); }
-.bottle-msg { font-size:14px; color:var(--text-dark); line-height:1.9; margin-bottom:10px; }
-.bottle-footer { display:flex; justify-content:flex-end; }
-.bottle-category { font-size:11px; background:var(--gold-pale); color:var(--gold-deep); padding:2px 10px; border-radius:99px; }
-
-/* ── 漂流瓶水池 ── */
-.bottle-pool-wrap { margin:0 0 8px; }
-.bottle-pool {
-  position:relative; width:100%; height:260px;
-  background:linear-gradient(180deg,#C8EDFB 0%,#6EC6F0 45%,#3AAAE0 100%);
-  border-radius:20px; overflow:hidden;
-}
-/* 水面波紋層 */
-.bottle-pool::before {
-  content:''; position:absolute; bottom:22%; left:-25%; width:150%; height:36px;
-  background:rgba(255,255,255,.22); border-radius:50%;
-  animation:poolWave1 4s ease-in-out infinite;
-}
-.bottle-pool::after {
-  content:''; position:absolute; bottom:6%; left:-25%; width:150%; height:28px;
-  background:rgba(255,255,255,.16); border-radius:50%;
-  animation:poolWave2 3.4s ease-in-out infinite reverse;
-}
-@keyframes poolWave1 { 0%,100%{transform:translateX(0) scaleX(1)} 50%{transform:translateX(7%) scaleX(1.05)} }
-@keyframes poolWave2 { 0%,100%{transform:translateX(0) scaleX(1)} 50%{transform:translateX(-7%) scaleX(1.05)} }
-
-/* 水面光澤 */
-.pool-glare {
-  position:absolute; top:6%; left:8%; width:35%; height:18%;
-  background:rgba(255,255,255,.25); border-radius:50%; filter:blur(6px);
-  animation:glareShift 5s ease-in-out infinite;
-}
-@keyframes glareShift { 0%,100%{opacity:.5} 50%{opacity:.9} }
-
-/* 浮瓶 */
-.floating-bottle {
-  position:absolute; font-size:34px; cursor:pointer;
-  animation:bottleFloat var(--dur,3s) ease-in-out infinite;
-  animation-delay:var(--delay,0s);
-  filter:drop-shadow(0 5px 10px rgba(0,80,150,.25));
-  transition:filter .2s, transform .15s;
-  user-select:none;
-}
-.floating-bottle:hover { filter:drop-shadow(0 8px 16px rgba(0,80,150,.4)) brightness(1.1); }
-.floating-bottle:active { transform:scale(.88) !important; }
-@keyframes bottleFloat {
-  0%,100%{ transform:translateY(0) rotate(-5deg); }
-  50%{ transform:translateY(-16px) rotate(5deg); }
-}
-.bottle-pool-hint { text-align:center; font-size:12px; color:var(--text-hint); margin:8px 0 16px; }
-
-/* ── 瓶中訊息 Modal ── */
-.bottle-msg-modal {
-  display:none; position:fixed; inset:0; z-index:300;
-  background:rgba(10,40,70,.5); backdrop-filter:blur(5px);
-  align-items:flex-end; justify-content:center;
-}
-.bottle-msg-modal.show { display:flex; }
-.bottle-msg-card {
-  background:white; border-radius:28px 28px 0 0;
-  width:100%; max-width:480px; padding:28px 22px 44px;
-  animation:cardUp .35s cubic-bezier(.34,1.56,.64,1);
-}
-@keyframes cardUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-.bottle-msg-top { display:flex; align-items:center; gap:12px; margin-bottom:18px; }
-.bottle-msg-icon { font-size:38px; }
-.bottle-msg-meta { flex:1; }
-.bottle-msg-anon { font-weight:700; font-size:14px; color:var(--text-dark); }
-.bottle-msg-time { font-size:12px; color:var(--text-hint); margin-top:2px; }
-.bottle-msg-cat { font-size:11px; font-weight:600; background:var(--gold-pale); color:var(--gold-deep); padding:4px 12px; border-radius:20px; white-space:nowrap; }
-.bottle-msg-text { font-size:15px; line-height:1.8; color:var(--text-dark); margin-bottom:22px; }
-.bottle-msg-close {
-  width:100%; padding:15px; border:none; border-radius:14px;
-  background:var(--gold-main); color:white; font-size:15px; font-weight:700; cursor:pointer;
-}
-
 /* ── Achievement Page ── */
 .achievement-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:0 16px; }
 .achievement-card { background:white; border-radius:var(--radius-md); padding:16px; border:1px solid var(--gold-pale); text-align:center; transition:all .2s; }
@@ -751,3 +661,20 @@ input[type="file"] { display:none; }
 /* ── fs-btn active in v2 ── */
 .fs-btn.active { background:var(--gold-main); color:white; }
 .fs-btn:not(.active):hover { background:var(--gold-pale); color:var(--gold-deep); }
+
+/* ── 舊 Google 帳號資料轉移 ── */
+.migrate-card {
+  background:white; border:1px solid var(--gold-pale); border-radius:var(--radius-lg);
+  padding:16px; margin-bottom:16px; box-shadow:var(--shadow-card);
+}
+.migrate-title { font-size:14px; font-weight:700; color:var(--text-dark); margin-bottom:6px; }
+.migrate-desc  { font-size:12.5px; color:var(--text-soft); line-height:1.9; margin-bottom:12px; }
+.migrate-btn {
+  width:100%; padding:11px 16px; background:var(--gold-main); color:#fff;
+  border:none; border-radius:var(--radius-sm); font-size:13.5px; font-weight:700;
+  cursor:pointer; transition:opacity .2s;
+}
+.migrate-btn:hover:not(:disabled) { opacity:.9; }
+.migrate-btn:disabled { opacity:.5; cursor:not-allowed; }
+.migrate-note { font-size:11px; color:var(--text-hint); margin-top:8px; line-height:1.8; }
+.migrate-card.done .migrate-btn { display:none; }

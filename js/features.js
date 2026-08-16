@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   features.js — 首頁、任務、豬公、漂流瓶、成就、排行榜
+   features.js — 首頁、任務、豬公、成就、排行榜
    ═══════════════════════════════════════════════ */
 
 /* ── 首頁載入 ── */
@@ -280,110 +280,6 @@ function selectPlan(name, price, count) {
   document.getElementById('payment-price').textContent     = `NT$ ${price} 元`;
 }
 
-/* ── 漂流瓶（10 瓶預設內容 + 水池動畫） ── */
-const DEMO_BOTTLES = [
-  { message:'今天早上喝了一大杯溫水，整個人清醒好多，推薦給大家！', category:'水分', time:'10分鐘前' },
-  { message:'飯後散步20分鐘真的很有效，消化變好，肚子不脹了 🚶‍♀️', category:'運動', time:'32分鐘前' },
-  { message:'連續一週九點上床，皮膚明顯變好，睡眠品質提升真的很重要！', category:'睡眠', time:'1小時前' },
-  { message:'冥想10分鐘後，工作壓力少很多，強力推薦！適合睡前做✨', category:'心理', time:'2小時前' },
-  { message:'減少手機使用一小時，改拿書來看，心情好平靜。晚安 🌙', category:'心理', time:'3小時前' },
-  { message:'今天每餐只吃七分飽，晚上睡覺特別舒服！消化很好', category:'飲食', time:'5小時前' },
-  { message:'按摩足三里穴真的會有酸脹感，按完腿感覺輕盈好多 👣 大家試試', category:'穴位', time:'昨天' },
-  { message:'今天補充了五份蔬菜，顏色好豐富，吃飯變成一種享受！🥦🥕', category:'飲食', time:'昨天' },
-  { message:'每天深呼吸十次真的能讓人靜下來，尤其是工作焦慮時特別有效 🌬️', category:'呼吸', time:'2天前' },
-  { message:'14天挑戰完成了！這段時間精神變好，體重也少了一點，感謝這個計畫！💪', category:'總結', time:'3天前' },
-];
-
-const BOTTLE_POS = [
-  { left:'8%',  top:'20%', dur:'3.2s', delay:'0s'   },
-  { left:'30%', top:'48%', dur:'2.8s', delay:'0.5s' },
-  { left:'55%', top:'16%', dur:'3.5s', delay:'1.1s' },
-  { left:'73%', top:'42%', dur:'2.6s', delay:'0.3s' },
-  { left:'14%', top:'63%', dur:'3.8s', delay:'0.8s' },
-  { left:'42%', top:'66%', dur:'3.0s', delay:'1.5s' },
-  { left:'63%', top:'61%', dur:'2.9s', delay:'0.6s' },
-  { left:'82%', top:'20%', dur:'3.3s', delay:'1.2s' },
-  { left:'84%', top:'58%', dur:'2.7s', delay:'0.9s' },
-  { left:'38%', top:'28%', dur:'3.6s', delay:'1.8s' },
-];
-
-async function loadBottle() {
-  const container = document.getElementById('bottle-list');
-  if (!container) return;
-
-  let bottles = DEMO_BOTTLES;
-
-  if (!window._demoMode) {
-    container.innerHTML = '<div class="empty-state">載入中…</div>';
-    try {
-      const res = await dbQuery(
-        supabase.from('sb_bottles').select('*').order('created_at', { ascending: false }).limit(10)
-      );
-      if (res.data?.length) {
-        bottles = res.data.map(b => ({
-          message:  b.message,
-          category: b.category ?? '健康心聲',
-          time:     relativeTime(b.created_at),
-        }));
-      }
-    } catch { }
-  }
-
-  window._bottleData = bottles;
-
-  // 渲染水池 + 浮瓶
-  container.innerHTML = `
-    <div class="bottle-pool-wrap">
-      <div class="bottle-pool">
-        <div class="pool-glare"></div>
-        ${bottles.map((_, i) => {
-          const p = BOTTLE_POS[i % BOTTLE_POS.length];
-          return `<span class="floating-bottle"
-            style="left:${p.left};top:${p.top};--dur:${p.dur};--delay:${p.delay}"
-            onclick="openBottleMessage(${i})">🫙</span>`;
-        }).join('')}
-      </div>
-      <p class="bottle-pool-hint">👆 點瓶子查看健康心聲</p>
-    </div>`;
-}
-
-function openBottleMessage(i) {
-  const b = (window._bottleData ?? DEMO_BOTTLES)[i];
-  if (!b) return;
-  document.getElementById('bottle-msg-text').textContent = b.message;
-  document.getElementById('bottle-msg-cat').textContent  = b.category;
-  document.getElementById('bottle-msg-time').textContent = b.time;
-  document.getElementById('bottle-msg-modal').classList.add('show');
-}
-
-function closeBottleMessage() {
-  document.getElementById('bottle-msg-modal').classList.remove('show');
-}
-
-async function sendBottle() {
-  const msg = document.getElementById('bottle-textarea').value.trim();
-  const cat = document.getElementById('bottle-category').value;
-  if (!msg) { showToast('請輸入訊息再送出'); return; }
-  if (msg.length > 300) { showToast('訊息請在 300 字以內'); return; }
-
-  try {
-    await supabase.from('sb_bottles').insert({ message: msg, category: cat, user_id: currentUser.id, sender_id: currentUser.id, sender_name: currentUser.name ?? '' });
-    const newSent = (currentUser.bottles_sent ?? 0) + 1;
-    await supabase.from('sb_users').update({ bottles_sent: newSent }).eq('id', currentUser.id);
-    currentUser.bottles_sent = newSent;
-    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-
-    document.getElementById('bottle-textarea').value = '';
-    showToast('🌊 漂流瓶已送出！');
-    loadBottle();
-    await checkAchievements();
-  } catch { showToast('送出失敗，請稍後再試'); }
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 /* ── 成就 ── */
 async function loadAchievement() {
   const container = document.getElementById('achievement-grid');
@@ -395,7 +291,6 @@ async function loadAchievement() {
     streak:        currentUser.streak ?? 0,
     coins:         currentUser.coins ?? 0,
     completedDays: 0,
-    bottlesSent:   currentUser.bottles_sent ?? 0,
   };
   // 取完成天數
   if (!window._demoMode) {
@@ -435,7 +330,6 @@ async function checkAchievements() {
     streak:     currentUser.streak ?? 0,
     coins:      currentUser.coins ?? 0,
     completedDays,
-    bottlesSent: currentUser.bottles_sent ?? 0,
   };
   ACHIEVEMENTS.forEach(a => {
     if (a.condition(ctx)) showToast(`🏆 成就解鎖：${a.title}`);
