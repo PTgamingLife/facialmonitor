@@ -241,9 +241,14 @@ async function handleSessionUser(session) {
                || (existing.phone === window.ADMIN_PHONE && existing.name === window.ADMIN_NAME);
   enterApp(isAdmin);
 
-  // 已經是 LINE 帳號、或已經合併過的，就不用再看到轉移卡片
+  // 轉移卡片只對「LINE 帳號、而且還沒轉移過」的人顯示。
+  // 登在舊 Google 帳號時給他看這張卡沒有意義 —— 按下去只會得到
+  // 「這已經是同一個帳號了」，白繞一圈。
   const card = document.getElementById('migrate-card');
-  if (card && existing.merged_into) card.style.display = 'none';
+  if (card) {
+    const canMigrate = !!existing.line_user_id && !existing.merged_into;
+    card.style.display = canMigrate ? '' : 'none';
+  }
 
   const result = sessionStorage.getItem('hq_migrate_result');
   if (result) {
@@ -306,6 +311,19 @@ document.addEventListener('DOMContentLoaded', () => {
       await finishLegacyMigration(ticket);
       return;
     }
+
+    // 在 LINE 裡的話,LINE 身分一律優先。
+    //
+    // 少了這段會出事:改用 LINE 登入之前若曾經在 LINE 內建瀏覽器用 Google 登入過,
+    // 那組 session 還留在 localStorage 裡。下面的 getSession() 會先撿到它,
+    // 於是「用 LINE 開啟」卻登進舊的 Google 帳號 —— 畫面看起來是新帳號直接帶著
+    // 舊資料,很像轉移已經完成,實際上兩個帳號完全沒有關聯。
+    const inLine = await initLiff() && (liff.isInClient() || liff.isLoggedIn());
+    if (session && inLine && !isLineSession(session)) {
+      await supabase.auth.signOut();
+      session = null;
+    }
+
     if (session) { await handleSessionUser(session); return; }
 
     // 沒有 session:在 LINE 裡就自動登入,在外面就顯示登入頁
