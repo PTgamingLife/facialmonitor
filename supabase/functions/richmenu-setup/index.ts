@@ -49,6 +49,7 @@ interface Tab {
   cells: Cell[];
 }
 interface Config {
+  liffId?: string;
   canvas: { width: number; height: number };
   layout: { tabBarHeight: number; rows: number; cols: number; cellHeight: number };
   tabs: Tab[];
@@ -100,8 +101,15 @@ function buildAreas(config: Config, tab: Tab) {
 
     let action: unknown;
     if (cell.type === "uri") {
-      if (!APP_BASE_URL) throw new Error("這份設定有 uri 格子,但沒有設 HEALTHBOT_APP_URL");
-      action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
+      // 有 liffId 就走 LIFF:在 LINE 裡開會自動帶身分,使用者不用再登入一次。
+      // LIFF 只保證帶過去 query string,不保證帶 hash,所以頁面用 ?p= 指定。
+      if (config.liffId) {
+        action = { type: "uri", label: cell.label,
+                   uri: `https://liff.line.me/${config.liffId}?p=${cell.target}` };
+      } else {
+        if (!APP_BASE_URL) throw new Error("這份設定有 uri 格子,但沒有設 HEALTHBOT_APP_URL 或 liffId");
+        action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
+      }
     } else if (cell.type === "message") {
       action = { type: "message", label: cell.label, text: cell.text };
     } else {

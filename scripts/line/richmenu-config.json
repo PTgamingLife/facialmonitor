@@ -1,4 +1,6 @@
 {
+  "liffId": "2011132698-FNcAIg39",
+  "_liffId_note": "LINE Login channel 的 LIFF ID。填了之後 uri 格子改走 liff.line.me，在 LINE 裡點下去會自動登入；留空則直接開網頁。",
   "canvas": { "width": 2500, "height": 1686 },
   "layout": {
     "tabBarHeight": 222,

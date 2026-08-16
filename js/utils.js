@@ -30,10 +30,12 @@ function showToast(msg, duration = 2200) {
   setTimeout(() => el.classList.remove('show'), duration);
 }
 
-/* ── WebView 偵測 ── */
+/* ── WebView 偵測 ──
+   LINE 不再列入:改用 LIFF 之後,LINE 內建瀏覽器是我們的主場,
+   在裡面反而會自動登入。叫使用者「改用 Safari 開啟」是反效果。 */
 function isRestrictedWebView() {
   const ua = navigator.userAgent.toLowerCase();
-  return /line|fbav|instagram|micromessenger/.test(ua);
+  return /fbav|instagram|micromessenger/.test(ua);
 }
 
 function checkWebView() {

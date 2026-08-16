@@ -2,6 +2,13 @@
 window.SUPABASE_URL  = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
 window.SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
 window.EDGE_FN_URL   = window.SUPABASE_URL + '/functions/v1/analyze';
+window.LIFF_AUTH_URL = window.SUPABASE_URL + '/functions/v1/liff-auth';
+
+/* ── LINE 登入 ──
+   LIFF ID 來自 LINE Developers Console 的 LINE Login channel。
+   ⚠️ 那個 channel 必須與 Messaging API channel 在同一個 Provider，
+   否則 LIFF 拿到的 userId 與 webhook 收到的不是同一組，帳號會對不起來。 */
+window.LIFF_ID = '2011132698-FNcAIg39';
 
 /* ── OAuth URL 修正（必須在 createClient 前執行）──
    Google OAuth 有時回傳 %23access_token（URL 編碼的 #），
@@ -117,5 +124,4 @@ window.ACHIEVEMENTS = [
   { id:'coins_100',    icon:'🐷', title:'豬公滿額',     desc:'存入 100 枚健康幣',       condition: u => u.coins >= 100 },
   { id:'task_all',     icon:'✅', title:'全勤挑戰者',   desc:'完成所有 14 天任務',      condition: u => u.completedDays >= 14 },
   { id:'scan_5',       icon:'🏆', title:'健康老手',     desc:'累計完成 5 次掃描',       condition: u => u.totalScans >= 5 },
-  { id:'bottle_send',  icon:'🌊', title:'漂流傳遞者',   desc:'發送第一封漂流瓶',        condition: u => u.bottlesSent >= 1 },
 ];

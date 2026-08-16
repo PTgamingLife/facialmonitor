@@ -181,6 +181,23 @@ async function handleEvent(event: Record<string, unknown>): Promise<void> {
 
   const type = event.type as string;
 
+  // reply token 只能用一次、只活 30 秒,失敗時光看「Invalid reply token」
+  // 分不出是「過期」還是「重送導致重複使用」。把延遲與 event id 印出來:
+  //   lag 破 30000 → 過期;lag 很小但 eventId 重複 → LINE 重送。
+  const isRedelivery = (event.deliveryContext as { isRedelivery?: boolean })?.isRedelivery === true;
+  console.log(JSON.stringify({
+    tag: "event",
+    type,
+    eventId: event.webhookEventId ?? null,
+    redelivery: isRedelivery,
+    lagMs: typeof event.timestamp === "number" ? Date.now() - event.timestamp : null,
+    token8: replyToken ? replyToken.slice(0, 8) : null,
+  }));
+
+  // 重送的事件,token 一定是已經用掉的那顆,再回一次只會拿到 400。
+  // 該做的副作用(記 log、更新 tab)在第一次就做完了,直接放掉。
+  if (isRedelivery) return;
+
   if (type === "unfollow") {
     await patch("line_users", `line_user_id=eq.${encodeURIComponent(lineUserId)}`, {
       unfollowed_at: new Date().toISOString(),
@@ -275,12 +292,26 @@ Deno.serve(async (req) => {
     return new Response("bad request", { status: 400 });
   }
 
-  // 個別事件失敗不影響整體回 200;非 2xx 會讓 LINE 重送
-  await Promise.all(
+  // 個別事件失敗不影響整體回 200
+  const work = Promise.all(
     (payload.events ?? []).map((e) =>
       handleEvent(e).catch((err) => console.error("handleEvent error:", err))
     ),
   );
+
+  // 先回 200,處理丟到背景跑。
+  //
+  // 這裡不能等 —— 一則 postback 要查 DB、寫 log、再打一次 LINE reply,
+  // 加起來 2~4 秒,LINE 等不到回應就判定逾時,隔約 60 秒重送同一則事件。
+  // 重送帶的是「已經用掉的」reply token,只會換來 400 Invalid reply token,
+  // 而且每重送一次就多一筆重複的 postback log。實測 17:36 那次就是這樣連環重送三次。
+  const waitUntil = (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } })
+    .EdgeRuntime?.waitUntil;
+  if (waitUntil) {
+    waitUntil.call((globalThis as { EdgeRuntime?: unknown }).EdgeRuntime, work);
+  } else {
+    await work;   // 本機或非 Supabase 環境沒有 waitUntil,退回同步等待
+  }
 
   return new Response("ok", { status: 200 });
 });
