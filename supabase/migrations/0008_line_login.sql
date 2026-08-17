@@ -59,7 +59,11 @@ begin
   delete from sb_merge_tickets
    where target_user_id = v_me and redeemed_at is null;
 
-  v_ticket := encode(gen_random_bytes(24), 'hex');
+  -- 不用 pgcrypto 的 gen_random_bytes:它裝在 extensions schema,
+  -- 而這支的 search_path 釘在 public,呼叫得到才有鬼。
+  -- gen_random_uuid() 是 PG13+ 核心函式,不依賴 extension,兩個接起來 256 bits。
+  v_ticket := replace(gen_random_uuid()::text, '-', '')
+           || replace(gen_random_uuid()::text, '-', '');
 
   insert into sb_merge_tickets (ticket, target_user_id, expires_at)
   values (v_ticket, v_me, now() + interval '15 minutes');
