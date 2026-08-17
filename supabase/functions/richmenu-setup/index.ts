@@ -139,9 +139,21 @@ function assertLayout(config: Config) {
 }
 
 async function fetchRaw(ref: string, path: string): Promise<Response> {
-  const res = await fetch(`${RAW}/${ref}/${path}`);
-  if (!res.ok) throw new Error(`讀不到 ${path}(ref=${ref}):${res.status}`);
-  return res;
+  // raw.githubusercontent 會限流(429)。同一天多跑幾次選單就會撞到,
+  // 而且訊息只有一個數字,看起來像檔案不見了。退避重試幾次再放棄。
+  let last = 0;
+  for (const waitMs of [0, 1500, 4000, 9000]) {
+    if (waitMs) await new Promise((r) => setTimeout(r, waitMs));
+    const res = await fetch(`${RAW}/${ref}/${path}`);
+    if (res.ok) return res;
+    last = res.status;
+    if (res.status !== 429 && res.status < 500) break;   // 404 之類重試也沒用
+  }
+  throw new Error(
+    last === 429
+      ? `GitHub 暫時限流(429),等一兩分鐘再打一次同一個網址就好`
+      : `讀不到 ${path}(ref=${ref}):${last}`,
+  );
 }
 
 async function run(ref: string, dry: boolean, log: string[]) {
