@@ -141,16 +141,30 @@ async function autoLoginInLiff() {
 /* ══════════════════════════════════════════════════════════
    舊 Google 帳號資料轉移
 
-   流程一定會換 session（LINE → Google → LINE），所以先在「還是
-   LINE 帳號」時開一張票，票裡寫死目標帳號；Google 那邊只能拿票兌換。
-   這樣舊帳號無法指定要搬去哪，別人的帳號也就塞不進東西。
+   兩個限制決定了這個設計：
+
+   1. 轉移一定會換 session（新帳號 → 舊帳號），兩個身分不可能同時在線。
+      所以由新帳號在「自己還登入時」先開一張票，目標寫死在票裡；
+      舊帳號只能拿票兌換，無法指定要搬去哪，別人的帳號就塞不進東西。
+
+   2. **Google 不允許在 App 內建瀏覽器裡做 OAuth**（disallowed_useragent）。
+      LINE 的內建瀏覽器正是這種 —— 實測跳去 Google 之後完全不會回來。
+      所以在 LINE 裡按下按鈕時，改成把票用網址帶去「外部瀏覽器」，
+      整段 Google 登入與兌換都在 Safari／Chrome 裡完成。
+      票是一次性、15 分鐘到期，而且只能「把自己的資料推進目標帳號」，
+      放在網址上可以接受。
    ══════════════════════════════════════════════════════════ */
+
 
 const MERGE_TICKET_KEY = 'hq_merge_ticket';
 
 /** 是不是 LINE 建立的帳號（liff-auth 用 @line.local 當合成信箱） */
 function isLineSession(session) {
   return (session?.user?.email ?? '').endsWith('@line.local');
+}
+
+function appBaseUrl() {
+  return location.origin + location.pathname;
 }
 
 async function startLegacyMigration() {
@@ -169,43 +183,71 @@ async function startLegacyMigration() {
     return;
   }
 
-  localStorage.setItem(MERGE_TICKET_KEY, data.ticket);
+  const url = `${appBaseUrl()}?merge=${encodeURIComponent(data.ticket)}`;
 
-  const { error: oauthErr } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.href.split('?')[0].split('#')[0] }
-  });
-  if (oauthErr) {
-    localStorage.removeItem(MERGE_TICKET_KEY);
+  // 在 LINE 裡：一定要開到外部瀏覽器，Google 不接受內建瀏覽器的登入
+  if (_liffReady && liff.isInClient()) {
+    liff.openWindow({ url, external: true });
     if (btn) btn.disabled = false;
-    if (note) note.textContent = 'Google 登入失敗，請稍後再試。';
+    if (note) {
+      note.textContent = '已在外部瀏覽器開啟轉移頁面。完成 Google 登入後，回到這裡重新開啟即可看到資料。';
+    }
+    return;
   }
-  // 沒錯誤 → 瀏覽器跳去 Google，回來時由 finishLegacyMigration 接手
+
+  // 已經在一般瀏覽器裡，直接走
+  location.href = url;
 }
 
-/** 從 Google 轉回來時執行：兌換票券 → 登出 Google → 換回 LINE 帳號 */
+/** 從 LINE 跳過來的轉移分頁：收下票 → 送去 Google 登入
+ *
+ *  票只用網址帶「一次」（LINE 內建瀏覽器與外部瀏覽器的 localStorage 不互通），
+ *  進到這裡就立刻改存 localStorage。Google 的 redirectTo 不能帶自訂 query，
+ *  否則會對不上 Supabase 的 redirect 白名單而被丟回 Site URL，票就掉了。
+ */
+async function bootMergeTab(ticket) {
+  showPage('page-login');
+  const btn = document.getElementById('btn-line-login');
+  if (btn) btn.style.display = 'none';
+
+  localStorage.setItem(MERGE_TICKET_KEY, ticket);
+  // 網址上的票用完就擦掉，不要留在瀏覽紀錄與分享連結裡
+  history.replaceState({}, document.title, appBaseUrl());
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) await supabase.auth.signOut();   // 不能帶著 LINE 身分去兌換
+
+  showLoginError('請用你舊的 Google 帳號登入，完成後會自動轉移。');
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: appBaseUrl() }
+  });
+  if (error) showLoginError('Google 登入失敗：' + error.message);
+}
+
+/** Google 登入回來之後：兌換票券，顯示結果 */
 async function finishLegacyMigration(ticket) {
-  showToast('轉移中，請稍候…', 4000);
+  showPage('page-login');
+  const btn = document.getElementById('btn-line-login');
+  if (btn) btn.style.display = 'none';
+  showLoginError('轉移中，請稍候…');
 
   const { data, error } = await supabase.rpc('rpc_redeem_merge_ticket', { p_ticket: ticket });
   localStorage.removeItem(MERGE_TICKET_KEY);
+  if (error) console.error('rpc_redeem_merge_ticket failed:', error);
 
-  const msg = error ? '轉移失敗，請稍後再試。'
-            : data?.ok ? `✅ 已轉移 ${data.records} 筆檢測紀錄、${data.credits} 次檢測、${data.points} 點`
-            : (data?.message ?? '轉移失敗。');
+  const msg = error
+    ? `轉移失敗：${error.message}`
+    : data?.ok
+      ? `✅ 已轉移 ${data.records} 筆檢測紀錄，目前 ${data.credits} 次檢測、${data.points} 點。`
+        + `\n可以關掉這一頁，回到 LINE 重新開啟就會看到。`
+      : (data?.message ?? '轉移失敗。');
 
-  // 不管成敗都要退出 Google，這個 session 只是為了證明舊帳號是本人
+  // 這個 Google session 只是為了證明舊帳號是本人，用完就登出
   currentUser = null;
   sessionStorage.removeItem('hq_user');
   await supabase.auth.signOut();
-
-  sessionStorage.setItem('hq_migrate_result', msg);
-
-  // 回到 LINE 帳號；在 LINE 裡是無感的，在外面則需要再按一次登入
-  if (!await autoLoginInLiff()) {
-    showPage('page-login');
-    showLoginError(msg);
-  }
+  showLoginError(msg);
 }
 
 /* ── 處理登入後的使用者（查 sb_users，沒有就建）── */
@@ -252,17 +294,6 @@ async function handleSessionUser(session) {
     const canMigrate = !!existing.line_user_id && !existing.merged_into;
     card.style.display = canMigrate ? '' : 'none';
   }
-
-  const result = sessionStorage.getItem('hq_migrate_result');
-  if (result) {
-    sessionStorage.removeItem('hq_migrate_result');
-    showToast(result, 5000);
-    if (card) {
-      card.classList.add('done');
-      const note = document.getElementById('migrate-note');
-      if (note) note.textContent = result;
-    }
-  }
 }
 
 /* ── 登出 ── */
@@ -288,6 +319,12 @@ document.addEventListener('DOMContentLoaded', () => {
   checkWebView();
   setFontSize(localStorage.getItem('hq_font_size') ?? 'md');
 
+  // 帶著 ?merge=<票> 進來的分頁只做一件事：轉移。
+  // 它跑在外部瀏覽器裡（Google 不接受 LINE 內建瀏覽器的 OAuth），
+  // 不要讓它去碰正常的登入流程。
+  const mergeTicket = new URLSearchParams(location.search).get('merge');
+  if (mergeTicket) { bootMergeTab(mergeTicket); return; }
+
   supabase.auth.onAuthStateChange(async (event, session) => {
     if (event !== 'SIGNED_IN' || !session) {
       if (event === 'SIGNED_OUT') {
@@ -296,11 +333,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return;
     }
-
-    // 轉移流程中：這個 session 是舊的 Google 帳號，不是要登入的人
-    const ticket = localStorage.getItem(MERGE_TICKET_KEY);
-    if (ticket && !isLineSession(session)) {
-      await finishLegacyMigration(ticket);
+    const pending = localStorage.getItem(MERGE_TICKET_KEY);
+    if (pending && !isLineSession(session)) {
+      await finishLegacyMigration(pending);
       return;
     }
     if (!currentUser) await handleSessionUser(session);
@@ -309,9 +344,10 @@ document.addEventListener('DOMContentLoaded', () => {
   supabase.auth.getSession().then(async ({ data: { session } }) => {
     if (currentUser) return;
 
-    const ticket = localStorage.getItem(MERGE_TICKET_KEY);
-    if (session && ticket && !isLineSession(session)) {
-      await finishLegacyMigration(ticket);
+    // 從 Google 轉回來:手上有票、而且現在的身分是舊帳號 → 兌換
+    const pending = localStorage.getItem(MERGE_TICKET_KEY);
+    if (pending && session && !isLineSession(session)) {
+      await finishLegacyMigration(pending);
       return;
     }
 
