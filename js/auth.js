@@ -162,7 +162,10 @@ async function startLegacyMigration() {
   const { data, error } = await supabase.rpc('rpc_issue_merge_ticket');
   if (error || !data?.ok) {
     if (btn) btn.disabled = false;
-    if (note) note.textContent = data?.message ?? '目前無法轉移，請稍後再試。';
+    // 把真正的錯誤講出來。之前一律顯示「請稍後再試」，結果 PostgREST 回 404
+    // （schema 快取沒重載、根本找不到這支 RPC）也長成同一句話，完全查不出方向。
+    if (note) note.textContent = data?.message ?? (error ? `轉移失敗：${error.message}` : '目前無法轉移，請稍後再試。');
+    if (error) console.error('rpc_issue_merge_ticket failed:', error);
     return;
   }
 
