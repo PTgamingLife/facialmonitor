@@ -6,9 +6,19 @@
 async function loadMain() {
   if (!currentUser) return;
   await refreshUserData();
-  renderPiggyBank();
-  renderChallenge();
+  const summary = await loadRewardSummary();
+  renderPointsJar(summary);
+  renderPointTasks(summary);
   document.getElementById('main-member-code').textContent = currentUser.member_code ?? '-------';
+}
+
+/* 積分相關的資料一次拿齊，首頁的存錢筒與任務清單共用，不重複打 API */
+async function loadRewardSummary() {
+  if (window._demoMode) return null;
+  try {
+    const { data } = await dbQuery(supabase.rpc('rpc_my_reward_summary'), 4000);
+    return data ?? null;
+  } catch { return null; }
 }
 
 /* 帶超時的 Supabase query；Demo 模式直接跳過 */
@@ -34,35 +44,131 @@ async function refreshUserData() {
   } catch { /* 離線：保留現有 currentUser */ }
 }
 
-/* ── 豬公金幣 ── */
-function renderPiggyBank(newCoinAdded = false) {
-  const coins = Math.min(currentUser.coins ?? 0, 100);
-
-  // 進度條
-  const bar = document.getElementById('piggy-bar-fill');
-  if (bar) setTimeout(() => { bar.style.width = coins + '%'; }, 100);
+/* ── 積分存錢筒 ──
+   門檻讀 sb_point_rules 的 redeem_credit（後台改數字，這裡跟著動）。
+   class 名稱沿用 piggy-*，改名要連 CSS 一起動，收益不大。 */
+function renderPointsJar(summary, newPointAdded = false) {
+  const points = summary?.points ?? currentUser.points ?? 0;
+  const cost   = summary?.rates?.redeem_credit ?? 100;
 
   const badge = document.getElementById('piggy-count-badge');
-  if (badge) badge.textContent = `${coins}/100`;
+  if (badge) badge.textContent = `${points} 點`;
 
-  // 任務完成時發射一枚金幣飛入動畫
-  if (newCoinAdded) spawnCoinAnimation();
+  // 進度條顯示「離下一次免費檢測還有多遠」，滿了就從頭再算
+  const within = cost > 0 ? (points % cost) : 0;
+  const pct = cost > 0 ? Math.round(within / cost * 100) : 0;
+  const bar = document.getElementById('piggy-bar-fill');
+  if (bar) setTimeout(() => { bar.style.width = (points >= cost && within === 0 ? 100 : pct) + '%'; }, 100);
+
+  const labels = document.getElementById('jar-labels');
+  if (labels) labels.innerHTML = `<span>0</span><span>${cost}</span>`;
+
+  const sub = document.getElementById('jar-sub');
+  if (sub) sub.textContent = `${cost} 點可以換 1 次免費檢測`;
+
+  const hint = document.getElementById('jar-hint');
+  if (hint) {
+    const exchangeable = cost > 0 ? Math.floor(points / cost) : 0;
+    hint.textContent = exchangeable >= 1
+      ? `🎉 現在可以換 ${exchangeable} 次檢測`
+      : `還差 ${cost - points} 點`;
+  }
+
+  if (newPointAdded) spawnCoinAnimation();
 }
 
-/* 金幣飛入豬公動畫（完成後自動移除） */
+/* 積分飛入存錢筒的動畫（完成後自動移除） */
 function spawnCoinAnimation() {
   const box = document.querySelector('.piggy-box');
   if (!box) return;
 
   const coin = document.createElement('div');
   coin.className = 'coin-fly';
-  coin.textContent = '🪙';
+  coin.textContent = '💎';
   box.appendChild(coin);
 
   coin.addEventListener('animationend', () => coin.remove(), { once: true });
 }
 
-/* ── 14 天任務 ── */
+/* ── 首頁：賺積分任務 ──
+   點數與規則全部讀 sb_point_rules，後台改數字這裡就跟著動，不用改程式。 */
+async function renderPointTasks(summary) {
+  const container = document.getElementById('task-list');
+  if (!container || !currentUser) return;
+
+  if (window._demoMode) { container.innerHTML = '<div class="empty-state">示範模式不顯示積分任務</div>'; return; }
+
+  let rules = {};
+  try {
+    const { data } = await dbQuery(
+      supabase.from('sb_point_rules').select('rule_key,points,label'), 4000);
+    for (const r of data ?? []) rules[r.rule_key] = r;
+  } catch { }
+
+  // 本月分數進步幅度（只有自己看得到，RLS 管好了）
+  let delta = null;
+  try {
+    const monthKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }).slice(0, 7);
+    const { data } = await dbQuery(
+      supabase.from('sb_score_snapshots').select('delta')
+        .eq('user_id', currentUser.id).eq('month_key', monthKey).maybeSingle(), 4000);
+    if (data) delta = data.delta;
+  } catch { }
+
+  const pts       = (k, fallback) => rules[k]?.points ?? fallback;
+  const threshold = pts('score_up_threshold', 10);
+  const hasAngel  = !!summary?.angel;
+  const confirmed = summary?.invitee_stats?.confirmed ?? 0;
+  const total     = summary?.invitee_stats?.total ?? 0;
+  const reached   = delta != null && Number(delta) >= threshold;
+
+  const tasks = [
+    {
+      key: 'bind_angel', icon: '👼', title: '填寫我的小天使',
+      points: pts('bind_angel', 10),
+      desc: hasAngel ? `已填：${summary.angel.name ?? '—'}` : '輸入介紹你來的人的 7 位推薦碼',
+      done: hasAngel, once: true, page: 'page-reward',
+    },
+    {
+      key: 'invite_confirmed', icon: '🤝', title: '推薦朋友完成第一次檢測',
+      points: pts('invite_confirmed', 30), unit: '／人',
+      desc: total > 0
+        ? `已推薦 ${total} 人，其中 ${confirmed} 人完成首檢`
+        : '把推薦碼給朋友，他做完第一次面舌診你就得點',
+      done: confirmed > 0, page: 'page-reward',
+    },
+    {
+      key: 'score_up_referee', icon: '📈', title: `本月分數進步 ${threshold} 分以上`,
+      points: pts('score_up_referee', 20),
+      desc: delta == null
+        ? '這個月做兩次面舌診才比較得出進步幅度'
+        : `本月目前 ${Number(delta) > 0 ? '+' : ''}${delta} 分`,
+      done: reached, page: 'page-challenge',
+    },
+    {
+      key: 'score_up_angel', icon: '🌟', title: `我推薦的人進步 ${threshold} 分以上`,
+      points: pts('score_up_angel', 50), unit: '／人',
+      desc: '他們進步，你也拿積點',
+      done: false, page: 'page-reward',
+    },
+  ];
+
+  container.innerHTML = tasks.map(t => `
+    <div class="task-row ${t.done ? 'task-done' : ''}" onclick="showPage('${t.page}')">
+      <span class="task-day-icon">${t.done ? '✓' : t.icon}</span>
+      <div class="task-body">
+        <div class="task-title">${t.title}</div>
+        <div class="hist-desc">${t.desc}</div>
+        ${t.done && t.once ? '<div class="task-badge-today">已完成</div>' : ''}
+      </div>
+      <div class="task-xp">+${t.points}${t.unit ?? ''} 點</div>
+    </div>`).join('');
+}
+
+/* ── 14 天任務 ──
+   ⚠️ 首頁下方已改成「賺積分任務」,這一段目前沒有入口。
+   程式碼保留是因為 LINE bot 的「今日任務」卡片還在發同一份 TASK_PLAN,
+   之後若要把打卡放回網頁(獨立分頁或折疊區塊),接上 renderChallenge() 就能用。 */
 async function renderChallenge() {
   const container = document.getElementById('task-list');
   if (!container || !currentUser) return;
@@ -158,7 +264,6 @@ async function completeTask(day) {
     sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
 
     showToast(`✅ 任務完成！+${task?.xp ?? 10} XP，+1 健康幣`);
-    renderPiggyBank(true);
     renderChallenge();
     await checkAchievements();
   } catch { showToast('紀錄失敗，請再試一次'); }
@@ -286,24 +391,10 @@ async function loadAchievement() {
   if (!container || !currentUser) return;
   await refreshUserData();
 
-  const userCtx = {
-    totalScans:    currentUser.total_scans ?? 0,
-    streak:        currentUser.streak ?? 0,
-    coins:         currentUser.coins ?? 0,
-    completedDays: 0,
-  };
-  // 取完成天數
-  if (!window._demoMode) {
-    try {
-      const { count } = await dbQuery(
-        supabase.from('sb_challenge_progress').select('task_index', { count:'exact' }).eq('user_id', currentUser.id)
-      );
-      userCtx.completedDays = count ?? 0;
-    } catch { }
-  }
+  const ctx = await buildAchievementContext();
 
   container.innerHTML = ACHIEVEMENTS.map(a => {
-    const unlocked = a.condition(userCtx);
+    const unlocked = a.condition(ctx);
     return `
     <div class="achievement-card ${unlocked ? 'unlocked' : 'locked'}">
       <div class="achievement-icon">${a.icon}</div>
@@ -314,26 +405,54 @@ async function loadAchievement() {
   }).join('');
 }
 
+/* 成就的判斷依據:檢測次數、推薦人數、積分。
+   積分用「累積賺到的」而不是餘額 —— 花掉了不該把已經解鎖的成就收回去。 */
+async function buildAchievementContext() {
+  const ctx = {
+    totalScans:   currentUser.total_scans ?? 0,
+    invitees:     0,
+    hasAngel:     false,
+    pointsEarned: 0,
+    redeemed:     false,
+  };
+  if (window._demoMode) return ctx;
+
+  try {
+    const { data: s } = await dbQuery(supabase.rpc('rpc_my_reward_summary'), 4000);
+    if (s) {
+      ctx.invitees = s.invitee_stats?.confirmed ?? 0;
+      ctx.hasAngel = !!s.angel;
+    }
+  } catch { }
+
+  try {
+    const { data: rows } = await dbQuery(
+      supabase.from('sb_point_ledger').select('delta,reason').eq('user_id', currentUser.id), 4000);
+    for (const r of rows ?? []) {
+      if (r.delta > 0) ctx.pointsEarned += r.delta;
+      if (r.reason === 'redeem_credit') ctx.redeemed = true;
+    }
+  } catch { }
+
+  return ctx;
+}
+
 async function checkAchievements() {
   if (!currentUser) return;
-  let completedDays = 0;
-  if (!window._demoMode) {
-    try {
-      const { count } = await dbQuery(
-        supabase.from('sb_challenge_progress').select('task_index',{count:'exact'}).eq('user_id',currentUser.id)
-      );
-      completedDays = count ?? 0;
-    } catch { }
+  const ctx = await buildAchievementContext();
+
+  // 只提示「這次才解鎖」的。原本每次都把全部已解鎖的成就再吐一輪 toast,
+  // 完成一個任務會連跳好幾則,反而看不出剛剛解鎖了什麼。
+  const key  = 'hq_ach_seen_' + currentUser.id;
+  const seen = new Set(JSON.parse(localStorage.getItem(key) ?? '[]'));
+
+  const fresh = ACHIEVEMENTS.filter(a => a.condition(ctx) && !seen.has(a.id));
+  fresh.forEach((a, i) => setTimeout(() => showToast(`🏆 成就解鎖：${a.title}`), i * 1600));
+
+  if (fresh.length) {
+    ACHIEVEMENTS.forEach(a => { if (a.condition(ctx)) seen.add(a.id); });
+    localStorage.setItem(key, JSON.stringify([...seen]));
   }
-  const ctx = {
-    totalScans: currentUser.total_scans ?? 0,
-    streak:     currentUser.streak ?? 0,
-    coins:      currentUser.coins ?? 0,
-    completedDays,
-  };
-  ACHIEVEMENTS.forEach(a => {
-    if (a.condition(ctx)) showToast(`🏆 成就解鎖：${a.title}`);
-  });
 }
 
 /* ── 排行榜 ── */

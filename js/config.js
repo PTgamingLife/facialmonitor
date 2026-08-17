@@ -115,13 +115,24 @@ window.TASK_PLAN = [
   },
 ];
 
-/* ── 成就定義 ── */
+/* ── 成就定義 ──
+   三條軸線:積分、推薦人數、檢測次數。
+   數字刻意跟 sb_point_rules 的門檻對齊(100 點 = 1 次檢測),
+   讓「解鎖成就」和「真的換得到東西」是同一件事,不是兩套獨立的數字。 */
 window.ACHIEVEMENTS = [
-  { id:'first_scan',   icon:'🔬', title:'初次探索',     desc:'完成第一次面舌診掃描',   condition: u => u.totalScans >= 1 },
-  { id:'streak_3',     icon:'🔥', title:'三日連打',     desc:'連續 3 天完成任務',       condition: u => u.streak >= 3 },
-  { id:'streak_7',     icon:'⚡', title:'週慣之星',     desc:'連續 7 天完成任務',       condition: u => u.streak >= 7 },
-  { id:'coins_50',     icon:'🪙', title:'半罐儲蓄者',   desc:'存入 50 枚健康幣',        condition: u => u.coins >= 50 },
-  { id:'coins_100',    icon:'🐷', title:'豬公滿額',     desc:'存入 100 枚健康幣',       condition: u => u.coins >= 100 },
-  { id:'task_all',     icon:'✅', title:'全勤挑戰者',   desc:'完成所有 14 天任務',      condition: u => u.completedDays >= 14 },
-  { id:'scan_5',       icon:'🏆', title:'健康老手',     desc:'累計完成 5 次掃描',       condition: u => u.totalScans >= 5 },
+  // 檢測次數
+  { id:'scan_1',    icon:'🔬', title:'初次探索',   desc:'完成第一次面舌診',      condition: u => u.totalScans >= 1 },
+  { id:'scan_5',    icon:'🩺', title:'健康老手',   desc:'累計完成 5 次檢測',     condition: u => u.totalScans >= 5 },
+  { id:'scan_12',   icon:'🏅', title:'年度追蹤者', desc:'累計完成 12 次檢測',    condition: u => u.totalScans >= 12 },
+
+  // 推薦人數(以「完成首檢」計,填了沒做不算 —— 與發點的條件一致)
+  { id:'invite_1',  icon:'🤝', title:'第一個朋友', desc:'推薦 1 人完成首次檢測', condition: u => u.invitees >= 1 },
+  { id:'invite_5',  icon:'👥', title:'健康傳教士', desc:'推薦 5 人完成首次檢測', condition: u => u.invitees >= 5 },
+  { id:'invite_20', icon:'📣', title:'口碑製造機', desc:'推薦 20 人完成首次檢測',condition: u => u.invitees >= 20 },
+
+  // 積分(用累積賺到的點數,不是餘額 —— 花掉了不該把成就收回去)
+  { id:'angel_set', icon:'👼', title:'認定小天使', desc:'填寫你的小天使',        condition: u => u.hasAngel },
+  { id:'pts_100',   icon:'💎', title:'第一桶積分', desc:'累積賺到 100 點',       condition: u => u.pointsEarned >= 100 },
+  { id:'pts_500',   icon:'👑', title:'積分大戶',   desc:'累積賺到 500 點',       condition: u => u.pointsEarned >= 500 },
+  { id:'redeemed',  icon:'🎟', title:'首次兌換',   desc:'用積分換到 1 次檢測',   condition: u => u.redeemed },
 ];

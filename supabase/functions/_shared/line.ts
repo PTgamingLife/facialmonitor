@@ -15,18 +15,22 @@ export const APP_BASE_URL = (Deno.env.get("HEALTHBOT_APP_URL") ?? "").replace(/\
 const API = "https://api.line.me/v2/bot";
 const encoder = new TextEncoder();
 
-// ── 配色(取自 App 背景底圖 bg.png) ──────────────────────────
+// ── 配色(照品牌指南「看·健」) ────────────────────────────
+// 六個品牌色 + 兩個補色。補的兩個有明確理由:
+//   pale     卡片內區塊需要一個很淡的底,品牌沒給,由健康青調淡而來
+//   textMid  藍灰 #8FA3B8 放在白底上對比只有 2.5:1,當內文會看不清楚,
+//            所以內文用一個帶藍調的深灰;藍灰只留給小字提示
 export const C = {
-  bg: "#F7F2EA",
-  bgAlt: "#EDE5D6",
-  arch: "#C9A876",
-  gold: "#C49A5A",
-  goldPale: "#F0E4CC",
-  green: "#4A6B3F",
-  textDark: "#2E2418",
-  textMid: "#6B5840",
-  textSoft: "#A8916F",
-  alert: "#C46A5A",
+  bg:       "#FFFFFF",   // 純白 — 純淨、清晰、透明
+  bgAlt:    "#E6ECF1",   // 淺灰 — 中性、簡約、協調
+  deep:     "#0D5C63",   // 深海青 — 專業、穩重、信任
+  primary:  "#22C1C3",   // 健康青 — 活力、科技、成長
+  tech:     "#4DA3E5",   // 科技藍 — 智慧、創新、可靠
+  pale:     "#E6F7F8",   // 健康青淡底(補)
+  textDark: "#0D5C63",
+  textMid:  "#41565F",   // 內文(補)
+  textSoft: "#8FA3B8",   // 藍灰 — 只用在小字
+  alert:    "#D9534F",
 };
 
 // ── 簽章驗證(HMAC-SHA256 → base64) ────────────────────────
@@ -121,7 +125,7 @@ export function button({ label, action, primary = false }: Btn): LineMessage {
     type: "button",
     style: primary ? "primary" : "secondary",
     height: "sm",
-    color: primary ? C.gold : C.goldPale,
+    color: primary ? C.primary : C.bgAlt,
     action: { ...action, label: label.slice(0, 20) },
   };
 }
@@ -160,9 +164,9 @@ export function infoCard(opts: {
   if (opts.bigValue) {
     body.push({
       type: "box", layout: "vertical", margin: "lg", spacing: "none",
-      backgroundColor: C.goldPale, cornerRadius: "md", paddingAll: "12px",
+      backgroundColor: C.pale, cornerRadius: "md", paddingAll: "12px",
       contents: [
-        { type: "text", text: opts.bigValue, size: "xxl", weight: "bold", color: C.gold, align: "center" },
+        { type: "text", text: opts.bigValue, size: "xxl", weight: "bold", color: C.deep, align: "center" },
         ...(opts.bigLabel
           ? [{ type: "text", text: opts.bigLabel, size: "xs", color: C.textSoft, align: "center" }]
           : []),
@@ -179,7 +183,7 @@ export function infoCard(opts: {
           { type: "text", text: r.label, size: "sm", color: C.textMid, flex: 3, wrap: true },
           {
             type: "text", text: r.value, size: "sm", flex: 2, align: "end",
-            weight: "bold", color: r.accent ? C.green : C.textDark, wrap: true,
+            weight: "bold", color: r.accent ? C.primary : C.textDark, wrap: true,
           },
         ],
       })),

@@ -81,20 +81,21 @@
       </div>
     </div>
 
-    <!-- 豬公存錢筒 -->
+    <!-- 積分存錢筒 -->
     <div class="piggy-section">
-      <div class="piggy-section-title">🐷 健康存錢筒</div>
-      <div class="piggy-section-sub">每完成一項任務，存入一枚健康幣</div>
+      <div class="piggy-section-title">💎 積分存錢筒</div>
+      <div class="piggy-section-sub" id="jar-sub">存滿就能換免費檢測</div>
 
       <div class="piggy-box piggy-img-wrap">
-        <span class="piggy-emoji">🐷</span>
-        <div id="piggy-count-badge" class="piggy-count-badge">0/100</div>
+        <span class="piggy-emoji">💎</span>
+        <div id="piggy-count-badge" class="piggy-count-badge">0</div>
       </div>
 
       <div class="piggy-bar">
         <div id="piggy-bar-fill" class="piggy-bar-fill"></div>
       </div>
-      <div class="piggy-bar-labels"><span>0</span><span>25</span><span>50</span><span>75</span><span>100</span></div>
+      <div class="piggy-bar-labels" id="jar-labels"><span>0</span><span>100</span></div>
+      <div class="jar-hint" id="jar-hint"></div>
     </div>
 
     <!-- 會員碼 -->
@@ -110,7 +111,7 @@
     <div class="task-card">
       <div class="task-header">
         <span class="task-header-emoji">⚡</span>
-        <span class="task-header-title">改善腸胃健康 — 14 天計劃</span>
+        <span class="task-header-title">賺積分任務</span>
       </div>
       <div id="task-list">
         <div class="empty-state">載入中…</div>

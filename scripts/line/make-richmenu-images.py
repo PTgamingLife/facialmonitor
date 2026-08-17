@@ -29,14 +29,17 @@ COL_X = [0, 833, 1666]
 COL_W = [833, 833, 834]
 ROW_Y = [TAB_H, TAB_H + CELL_H]
 
-# 取自 App 背景底圖 bg.png
-BG        = (247, 242, 234)   # #F7F2EA 暖奶油
-LINE_COL  = (237, 229, 214)   # #EDE5D6 格線
-TAB_OFF   = (201, 168, 118)   # #C9A876 未選中分頁
-TAB_ON    = (196, 154,  90)   # #C49A5A 選中分頁 / 主金
-ICON_BG   = (240, 228, 204)   # #F0E4CC icon 底圈
-TEXT_DARK = ( 46,  36,  24)   # #2E2418 標題字
-TEXT_MID  = (107,  88,  64)   # #6B5840 內文字
+# 品牌指南「看·健」的六個色 + 兩個補色
+# (補的兩個:icon 底圈需要一個健康青的淡底;格線需要一條比淺灰更輕的線)
+BG        = (255, 255, 255)   # #FFFFFF 純白
+LINE_COL  = (230, 236, 241)   # #E6ECF1 淺灰 — 格線
+TAB_OFF   = (230, 236, 241)   # #E6ECF1 淺灰 — 未選中分頁
+                              # 用藍灰的話，上面的深海青字對比不夠，看起來像失效的按鈕
+TAB_ON    = ( 13,  92,  99)   # #0D5C63 深海青 — 選中分頁
+ICON_COL  = ( 34, 193, 195)   # #22C1C3 健康青 — icon 線條
+ICON_BG   = (230, 247, 248)   # 健康青淡底(補)
+TEXT_DARK = ( 13,  92,  99)   # #0D5C63 深海青 — 標籤字
+TEXT_MID  = ( 65,  86,  95)   # 內文(補)
 WHITE     = (255, 255, 255)
 
 FONT_PATH = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
@@ -86,7 +89,7 @@ def center_text(d, box, text, f, fill):
 def draw_icon(d, cx, cy, r, kind):
     """簡單的線條 icon。畫在半徑 r 的底圈中央,線寬固定。"""
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=ICON_BG)
-    c, lw = TAB_ON, 9
+    c, lw = ICON_COL, 9
     s = r * 0.52   # icon 本體的半徑
 
     if kind == "scan":            # 掃描框 + 中央圓(面舌診)
