@@ -10,6 +10,11 @@ window.LIFF_AUTH_URL = window.SUPABASE_URL + '/functions/v1/liff-auth';
    否則 LIFF 拿到的 userId 與 webhook 收到的不是同一組，帳號會對不起來。 */
 window.LIFF_ID = '2011132698-FNcAIg39';
 
+/* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
+   在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
+   長得像 https://lin.ee/xxxxxxx */
+window.OA_URL = '';
+
 /* ── OAuth URL 修正（必須在 createClient 前執行）──
    Google OAuth 有時回傳 %23access_token（URL 編碼的 #），
    Supabase 無法解析，需先還原為正常的 # fragment  ── */

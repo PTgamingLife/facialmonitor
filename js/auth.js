@@ -37,6 +37,10 @@ function enterApp(isAdmin) {
   // (LIFF 只保證帶 query string 過來,不保證帶 hash)
   const wanted = new URLSearchParams(location.search).get('p')
               || location.hash.replace('#', '');
+
+  // ?p=share 不是頁面,是「開啟 LINE 的分享視窗」這個動作
+  if (wanted === 'share') { showPage('page-main'); startShareFlow(); return; }
+
   if (wanted && document.getElementById(wanted) && wanted !== 'page-login') {
     showPage(wanted);
     return;
@@ -293,6 +297,40 @@ async function handleSessionUser(session) {
   if (card) {
     const canMigrate = !!existing.line_user_id && !existing.merged_into;
     card.style.display = canMigrate ? '' : 'none';
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   分享推薦:叫出 LINE 的好友選擇器，一次把官方帳號與推薦碼送出去
+   ══════════════════════════════════════════════════════════ */
+async function startShareFlow() {
+  if (!await initLiff()) { showToast('請在 LINE 裡開啟才能分享'); return; }
+
+  const code = currentUser?.member_code;
+  if (!code) { showToast('會員碼還沒載入，請稍後再試'); return; }
+
+  // shareTargetPicker 只有在 LINE 內建瀏覽器裡才有；在外面開就退回複製文字
+  const text =
+    `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n` +
+    `用我的推薦碼加入，你我都有積點可以換免費檢測：\n` +
+    `推薦碼：${code}\n\n` +
+    (window.OA_URL ? `先加官方帳號 👉 ${window.OA_URL}\n` : '') +
+    `加入後在 LINE 傳「小天使 ${code}」就完成囉。`;
+
+  if (typeof liff === 'undefined' || !liff.isApiAvailable?.('shareTargetPicker')) {
+    copyText(text);
+    showToast('已複製分享文字，貼給朋友就可以了');
+    return;
+  }
+
+  try {
+    const res = await liff.shareTargetPicker([{ type: 'text', text }]);
+    // res 為 null = 使用者按了取消，不要當成失敗吼他
+    showToast(res ? '✅ 已送出，朋友收到就能用你的推薦碼' : '已取消分享');
+  } catch (e) {
+    console.error('shareTargetPicker failed', e);
+    copyText(text);
+    showToast('分享視窗開不起來，已改成複製文字');
   }
 }
 

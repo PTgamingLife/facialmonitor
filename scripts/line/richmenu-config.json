@@ -1,7 +1,10 @@
 {
   "liffId": "2011132698-FNcAIg39",
   "_liffId_note": "LINE Login channel 的 LIFF ID。填了之後 uri 格子改走 liff.line.me，在 LINE 裡點下去會自動登入；留空則直接開網頁。",
-  "canvas": { "width": 2500, "height": 1686 },
+  "canvas": {
+    "width": 2500,
+    "height": 1686
+  },
   "layout": {
     "tabBarHeight": 222,
     "rows": 2,
@@ -18,12 +21,36 @@
       "image": "img/richmenu-health.png",
       "default": true,
       "cells": [
-        { "label": "面舌診檢測", "type": "uri", "target": "page-challenge" },
-        { "label": "我的報告", "type": "uri", "target": "page-history" },
-        { "label": "我的分數", "type": "postback", "action": "score_trend" },
-        { "label": "剩餘次數", "type": "postback", "action": "credits" },
-        { "label": "今日任務", "type": "postback", "action": "task_today" },
-        { "label": "問健康 AI", "type": "message", "text": "我想問健康問題" }
+        {
+          "label": "面舌診檢測",
+          "type": "uri",
+          "target": "page-challenge"
+        },
+        {
+          "label": "我的報告",
+          "type": "uri",
+          "target": "page-history"
+        },
+        {
+          "label": "我的分數",
+          "type": "postback",
+          "action": "score_latest"
+        },
+        {
+          "label": "每日打卡",
+          "type": "postback",
+          "action": "daily_checkin"
+        },
+        {
+          "label": "分享推薦",
+          "type": "postback",
+          "action": "share_invite"
+        },
+        {
+          "label": "問健康 AI",
+          "type": "message",
+          "text": "我想問健康問題"
+        }
       ]
     },
     {
@@ -34,12 +61,36 @@
       "image": "img/richmenu-reward.png",
       "default": false,
       "cells": [
-        { "label": "綁定會員", "type": "postback", "action": "bind_start" },
-        { "label": "我的小天使", "type": "postback", "action": "my_reward" },
-        { "label": "填寫小天使", "type": "postback", "action": "set_angel" },
-        { "label": "我推薦的人", "type": "postback", "action": "my_invitees" },
-        { "label": "14 天挑戰", "type": "uri", "target": "page-main" },
-        { "label": "兌換 / 抽獎", "type": "postback", "action": "reward_shop" }
+        {
+          "label": "剩餘次數",
+          "type": "postback",
+          "action": "credits"
+        },
+        {
+          "label": "詢問顧問",
+          "type": "postback",
+          "action": "ask_consultant"
+        },
+        {
+          "label": "填寫小天使",
+          "type": "postback",
+          "action": "set_angel"
+        },
+        {
+          "label": "我推薦的人",
+          "type": "postback",
+          "action": "my_invitees"
+        },
+        {
+          "label": "購買次數",
+          "type": "postback",
+          "action": "buy_credits"
+        },
+        {
+          "label": "兌換 / 抽獎",
+          "type": "postback",
+          "action": "reward_shop"
+        }
       ]
     }
   ]

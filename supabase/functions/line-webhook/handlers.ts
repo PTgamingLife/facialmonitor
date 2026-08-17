@@ -8,6 +8,18 @@ import { rpc, select, selectOne } from "../_shared/db.ts";
 import { CATEGORY_ICON, taskOfDay } from "../_shared/tasks.ts";
 import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 
+// 這三個是「只有老闆本人拿得到」的對外連結,放 secrets 不寫死在程式裡。
+// 沒設的時候不要給一個壞掉的按鈕 —— 直接在卡片上說還沒開放,比按下去 404 好。
+const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "";          // 官方帳號加好友連結
+const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "";  // 顧問本人的 LINE
+const LINEPAY_URL    = Deno.env.get("HEALTHBOT_LINEPAY_URL") ?? "";     // LINE Pay 收款連結
+const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "";         // 分享彈窗要用
+const CREDIT_PRICE   = Number(Deno.env.get("HEALTHBOT_CREDIT_PRICE") ?? "66");
+
+function liffUrl(page: string): string {
+  return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
+}
+
 const NEED_BIND = infoCard({
   title: "先綁定會員才看得到喔",
   subtitle: "在 App 首頁找到你的 7 位會員碼,直接傳「綁定 1234567」給我就完成了。",
@@ -66,7 +78,7 @@ async function credits(u: LineUser): Promise<LineMessage> {
   const cost = s?.rates?.redeem_credit ?? 100;
 
   return infoCard({
-    title: "🎟 我的檢測次數",
+    title: "🎟 剩餘看見健康次數",
     bigValue: String(s?.credits ?? 0),
     bigLabel: "剩餘次數",
     rows: [{ label: "積點餘額", value: `${s?.points ?? 0} 點` }],
@@ -98,6 +110,145 @@ async function taskToday(u: LineUser): Promise<LineMessage> {
       { label: "問 AI 這樣做對嗎", action: postbackAction("問 AI", `action=ask_task&day=${t.day}`) },
     ],
     altText: `今日任務 Day ${t.day}`,
+  });
+}
+
+/** 分享推薦:彈出 LINE 的分享視窗,一次把官方帳號與自己的推薦碼送出去 */
+async function shareInvite(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ member_code: string; invitee_stats: { confirmed: number; total: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const code = s?.member_code ?? "—";
+
+  return infoCard({
+    title: "📣 分享給朋友",
+    subtitle: "按下面的按鈕會跳出 LINE 的分享視窗,選好友就能一次把官方帳號和你的推薦碼送出去。",
+    bigValue: code,
+    bigLabel: "我的推薦碼",
+    rows: [
+      { label: "已推薦人數", value: `${s?.invitee_stats?.confirmed ?? 0} 人完成首檢`, accent: true },
+    ],
+    note: "朋友做完第一次檢測你就得積點;他當月進步 10 分,你再得一次。",
+    buttons: [
+      { label: "選好友分享", action: uriAction("選好友分享", liffUrl("share")), primary: true },
+      { label: "看我推薦的人", action: postbackAction("看我推薦的人", "action=my_invitees") },
+    ],
+    altText: "分享給朋友",
+  });
+}
+
+/** 每日打卡:一天一次,+3 點,順便跳出當天的健康資訊 */
+async function dailyCheckin(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const r = await rpc<{
+    ok: boolean; message?: string; first_time: boolean; points_added: number;
+    balance: number; streak: number;
+    tip: { title: string; body: string; image_url: string | null; date: string } | null;
+  }>("rpc_daily_checkin", { p_user_id: u.sb_user_id });
+
+  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "打卡失敗,請稍後再試。"}`);
+
+  const rows = [
+    { label: "連續打卡", value: `${r.streak} 天`, accent: r.streak > 1 },
+    { label: "積點餘額", value: `${r.balance} 點`, accent: true },
+  ];
+  if (r.first_time) rows.unshift({ label: "今日打卡", value: `+${r.points_added} 點`, accent: true });
+
+  return infoCard({
+    title: r.first_time ? "✅ 今日打卡完成" : "今天已經打過卡了",
+    subtitle: r.tip ? r.tip.body : "今天的健康資訊還在準備中,明天再來看看。",
+    hero: r.tip?.image_url || undefined,
+    rows,
+    note: r.tip ? `📌 ${r.tip.title}` : undefined,
+    buttons: [
+      { label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true },
+    ],
+    altText: r.first_time ? "打卡完成" : "今天已打卡",
+  });
+}
+
+/** 最新健康分數 + 與上一次的差額(只有一次檢測就只報最新的) */
+async function latestScore(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const r = await rpc<{
+    ok: boolean; has_record: boolean; latest: number; latest_at: string;
+    has_previous: boolean; previous: number | null; delta: number | null;
+  }>("rpc_latest_score", { p_user_id: u.sb_user_id });
+
+  if (!r?.ok || !r.has_record) {
+    return infoCard({
+      title: "還沒有檢測紀錄",
+      subtitle: "做完第一次面舌診之後,這裡就會顯示你的健康分數。",
+      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true }],
+      altText: "還沒有檢測紀錄",
+    });
+  }
+
+  const day = (iso: string) => iso.slice(0, 10);
+  // 明寫型別:第一筆沒有 accent,讓 TS 自己推會推成沒有 accent 的形狀,
+  // 後面 push 帶 accent 的就編不過。
+  const rows: { label: string; value: string; accent?: boolean }[] = [
+    { label: "檢測日期", value: day(r.latest_at) },
+  ];
+
+  if (r.has_previous && r.delta != null) {
+    const d = Number(r.delta);
+    rows.push({ label: "上一次分數", value: String(r.previous) });
+    rows.push({
+      label: d >= 0 ? "進步" : "退步",
+      value: `${d > 0 ? "+" : ""}${d} 分`,
+      accent: d > 0,          // 只有進步才用強調色,退步不要假裝是好消息
+    });
+  }
+
+  return infoCard({
+    title: "📈 我的健康分數",
+    bigValue: String(r.latest),
+    bigLabel: "最新分數",
+    rows,
+    note: r.has_previous
+      ? "分數是跟你自己的上一次比,不是跟別人比。"
+      : "再測一次就能看出變化幅度。",
+    buttons: [{ label: "再測一次", action: uriAction("再測一次", liffUrl("page-challenge")), primary: true }],
+    altText: "我的健康分數",
+  });
+}
+
+/** 詢問北醫健康管理顧問 */
+function askConsultant(): LineMessage {
+  return infoCard({
+    title: "👩‍⚕️ 詢問健康管理顧問",
+    subtitle: CONSULTANT_URL
+      ? "北醫背景的健康管理顧問,可以聊體質調理、報告怎麼看、要不要進一步檢查。"
+      : "顧問的聯絡方式還在設定中,稍後再試。",
+    note: CONSULTANT_URL ? "顧問回覆需要一點時間,急症請直接就醫或撥 119。" : undefined,
+    buttons: CONSULTANT_URL
+      ? [{ label: "加顧問 LINE", action: uriAction("加顧問 LINE", CONSULTANT_URL), primary: true }]
+      : [],
+    altText: "詢問健康管理顧問",
+  });
+}
+
+/** 購買檢測次數 */
+function buyCredits(): LineMessage {
+  return infoCard({
+    title: "🛒 購買檢測次數",
+    bigValue: `NT$ ${CREDIT_PRICE}`,
+    bigLabel: "1 次面舌診檢測",
+    subtitle: LINEPAY_URL
+      ? "用 LINE Pay 付款後,次數會由專人為你加上。"
+      : "付款連結還在設定中,稍後再試。",
+    note: "也可以用積點免費兌換 —— 點下方選單的「兌換 / 抽獎」。",
+    buttons: [
+      ...(LINEPAY_URL
+        ? [{ label: `LINE Pay 付款 ${CREDIT_PRICE} 元`, action: uriAction("LINE Pay 付款", LINEPAY_URL), primary: true }]
+        : []),
+      { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") },
+    ],
+    altText: "購買檢測次數",
   });
 }
 
@@ -265,6 +416,20 @@ export async function handlePostback(
     case "noop":
       return null;
 
+    // 新的六格
+    case "share_invite":
+      return await shareInvite(u);
+    case "score_latest":
+      return await latestScore(u);
+    case "daily_checkin":
+      return await dailyCheckin(u);
+    case "ask_consultant":
+      return askConsultant();
+    case "buy_credits":
+      return buyCredits();
+
+    // 舊 action 保留:已經送出去的卡片上還帶著這些 data,
+    // 拿掉的話那些按鈕會變成按了沒反應。
     case "score_trend":
       return await scoreTrend(u);
     case "credits":

@@ -53,8 +53,8 @@ TABS = [
             ("面舌診檢測", "scan"),
             ("我的報告",   "doc"),
             ("我的分數",   "chart"),
-            ("剩餘次數",   "ticket"),
-            ("今日任務",   "check"),
+            ("每日打卡",   "check"),
+            ("分享推薦",   "share"),
             ("問健康 AI",  "chat"),
         ],
     },
@@ -63,11 +63,11 @@ TABS = [
         "tab_labels": ["健康", "推薦"],
         "active": 1,
         "cells": [
-            ("綁定會員",   "link"),
-            ("我的小天使", "angel"),
+            ("剩餘次數",   "ticket"),
+            ("詢問顧問",   "doctor"),
             ("填寫小天使", "pen"),
             ("我推薦的人", "people"),
-            ("14 天挑戰",  "calendar"),
+            ("購買次數",   "cart"),
             ("兌換 / 抽獎", "gift"),
         ],
     },
@@ -157,6 +157,30 @@ def draw_icon(d, cx, cy, r, kind):
         d.line([cx - s, cy - s * 0.22, cx + s, cy - s * 0.22], fill=c, width=lw)
         d.line([cx - s * 0.5, cy - s * 1.0, cx - s * 0.5, cy - s * 0.52], fill=c, width=lw)
         d.line([cx + s * 0.5, cy - s * 1.0, cx + s * 0.5, cy - s * 0.52], fill=c, width=lw)
+    elif kind == "share":         # 分享:三個點 + 兩條連線
+        d.ellipse([cx + s * 0.35, cy - s * 0.95, cx + s * 0.95, cy - s * 0.35], outline=c, width=lw)
+        d.ellipse([cx - s * 0.95, cy - s * 0.3, cx - s * 0.35, cy + s * 0.3], outline=c, width=lw)
+        d.ellipse([cx + s * 0.35, cy + s * 0.35, cx + s * 0.95, cy + s * 0.95], outline=c, width=lw)
+        d.line([cx - s * 0.32, cy - s * 0.14, cx + s * 0.34, cy - s * 0.52], fill=c, width=lw - 2)
+        d.line([cx - s * 0.32, cy + s * 0.14, cx + s * 0.34, cy + s * 0.52], fill=c, width=lw - 2)
+    elif kind == "doctor":        # 顧問:人 + 胸前十字
+        # 肩膀弧線要離頭夠遠、也要夠寬,不然十字看起來像浮在頭下面的「＋」,
+        # 整個 icon 會被讀成「加好友」。
+        d.ellipse([cx - s * 0.32, cy - s * 1.0, cx + s * 0.32, cy - s * 0.36],
+                  outline=c, width=lw)
+        d.arc([cx - s * 0.98, cy - s * 0.05, cx + s * 0.98, cy + s * 1.9],
+              200, 340, fill=c, width=lw)
+        d.line([cx, cy + s * 0.34, cx, cy + s * 0.86], fill=c, width=lw - 2)   # 十字直
+        d.line([cx - s * 0.26, cy + s * 0.6, cx + s * 0.26, cy + s * 0.6],
+               fill=c, width=lw - 2)                                            # 十字橫
+    elif kind == "cart":          # 購物車
+        d.line([cx - s * 0.95, cy - s * 0.6, cx - s * 0.55, cy - s * 0.6], fill=c, width=lw)
+        d.line([(cx - s * 0.55, cy - s * 0.6), (cx - s * 0.2, cy + s * 0.35),
+                (cx + s * 0.8, cy + s * 0.35)], fill=c, width=lw, joint="curve")
+        d.line([(cx - s * 0.42, cy - s * 0.2), (cx + s * 0.95, cy - s * 0.2),
+                (cx + s * 0.8, cy + s * 0.35)], fill=c, width=lw, joint="curve")
+        for dx in (-0.05, 0.62):
+            d.ellipse([cx + s * dx - 13, cy + s * 0.72 - 13, cx + s * dx + 13, cy + s * 0.72 + 13], fill=c)
     elif kind == "gift":          # 禮物盒:盒身 + 盒蓋 + 蝴蝶結
         # 沒有蝴蝶結時,盒身加中線會被看成窗框 —— 結是辨識關鍵
         d.rounded_rectangle([cx - s * 0.82, cy - s * 0.1, cx + s * 0.82, cy + s * 0.92],
