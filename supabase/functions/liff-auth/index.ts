@@ -167,8 +167,11 @@ Deno.serve(async (req) => {
     const res = await rest("sb_users", {
       method: "POST",
       headers: { Prefer: "return=representation" },
+      // phone 不能填空字串:sb_users.phone 是 UNIQUE,空字串只有第一個人塞得進去,
+      // 第二個用 LINE 註冊的客戶就會撞鍵拿到「建立帳號失敗」。
+      // 用合成信箱當佔位值(與既有 Google 註冊路徑同一個做法),每個人都不一樣。
       body: JSON.stringify({
-        auth_id: authId, name, phone: "", email,
+        auth_id: authId, name, phone: email, email,
         line_user_id: sub, credits: 0, total_used: 0,
       }),
     });

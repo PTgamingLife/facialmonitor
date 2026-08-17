@@ -80,6 +80,7 @@ declare
   v_tgt    uuid;
   v_src_row sb_users%rowtype;
   v_code   text;
+  v_phone  text;
   v_moved_records int := 0;
   v_moved_points  int := 0;
 begin
@@ -148,8 +149,14 @@ begin
   -- 4-7 數值欄位:次數與硬幣相加,連續天數取大的
   --     member_code 把舊的搬過來 —— 舊碼可能已經發給朋友了,
   --     新帳號剛開沒多久,它的碼幾乎不可能流出去。
-  v_code := v_src_row.member_code;
-  update sb_users set member_code = null where id = v_src;
+  -- member_code 與 phone 都是 UNIQUE,一定要先從舊 row 讓出來才能給新 row。
+  -- 'merged:<uuid>' 保證不跟任何人撞,也滿足 phone 的 NOT NULL。
+  v_code  := v_src_row.member_code;
+  v_phone := v_src_row.phone;
+  update sb_users
+     set member_code = null,
+         phone       = 'merged:' || v_src::text
+   where id = v_src;
 
   update sb_users t set
     credits     = t.credits    + coalesce(v_src_row.credits, 0),
@@ -157,7 +164,12 @@ begin
     coins       = t.coins      + coalesce(v_src_row.coins, 0),
     streak      = greatest(t.streak, coalesce(v_src_row.streak, 0)),
     email       = coalesce(nullif(t.email, ''), v_src_row.email),
-    phone       = case when t.phone is null or t.phone = '' then v_src_row.phone else t.phone end,
+    -- 新帳號的 phone 是 liff-auth 填的合成值,沒有真正的號碼;舊帳號才有。
+    phone       = case
+                    when coalesce(t.phone, '') = '' or t.phone like '%@line.local'
+                      then coalesce(nullif(v_phone, ''), t.phone)
+                    else t.phone
+                  end,
     member_code = coalesce(v_code, t.member_code),
     -- 管理員身分跟著人走。少了這行,管理員改用 LINE 登入之後會拿不到後台,
     -- 而且完全看不出原因(轉移看起來都成功了)。
