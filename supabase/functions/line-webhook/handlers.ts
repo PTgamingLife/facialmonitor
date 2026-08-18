@@ -169,26 +169,57 @@ async function startScan(u: LineUser): Promise<LineMessage> {
     });
   }
 
-  // 次數用完 —— 三條補次數的路,由快到慢排
+  // 次數用完 —— 三條補次數的路,免費的排前面,要付錢的排最後。
+  // 按鈕用 deep / mid / soft 三階深淺,一眼看得出建議的先後。
+  const enough = points >= cost;
   return infoCard({
     title: "檢測次數用完了",
     subtitle: "別擔心,有三個方法可以拿到次數:",
     bigValue: `${points}`,
     bigLabel: "目前積點",
     rows: [
-      { label: "① 直接購買", value: `NT$ ${CREDIT_PRICE} / 次`, accent: true },
-      { label: "② 積點兌換", value: `${cost} 點 = 1 次` },
-      { label: "③ 推薦朋友", value: "朋友首檢你就得點" },
+      { label: "① 推薦或被推薦", value: "雙方都拿積點", accent: true },
+      { label: "② 每日打卡", value: "一天 +3 點" },
+      { label: "③ 購買次數", value: `NT$ ${CREDIT_PRICE} / 次` },
     ],
-    note: `每日打卡也能累積積點。還差 ${Math.max(cost - points, 0)} 點就能免費換一次。`,
+    note: enough
+      ? `你的積點已經夠換 1 次了(${cost} 點),直接按中間那顆。`
+      : `${cost} 點可以換 1 次,還差 ${cost - points} 點。`,
     buttons: [
-      { label: `購買次數（${CREDIT_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), primary: true },
-      ...(points >= cost
-        ? [{ label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") }]
-        : [{ label: "每日打卡賺積點", action: postbackAction("每日打卡", "action=daily_checkin") }]),
-      { label: "分享推薦賺積點", action: postbackAction("分享推薦", "action=share_invite") },
+      { label: "推薦或被推薦", action: postbackAction("推薦或被推薦", "action=referral_menu"), tone: "deep" },
+      // 積點已經夠的時候還叫人去打卡是浪費一顆按鈕,直接給兌換
+      enough
+        ? { label: "用積點兌換 1 次", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), tone: "mid" }
+        : { label: "每日打卡賺積點", action: postbackAction("每日打卡", "action=daily_checkin"), tone: "mid" },
+      { label: `購買次數（${CREDIT_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), tone: "soft" },
     ],
     altText: "檢測次數用完了",
+  });
+}
+
+/** 推薦或被推薦:兩條路都在這裡分岔 —— 填別人的碼,或把自己的碼給別人 */
+async function referralMenu(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ member_code: string; angel: { name: string } | null }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+
+  return infoCard({
+    title: "🤝 推薦或被推薦",
+    subtitle: "兩邊都能拿積點,積點可以換檢測次數。",
+    rows: [
+      { label: "填推薦人", value: s?.angel ? `已填:${s.angel.name}` : "你和對方各得積點", accent: !s?.angel },
+      { label: "分享給朋友", value: "朋友首檢你就得點" },
+    ],
+    buttons: [
+      // 已經填過小天使就不再給那顆 —— 綁定後不能改,按了只會拿到錯誤訊息
+      ...(s?.angel
+        ? []
+        : [{ label: "填推薦人", action: postbackAction("填推薦人", "action=set_angel"), tone: "deep" as const }]),
+      { label: "分享給朋友", action: postbackAction("分享給朋友", "action=share_invite"),
+        tone: s?.angel ? ("deep" as const) : ("mid" as const) },
+    ],
+    altText: "推薦或被推薦",
   });
 }
 
@@ -498,6 +529,8 @@ export async function handlePostback(
     // 新的六格
     case "start_scan":
       return await startScan(u);
+    case "referral_menu":
+      return await referralMenu(u);
     case "share_invite":
       return await shareInvite(u);
     case "score_latest":

@@ -118,14 +118,29 @@ export async function getProfile(userId: string): Promise<
 }
 
 // ── Flex 元件 ─────────────────────────────────────────────
-type Btn = { label: string; action: LineMessage; primary?: boolean };
+// tone 是給「同一張卡上有多個按鈕、但重要性不同」用的深淺階梯:
+//   deep   深海青底白字 — 最想讓人按的那個
+//   mid    健康青底白字 — 次要(等同舊的 primary)
+//   soft   健康青淡底深字 — 最後一個選項
+// 不給 tone 就照舊看 primary,既有的卡片不用改。
+type Tone = "deep" | "mid" | "soft";
+type Btn = { label: string; action: LineMessage; primary?: boolean; tone?: Tone };
 
-export function button({ label, action, primary = false }: Btn): LineMessage {
+const TONE_STYLE: Record<Tone, { style: string; color: string }> = {
+  deep: { style: "primary",   color: C.deep },
+  mid:  { style: "primary",   color: C.primary },
+  soft: { style: "secondary", color: C.pale },
+};
+
+export function button({ label, action, primary = false, tone }: Btn): LineMessage {
+  const t = tone
+    ? TONE_STYLE[tone]
+    : { style: primary ? "primary" : "secondary", color: primary ? C.primary : C.bgAlt };
   return {
     type: "button",
-    style: primary ? "primary" : "secondary",
+    style: t.style,
     height: "sm",
-    color: primary ? C.primary : C.bgAlt,
+    color: t.color,
     action: { ...action, label: label.slice(0, 20) },
   };
 }
