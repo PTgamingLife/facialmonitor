@@ -11,7 +11,7 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
 // 所以直接寫預設值,不用為了改一個網址跑一趟後台設 secret。
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
-// 官方帳號連結不在這裡 —— 分享文字是 LIFF 網頁組的,值放在 js/config.js。
+const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "https://lin.ee/uwmOjc0";
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
 const CREDIT_PRICE   = Number(Deno.env.get("HEALTHBOT_CREDIT_PRICE") ?? "66");
@@ -22,6 +22,25 @@ const LINEPAY_URL    = Deno.env.get("HEALTHBOT_LINEPAY_URL") ?? "";
 
 function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
+}
+
+/**
+ * LINE 內建的分享 URL scheme:按下去直接跳「選擇傳送對象」,選好友就送出。
+ *
+ * 不走 LIFF 的 shareTargetPicker —— 那個要先在 Developers 後台開權限,
+ * 而且得先載一個網頁才彈得出選單,中間會閃一下白畫面。這條 scheme 是
+ * LINE App 原生的,不必開權限、不必經過我們的網頁,按下去就是好友清單。
+ */
+function shareUrl(text: string): string {
+  return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
+}
+
+/** 分享出去的那段文字:官方帳號連結 + 自己的推薦碼,朋友照著做就綁得起來 */
+function inviteText(code: string): string {
+  return `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
+    + `加入官方帳號:${OA_URL}\n`
+    + `我的推薦碼:${code}\n\n`
+    + `加好友後傳「小天使 ${code}」給它,你我都有積點可以換檢測次數。`;
 }
 
 const NEED_BIND = infoCard({
@@ -135,7 +154,7 @@ async function shareInvite(u: LineUser): Promise<LineMessage> {
     ],
     note: "朋友做完第一次檢測你就得積點;他當月進步 10 分,你再得一次。",
     buttons: [
-      { label: "選好友分享", action: uriAction("選好友分享", liffUrl("share")), primary: true },
+      { label: "選好友分享", action: uriAction("選好友分享", shareUrl(inviteText(code))), primary: true },
       { label: "看我推薦的人", action: postbackAction("看我推薦的人", "action=my_invitees") },
     ],
     altText: "分享給朋友",
