@@ -13,7 +13,7 @@ window.LIFF_ID = '2011132698-FNcAIg39';
 /* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
    在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
    長得像 https://lin.ee/xxxxxxx */
-window.OA_URL = '';
+window.OA_URL = 'https://lin.ee/uwmOjc0';
 
 /* ── OAuth URL 修正（必須在 createClient 前執行）──
    Google OAuth 有時回傳 %23access_token（URL 編碼的 #），

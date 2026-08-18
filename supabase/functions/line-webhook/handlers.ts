@@ -8,13 +8,17 @@ import { rpc, select, selectOne } from "../_shared/db.ts";
 import { CATEGORY_ICON, taskOfDay } from "../_shared/tasks.ts";
 import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 
-// 這三個是「只有老闆本人拿得到」的對外連結,放 secrets 不寫死在程式裡。
-// 沒設的時候不要給一個壞掉的按鈕 —— 直接在卡片上說還沒開放,比按下去 404 好。
-const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "";          // 官方帳號加好友連結
-const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "";  // 顧問本人的 LINE
-const LINEPAY_URL    = Deno.env.get("HEALTHBOT_LINEPAY_URL") ?? "";     // LINE Pay 收款連結
-const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "";         // 分享彈窗要用
+// 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
+// 所以直接寫預設值,不用為了改一個網址跑一趟後台設 secret。
+// 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
+// 官方帳號連結不在這裡 —— 分享文字是 LIFF 網頁組的,值放在 js/config.js。
+const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
+const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
 const CREDIT_PRICE   = Number(Deno.env.get("HEALTHBOT_CREDIT_PRICE") ?? "66");
+
+// LINE Pay 還沒給,刻意留空。空的時候「購買次數」那張卡只會顯示
+// 「用積點兌換」,不會給一個按下去 404 的付款按鈕。
+const LINEPAY_URL    = Deno.env.get("HEALTHBOT_LINEPAY_URL") ?? "";
 
 function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
