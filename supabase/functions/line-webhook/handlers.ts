@@ -14,7 +14,7 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "https://lin.ee/uwmOjc0";
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-const CREDIT_PRICE   = Number(Deno.env.get("HEALTHBOT_CREDIT_PRICE") ?? "60");
+const CREDIT_PRICE   = 60; // 單次檢測固定售價,後端與資料庫也會再次核對
 const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
   ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
