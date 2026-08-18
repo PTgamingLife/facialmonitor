@@ -102,6 +102,7 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
 
   if (/^(積點|點數)$/.test(t)) return await handlePostback(u, "my_reward", new URLSearchParams());
   if (/^(次數|剩餘次數)$/.test(t)) return await handlePostback(u, "credits", new URLSearchParams());
+  if (/^(購買次數|購買檢測次數)$/.test(t)) return await handlePostback(u, "buy_credits", new URLSearchParams());
   if (/^(檢測|面舌診|面舌診檢測)$/.test(t)) return await handlePostback(u, "start_scan", new URLSearchParams());
   if (/^(打卡|每日打卡)$/.test(t)) return await handlePostback(u, "daily_checkin", new URLSearchParams());
   if (/^(分數|我的分數)$/.test(t)) return await handlePostback(u, "score_latest", new URLSearchParams());

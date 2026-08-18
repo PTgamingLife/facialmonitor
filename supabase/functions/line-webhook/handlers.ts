@@ -14,11 +14,38 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "https://lin.ee/uwmOjc0";
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-const CREDIT_PRICE   = Number(Deno.env.get("HEALTHBOT_CREDIT_PRICE") ?? "66");
+const CREDIT_PRICE   = 60; // 單次檢測固定售價,後端與資料庫也會再次核對
+const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
+  ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
+const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
+const encoder = new TextEncoder();
 
-// LINE Pay 還沒給,刻意留空。空的時候「購買次數」那張卡只會顯示
-// 「用積點兌換」,不會給一個按下去 404 的付款按鈕。
-const LINEPAY_URL    = Deno.env.get("HEALTHBOT_LINEPAY_URL") ?? "";
+function base64Url(bytes: Uint8Array): string {
+  let raw = "";
+  for (const byte of bytes) raw += String.fromCharCode(byte);
+  return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+/** 產生只屬於這位已綁定會員、20 分鐘內有效的 LINE Pay 連結。 */
+async function checkoutUrl(u: LineUser): Promise<string | null> {
+  if (!u.sb_user_id || !CHECKOUT_SECRET || !LINEPAY_URL) return null;
+  const expires = Math.floor(Date.now() / 1000) + 20 * 60;
+  const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(CHECKOUT_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  const url = new URL(LINEPAY_URL);
+  url.searchParams.set("userId", u.sb_user_id);
+  url.searchParams.set("lineUserId", u.line_user_id);
+  url.searchParams.set("expires", String(expires));
+  url.searchParams.set("signature", base64Url(new Uint8Array(mac)));
+  return url.toString();
+}
 
 function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
@@ -343,18 +370,20 @@ function askConsultant(): LineMessage {
 }
 
 /** 購買檢測次數 */
-function buyCredits(): LineMessage {
+async function buyCredits(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+  const paymentUrl = await checkoutUrl(u);
   return infoCard({
     title: "🛒 購買檢測次數",
     bigValue: `NT$ ${CREDIT_PRICE}`,
     bigLabel: "1 次面舌診檢測",
-    subtitle: LINEPAY_URL
-      ? "用 LINE Pay 付款後,次數會由專人為你加上。"
-      : "付款連結還在設定中,稍後再試。",
+    subtitle: paymentUrl
+      ? "LINE Pay 付款完成後,系統會自動增加 1 次檢測。"
+      : "付款服務尚未完成安全設定,請稍後再試。",
     note: "也可以用積點免費兌換 —— 點下方選單的「兌換 / 抽獎」。",
     buttons: [
-      ...(LINEPAY_URL
-        ? [{ label: `LINE Pay 付款 ${CREDIT_PRICE} 元`, action: uriAction("LINE Pay 付款", LINEPAY_URL), primary: true }]
+      ...(paymentUrl
+        ? [{ label: `LINE Pay 付款 ${CREDIT_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
         : []),
       { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") },
     ],
@@ -540,7 +569,7 @@ export async function handlePostback(
     case "ask_consultant":
       return askConsultant();
     case "buy_credits":
-      return buyCredits();
+      return await buyCredits(u);
 
     // 舊 action 保留:已經送出去的卡片上還帶著這些 data,
     // 拿掉的話那些按鈕會變成按了沒反應。
