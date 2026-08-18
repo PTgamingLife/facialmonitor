@@ -57,7 +57,7 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
     const bound: LineUser = { ...u, sb_user_id: await resolveSbUserId(u.line_user_id), bind_status: "bound" };
     const card = await handlePostback(bound, "my_reward", new URLSearchParams());
     const msgs: LineMessage[] = [
-      textMsg(`✅ ${r.message}!接下來可以用下方選單查報告、看今日任務。`),
+      textMsg(`✅ ${r.message}!接下來可以用下方選單查報告、每日打卡。`),
     ];
     if (card) msgs.push(...(Array.isArray(card) ? card : [card]));
     return msgs;
@@ -102,7 +102,9 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
 
   if (/^(積點|點數)$/.test(t)) return await handlePostback(u, "my_reward", new URLSearchParams());
   if (/^(次數|剩餘次數)$/.test(t)) return await handlePostback(u, "credits", new URLSearchParams());
-  if (/^(推薦碼|我的推薦碼)$/.test(t)) return await handlePostback(u, "share_code", new URLSearchParams());
+  if (/^(打卡|每日打卡)$/.test(t)) return await handlePostback(u, "daily_checkin", new URLSearchParams());
+  if (/^(分數|我的分數)$/.test(t)) return await handlePostback(u, "score_latest", new URLSearchParams());
+  if (/^(推薦碼|我的推薦碼|分享)$/.test(t)) return await handlePostback(u, "share_invite", new URLSearchParams());
   if (/^(任務|今日任務)$/.test(t)) return await handlePostback(u, "task_today", new URLSearchParams());
   if (/^(說明|使用說明|help)$/i.test(t)) return helpCard();
 

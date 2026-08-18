@@ -89,9 +89,9 @@ async function credits(u: LineUser): Promise<LineMessage> {
     note: `${cost} 點可以換 1 次檢測。`,
     buttons: [
       { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), primary: true },
-      { label: "開始檢測", action: uriAction("開始檢測", appUrl("page-challenge")) },
+      { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")) },
     ],
-    altText: "我的檢測次數",
+    altText: "剩餘看見健康次數",
   });
 }
 
@@ -290,7 +290,7 @@ async function myReward(u: LineUser): Promise<LineMessage> {
     rows,
     note: "把推薦碼給朋友,他完成第一次檢測你就得點;他當月進步 10 分,你再得一次。",
     buttons: [
-      { label: "分享我的推薦碼", action: postbackAction("分享推薦碼", "action=share_code"), primary: true },
+      { label: "分享我的推薦碼", action: postbackAction("分享推薦碼", "action=share_invite"), primary: true },
       ...(s.angel ? [] : [{ label: "填寫我的小天使", action: postbackAction("填寫小天使", "action=set_angel") }]),
     ],
     altText: "我的小天使與推薦碼",
@@ -309,7 +309,7 @@ async function myInvitees(u: LineUser): Promise<LineMessage> {
     return infoCard({
       title: "👥 還沒有人填你當小天使",
       subtitle: "把你的 7 位推薦碼傳給朋友,他在 App 或這裡輸入「小天使 你的碼」就算數。",
-      buttons: [{ label: "看我的推薦碼", action: postbackAction("看我的推薦碼", "action=my_reward"), primary: true }],
+      buttons: [{ label: "分享給朋友", action: postbackAction("分享給朋友", "action=share_invite"), primary: true }],
       altText: "我推薦的人",
     });
   }
@@ -391,7 +391,7 @@ async function doRedeem(u: LineUser, n: number): Promise<LineMessage> {
       { label: "檢測次數", value: `${r.credits} 次`, accent: true },
       { label: "剩餘積點", value: `${r.balance} 點` },
     ],
-    buttons: [{ label: "現在就去檢測", action: uriAction("去檢測", appUrl("page-challenge")), primary: true }],
+    buttons: [{ label: "現在就去檢測", action: uriAction("去檢測", liffUrl("page-challenge")), primary: true }],
     altText: "兌換成功",
   });
 }
@@ -446,7 +446,7 @@ export async function handlePostback(
         title: "🔗 綁定會員",
         subtitle: "打開 App 首頁,右上角那組 7 位數字就是你的會員碼。\n"
           + "直接傳「綁定 1234567」給我就完成。",
-        buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", appUrl("page-main")), primary: true }],
+        buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", liffUrl("page-main")), primary: true }],
         altText: "綁定會員",
       });
 
@@ -468,7 +468,7 @@ export async function handlePostback(
       const s = await rpc<{ member_code: string }>(
         "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
       return textMsg(
-        `我在用「大數據健康檢測」測體質、做 14 天養生任務,滿有感的 🌿\n\n`
+        `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
         + `用我的推薦碼加入,你我都有積點可以換檢測次數:\n`
         + `推薦碼：${s?.member_code ?? "—"}\n\n`
         + `加入後在 LINE 傳「小天使 ${s?.member_code ?? ""}」就完成囉。`,
