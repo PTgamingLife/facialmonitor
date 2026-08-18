@@ -136,31 +136,6 @@ async function taskToday(u: LineUser): Promise<LineMessage> {
   });
 }
 
-/** 分享推薦:彈出 LINE 的分享視窗,一次把官方帳號與自己的推薦碼送出去 */
-async function shareInvite(u: LineUser): Promise<LineMessage> {
-  if (!u.sb_user_id) return NEED_BIND;
-
-  const s = await rpc<{ member_code: string; invitee_stats: { confirmed: number; total: number } }>(
-    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
-  const code = s?.member_code ?? "—";
-
-  return infoCard({
-    title: "📣 分享給朋友",
-    subtitle: "按下面的按鈕會跳出 LINE 的分享視窗,選好友就能一次把官方帳號和你的推薦碼送出去。",
-    bigValue: code,
-    bigLabel: "我的推薦碼",
-    rows: [
-      { label: "已推薦人數", value: `${s?.invitee_stats?.confirmed ?? 0} 人完成首檢`, accent: true },
-    ],
-    note: "朋友做完第一次檢測你就得積點;他當月進步 10 分,你再得一次。",
-    buttons: [
-      { label: "選好友分享", action: uriAction("選好友分享", shareUrl(inviteText(code))), primary: true },
-      { label: "看我推薦的人", action: postbackAction("看我推薦的人", "action=my_invitees") },
-    ],
-    altText: "分享給朋友",
-  });
-}
-
 /**
  * 面舌診檢測的入口。
  *
@@ -214,6 +189,31 @@ async function startScan(u: LineUser): Promise<LineMessage> {
       { label: "分享推薦賺積點", action: postbackAction("分享推薦", "action=share_invite") },
     ],
     altText: "檢測次數用完了",
+  });
+}
+
+/** 分享推薦:彈出 LINE 的分享視窗,一次把官方帳號與自己的推薦碼送出去 */
+async function shareInvite(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ member_code: string; invitee_stats: { confirmed: number; total: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const code = s?.member_code ?? "—";
+
+  return infoCard({
+    title: "📣 分享給朋友",
+    subtitle: "按下面的按鈕會跳出 LINE 的分享視窗,選好友就能一次把官方帳號和你的推薦碼送出去。",
+    bigValue: code,
+    bigLabel: "我的推薦碼",
+    rows: [
+      { label: "已推薦人數", value: `${s?.invitee_stats?.confirmed ?? 0} 人完成首檢`, accent: true },
+    ],
+    note: "朋友做完第一次檢測你就得積點;他當月進步 10 分,你再得一次。",
+    buttons: [
+      { label: "選好友分享", action: uriAction("選好友分享", shareUrl(inviteText(code))), primary: true },
+      { label: "看我推薦的人", action: postbackAction("看我推薦的人", "action=my_invitees") },
+    ],
+    altText: "分享給朋友",
   });
 }
 
