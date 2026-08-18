@@ -23,8 +23,8 @@
       "cells": [
         {
           "label": "面舌診檢測",
-          "type": "uri",
-          "target": "page-challenge"
+          "type": "postback",
+          "action": "start_scan"
         },
         {
           "label": "我的報告",

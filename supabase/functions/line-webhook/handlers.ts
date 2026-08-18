@@ -161,6 +161,62 @@ async function shareInvite(u: LineUser): Promise<LineMessage> {
   });
 }
 
+/**
+ * 面舌診檢測的入口。
+ *
+ * 次數是 0 的時候不要把人丟去 App —— 到了那邊也是被擋下來,
+ * 使用者只會覺得「這什麼爛東西」然後關掉。在這裡就先講清楚
+ * 怎麼拿到次數,而且三條路都給一個按得下去的按鈕。
+ */
+async function startScan(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{
+    credits: number; points: number; member_code: string;
+    rates: { redeem_credit: number };
+  }>("rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+
+  const credits = s?.credits ?? 0;
+  const points  = s?.points ?? 0;
+  const cost    = s?.rates?.redeem_credit ?? 100;
+
+  if (credits > 0) {
+    return infoCard({
+      title: "🔍 面舌診檢測",
+      subtitle: "拍一張正臉、一張舌頭,大約一分鐘就有結果。",
+      bigValue: String(credits),
+      bigLabel: "剩餘檢測次數",
+      note: "光線充足、素顏、舌頭自然伸出,結果會準很多。",
+      buttons: [
+        { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")), primary: true },
+      ],
+      altText: "面舌診檢測",
+    });
+  }
+
+  // 次數用完 —— 三條補次數的路,由快到慢排
+  return infoCard({
+    title: "檢測次數用完了",
+    subtitle: "別擔心,有三個方法可以拿到次數:",
+    bigValue: `${points}`,
+    bigLabel: "目前積點",
+    rows: [
+      { label: "① 直接購買", value: `NT$ ${CREDIT_PRICE} / 次`, accent: true },
+      { label: "② 積點兌換", value: `${cost} 點 = 1 次` },
+      { label: "③ 推薦朋友", value: "朋友首檢你就得點" },
+    ],
+    note: `每日打卡也能累積積點。還差 ${Math.max(cost - points, 0)} 點就能免費換一次。`,
+    buttons: [
+      { label: `購買次數（${CREDIT_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), primary: true },
+      ...(points >= cost
+        ? [{ label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") }]
+        : [{ label: "每日打卡賺積點", action: postbackAction("每日打卡", "action=daily_checkin") }]),
+      { label: "分享推薦賺積點", action: postbackAction("分享推薦", "action=share_invite") },
+    ],
+    altText: "檢測次數用完了",
+  });
+}
+
 /** 每日打卡:一天一次,+3 點,順便跳出當天的健康資訊 */
 async function dailyCheckin(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
@@ -440,6 +496,8 @@ export async function handlePostback(
       return null;
 
     // 新的六格
+    case "start_scan":
+      return await startScan(u);
     case "share_invite":
       return await shareInvite(u);
     case "score_latest":
