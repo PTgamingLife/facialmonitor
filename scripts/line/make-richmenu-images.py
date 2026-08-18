@@ -78,6 +78,18 @@ def font(size):
     return ImageFont.truetype(FONT_PATH, size)
 
 
+def fit_font(d, text, max_w, start, floor=64):
+    """從 start 開始縮到塞得進 max_w 為止。標籤長短不一,固定字級會爆格。"""
+    size = start
+    while size > floor:
+        f = font(size)
+        left, _, right, _ = d.textbbox((0, 0), text, font=f)
+        if right - left <= max_w:
+            return f
+        size -= 4
+    return font(floor)
+
+
 def center_text(d, box, text, f, fill):
     """把文字置中在 (x, y, w, h) 方框裡"""
     x, y, w, h = box
@@ -213,7 +225,10 @@ def build(tab):
                 fill=WHITE)
 
     # ── 六格 ──
-    f_label = font(52)
+    # 版面配比:上 1/3 放小貼圖,下 2/3 放字。
+    # 手機上圖文選單一格只有指甲大,字才是使用者真正在讀的東西,
+    # icon 只要能認出是哪一類就夠,不需要跟字搶空間。
+    ICON_R = 76
     for idx, (label, icon) in enumerate(tab["cells"]):
         r, c = divmod(idx, COLS)
         x, y, w = COL_X[c], ROW_Y[r], COL_W[c]
@@ -224,9 +239,11 @@ def build(tab):
         if r > 0:
             d.rectangle([x, y, x + w, y + 3], fill=LINE_COL)
 
-        # icon 在上、標籤在下,距離格線至少 60px
-        draw_icon(d, x + w / 2, y + CELL_H * 0.38, 118, icon)
-        center_text(d, (x, y + CELL_H * 0.66, w, 90), label, f_label, TEXT_DARK)
+        # 上 1/3:小貼圖。整組(圖+字)在格子裡垂直置中,不要上擠下空。
+        draw_icon(d, x + w / 2, y + CELL_H * 0.28, ICON_R, icon)
+        # 下 2/3:標籤,字級自動縮到塞得下為止
+        f_label = fit_font(d, label, w - 70, 112)
+        center_text(d, (x, y + CELL_H * 0.50, w, CELL_H * 0.38), label, f_label, TEXT_DARK)
 
     return img
 
