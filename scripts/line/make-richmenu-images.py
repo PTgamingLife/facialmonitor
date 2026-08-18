@@ -42,7 +42,28 @@ TEXT_DARK = ( 13,  92,  99)   # #0D5C63 深海青 — 標籤字
 TEXT_MID  = ( 65,  86,  95)   # 內文(補)
 WHITE     = (255, 255, 255)
 
-FONT_PATH = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+# 字型:一律用粗體。圖文選單在手機上只有指甲大,細體的筆畫會糊成一團。
+# 依序找,找到第一個可用的就用。.ttc 是字型集,要指定 index 才拿得到繁體那一套。
+#   Noto Sans CJK TC Bold  — 開源、字面大、繁體字形正確(Ubuntu: fonts-noto-cjk)
+#   微軟正黑體 Bold        — Windows 上跑這支腳本時的替代
+#   文泉驛正黑             — 最後的退路,只有 Regular,會比較細
+FONT_CANDIDATES = [
+    ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc", 3),
+    ("C:/Windows/Fonts/msjhbd.ttc", 0),
+    ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc", 0),
+]
+
+
+def _resolve_font():
+    for path, index in FONT_CANDIDATES:
+        if Path(path).exists():
+            return path, index
+    raise SystemExit(
+        "找不到可用的中文字型。Ubuntu 裝:sudo apt install fonts-noto-cjk"
+    )
+
+
+FONT_PATH, FONT_INDEX = _resolve_font()
 
 TABS = [
     {
@@ -75,7 +96,7 @@ TABS = [
 
 
 def font(size):
-    return ImageFont.truetype(FONT_PATH, size)
+    return ImageFont.truetype(FONT_PATH, size, index=FONT_INDEX)
 
 
 def fit_font(d, text, max_w, start, floor=64):
