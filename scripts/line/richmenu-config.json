@@ -27,12 +27,12 @@
           "action": "start_scan"
         },
         {
-          "label": "我的報告",
-          "type": "uri",
-          "target": "page-history"
+          "label": "我的積分",
+          "type": "postback",
+          "action": "my_points"
         },
         {
-          "label": "我的分數",
+          "label": "我的健康分數",
           "type": "postback",
           "action": "score_latest"
         },

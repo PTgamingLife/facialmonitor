@@ -100,6 +100,7 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
     return textMsg("把兌換碼接在後面就行,例如:兌換 1234567");
   }
 
+  if (/^(積分|我的積分)$/.test(t)) return await handlePostback(u, "my_points", new URLSearchParams());
   if (/^(積點|點數)$/.test(t)) return await handlePostback(u, "my_reward", new URLSearchParams());
   if (/^(次數|剩餘次數)$/.test(t)) return await handlePostback(u, "credits", new URLSearchParams());
   if (/^(購買次數|購買檢測次數)$/.test(t)) return await handlePostback(u, "buy_credits", new URLSearchParams());

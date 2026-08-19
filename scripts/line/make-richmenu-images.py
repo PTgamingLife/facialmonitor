@@ -72,8 +72,8 @@ TABS = [
         "active": 0,
         "cells": [
             ("面舌診檢測", "scan"),
-            ("我的報告",   "doc"),
-            ("我的分數",   "chart"),
+            ("我的積分",   "coin"),
+            ("我的健康分數", "chart"),
             ("每日打卡",   "check"),
             ("分享推薦",   "share"),
             ("問健康 AI",  "chat"),
@@ -226,6 +226,15 @@ def draw_icon(d, cx, cy, r, kind):
                   outline=c, width=lw - 2)
         d.ellipse([cx + s * 0.04, cy - s * 0.92, cx + s * 0.66, cy - s * 0.44],
                   outline=c, width=lw - 2)
+    elif kind == "coin":          # 寶石:上緣一條 + 兩側斜面收到底尖 + 兩條刻面線
+        # 不畫成硬幣(圓中圓) —— 那個在縮圖裡會被看成同心圓,認不出是積分
+        top, bot = cy - s * 0.42, cy + s * 0.92
+        lx, rx = cx - s * 0.92, cx + s * 0.92
+        d.line([lx, top, rx, top], fill=c, width=lw)          # 上緣
+        d.line([lx, top, cx, bot], fill=c, width=lw)          # 左斜面
+        d.line([rx, top, cx, bot], fill=c, width=lw)          # 右斜面
+        d.line([lx + (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)   # 刻面
+        d.line([rx - (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)
 
 
 def build(tab):

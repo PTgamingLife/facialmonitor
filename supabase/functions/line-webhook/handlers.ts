@@ -351,8 +351,58 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
     note: r.has_previous
       ? "分數是跟你自己的上一次比,不是跟別人比。"
       : "再測一次就能看出變化幅度。",
-    buttons: [{ label: "再測一次", action: uriAction("再測一次", liffUrl("page-challenge")), primary: true }],
+    buttons: [
+      { label: "看詳細報告", action: uriAction("看詳細報告", liffUrl("page-history")), tone: "deep" },
+      { label: "再測一次", action: uriAction("再測一次", liffUrl("page-challenge")), tone: "mid" },
+    ],
     altText: "我的健康分數",
+  });
+}
+
+/**
+ * 我的積分:餘額 + 怎麼賺。
+ *
+ * 賺點的方法直接讀 sb_point_rules,不寫死在程式裡 ——
+ * 之後在後台調整點數,卡片會自己跟著變,不用重新部署。
+ */
+async function myPoints(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const s = await rpc<{ points: number; rates: { redeem_credit: number } }>(
+    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+  const points = s?.points ?? 0;
+  const cost   = s?.rates?.redeem_credit ?? 100;
+
+  // 只列「賺得到點」的規則;兌換與抽獎是花點的,門檻那筆不是獎勵
+  const EARN = ["invite_confirmed", "score_up_angel", "score_up_referee", "bind_angel", "daily_checkin"];
+  const rules = await select<{ rule_key: string; points: number; label: string }>(
+    "sb_point_rules",
+    `rule_key=in.(${EARN.join(",")})&select=rule_key,points,label&order=points.desc`,
+  );
+
+  const rows = rules.map((r) => ({
+    label: r.label,
+    value: `+${r.points} 點`,
+    accent: r.points >= 30,
+  }));
+
+  return infoCard({
+    title: "💎 我的積分",
+    subtitle: "積分可以換檢測次數,也可以抽獎。",
+    bigValue: String(points),
+    bigLabel: "目前積點",
+    rows,
+    note: points >= cost
+      ? `已經夠換 1 次檢測了(${cost} 點),按下面就能換。`
+      : `${cost} 點可以換 1 次檢測,還差 ${cost - points} 點。`,
+    buttons: [
+      points >= cost
+        ? { label: "用積點兌換 1 次", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), tone: "deep" }
+        : { label: "每日打卡 +3 點", action: postbackAction("每日打卡", "action=daily_checkin"), tone: "deep" },
+      { label: "推薦或被推薦", action: postbackAction("推薦或被推薦", "action=referral_menu"), tone: "mid" },
+      { label: "兌換 / 抽獎", action: postbackAction("兌換 抽獎", "action=reward_shop"), tone: "soft" },
+    ],
+    altText: "我的積分",
   });
 }
 
@@ -566,6 +616,8 @@ export async function handlePostback(
       return await shareInvite(u);
     case "score_latest":
       return await latestScore(u);
+    case "my_points":
+      return await myPoints(u);
     case "daily_checkin":
       return await dailyCheckin(u);
     case "ask_consultant":
