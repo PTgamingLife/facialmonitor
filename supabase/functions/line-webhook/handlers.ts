@@ -1,7 +1,7 @@
 // 12 格選單與文字指令的行為
 
 import {
-  appUrl, carousel, confirmCard, infoCard, LineMessage,
+  appUrl, assetUrl, carousel, confirmCard, infoCard, LineMessage,
   postbackAction, textMsg, toBubble, uriAction,
 } from "../_shared/line.ts";
 import { rpc, select, selectOne } from "../_shared/db.ts";
@@ -19,6 +19,44 @@ const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
   ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
 const encoder = new TextEncoder();
+
+const TESTIMONIAL_IMAGES = [
+  "img/testimonials/testimonial-01.jpg",
+  "img/testimonials/testimonial-02.jpg",
+  "img/testimonials/testimonial-03.jpg",
+  "img/testimonials/testimonial-04.jpg",
+  "img/testimonials/testimonial-05.jpg",
+];
+
+/** 見證照使用獨立 bubble，接在健康分數卡後即可在 LINE 裡左右滑動。 */
+function testimonialBubbles(): LineMessage[] {
+  return TESTIMONIAL_IMAGES.map((path, index) => ({
+    type: "bubble",
+    hero: {
+      type: "image",
+      url: assetUrl(path),
+      size: "full",
+      aspectRatio: "1:1",
+      aspectMode: "fit",
+      backgroundColor: "#FFFFFF",
+    },
+    body: {
+      type: "box",
+      layout: "vertical",
+      paddingAll: "14px",
+      contents: [
+        { type: "text", text: "真實見證", weight: "bold", size: "md", color: "#0D5C63" },
+        {
+          type: "text",
+          text: `${index + 1} / ${TESTIMONIAL_IMAGES.length}　左右滑動查看更多`,
+          size: "xs",
+          color: "#8FA3B8",
+          margin: "sm",
+        },
+      ],
+    },
+  }));
+}
 
 function base64Url(bytes: Uint8Array): string {
   let raw = "";
@@ -318,12 +356,17 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
   }>("rpc_latest_score", { p_user_id: u.sb_user_id });
 
   if (!r?.ok || !r.has_record) {
-    return infoCard({
+    const emptyScoreCard = infoCard({
       title: "還沒有檢測紀錄",
       subtitle: "做完第一次面舌診之後,這裡就會顯示你的健康分數。",
       buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true }],
       altText: "還沒有檢測紀錄",
     });
+
+    return carousel(
+      [toBubble(emptyScoreCard), ...testimonialBubbles()],
+      "我的健康分數與真實見證（可左右滑動）",
+    );
   }
 
   const day = (iso: string) => iso.slice(0, 10);
@@ -343,7 +386,7 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
     });
   }
 
-  return infoCard({
+  const scoreCard = infoCard({
     title: "📈 我的健康分數",
     bigValue: String(r.latest),
     bigLabel: "最新分數",
@@ -357,6 +400,11 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
     ],
     altText: "我的健康分數",
   });
+
+  return carousel(
+    [toBubble(scoreCard), ...testimonialBubbles()],
+    "我的健康分數與真實見證（可左右滑動）",
+  );
 }
 
 /**

@@ -264,3 +264,8 @@ export function confirmCard(opts: {
 export function appUrl(hash: string): string {
   return `${APP_BASE_URL}/index.html#${hash}`;
 }
+
+/** GitHub Pages / 正式站上的公開靜態資產網址。 */
+export function assetUrl(path: string): string {
+  return `${APP_BASE_URL}/${path.replace(/^\/+/, "")}`;
+}
