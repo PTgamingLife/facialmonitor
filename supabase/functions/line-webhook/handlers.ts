@@ -236,7 +236,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
     });
   }
 
-  // 次數用完 —— 三條補次數的路,免費的排前面,要付錢的排最後。
+  // 次數用完 —— 三條補次數的路,免費的排前面、要付錢的排最後。
   // 按鈕用 deep / mid / soft 三階深淺,一眼看得出建議的先後。
   const enough = points >= cost;
   return infoCard({
