@@ -315,6 +315,7 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
   const r = await rpc<{
     ok: boolean; has_record: boolean; latest: number; latest_at: string;
     has_previous: boolean; previous: number | null; delta: number | null;
+    legacy?: boolean;
   }>("rpc_latest_score", { p_user_id: u.sb_user_id });
 
   if (!r?.ok || !r.has_record) {
@@ -348,7 +349,10 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
     bigValue: String(r.latest),
     bigLabel: "最新分數",
     rows,
-    note: r.has_previous
+    // 舊模型算的分數尺度不同,不跟新分數相減,也要講清楚為什麼沒有比較
+    note: r.legacy
+      ? "這筆是舊模型計算的,不列入比較範圍。再測一次就會用新版計分。"
+      : r.has_previous
       ? "分數是跟你自己的上一次比,不是跟別人比。"
       : "再測一次就能看出變化幅度。",
     buttons: [{ label: "再測一次", action: uriAction("再測一次", liffUrl("page-challenge")), primary: true }],
