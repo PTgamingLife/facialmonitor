@@ -29,6 +29,8 @@ function base64Url(bytes: Uint8Array): string {
 /** 產生只屬於這位已綁定會員、20 分鐘內有效的 LINE Pay 連結。 */
 async function checkoutUrl(u: LineUser): Promise<string | null> {
   if (!u.sb_user_id || !CHECKOUT_SECRET || !LINEPAY_URL) return null;
+  const fingerprint = await crypto.subtle.digest("SHA-256", encoder.encode(CHECKOUT_SECRET));
+  console.log("checkout secret fingerprint:", base64Url(new Uint8Array(fingerprint)).slice(0, 12));
   const expires = Math.floor(Date.now() / 1000) + 20 * 60;
   const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}`;
   const key = await crypto.subtle.importKey(
