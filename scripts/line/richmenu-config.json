@@ -27,14 +27,14 @@
           "action": "start_scan"
         },
         {
-          "label": "我的積分",
-          "type": "postback",
-          "action": "my_points"
-        },
-        {
           "label": "我的健康分數",
           "type": "postback",
           "action": "score_latest"
+        },
+        {
+          "label": "我的積分",
+          "type": "postback",
+          "action": "my_points"
         },
         {
           "label": "每日打卡",
