@@ -120,9 +120,10 @@ def center_text(d, box, text, f, fill):
 
 
 def draw_icon(d, cx, cy, r, kind):
-    """簡單的線條 icon。畫在半徑 r 的底圈中央,線寬固定。"""
+    """簡單的線條 icon。畫在半徑 r 的底圈中央;線寬跟著 r 等比縮放。"""
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=ICON_BG)
-    c, lw = ICON_COL, 9
+    # 9 是半徑 76 時的線寬。放大底圈卻不加粗線條,icon 會顯得比原本更虛。
+    c, lw = ICON_COL, max(3, round(9 * r / 76))
     s = r * 0.52   # icon 本體的半徑
 
     if kind == "scan":            # 掃描框 + 中央圓(面舌診)
@@ -249,7 +250,7 @@ def build(tab):
     # 版面配比:上 1/3 放小貼圖,下 2/3 放字。
     # 手機上圖文選單一格只有指甲大,字才是使用者真正在讀的東西,
     # icon 只要能認出是哪一類就夠,不需要跟字搶空間。
-    ICON_R = 76
+    ICON_R = 114                 # 原本 76,放大 1.5 倍
     for idx, (label, icon) in enumerate(tab["cells"]):
         r, c = divmod(idx, COLS)
         x, y, w = COL_X[c], ROW_Y[r], COL_W[c]
@@ -261,7 +262,7 @@ def build(tab):
             d.rectangle([x, y, x + w, y + 3], fill=LINE_COL)
 
         # 上 1/3:小貼圖。整組(圖+字)在格子裡垂直置中,不要上擠下空。
-        draw_icon(d, x + w / 2, y + CELL_H * 0.28, ICON_R, icon)
+        draw_icon(d, x + w / 2, y + CELL_H * 0.26, ICON_R, icon)
         # 下 2/3:標籤,字級自動縮到塞得下為止
         f_label = fit_font(d, label, w - 70, 112)
         center_text(d, (x, y + CELL_H * 0.50, w, CELL_H * 0.38), label, f_label, TEXT_DARK)
