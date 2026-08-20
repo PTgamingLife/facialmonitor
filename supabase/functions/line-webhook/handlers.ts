@@ -379,13 +379,36 @@ function tipReadCard(r: TipReadResult): LineMessage {
     : r.first_time === false && r.bound
       ? "今天已經閱讀並領過積點囉。"
       : !r.bound ? r.message : undefined;
+  const sourceButtons = (r.tip.source_urls ?? []).flatMap((value, index) => {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:") return [];
+      return [{ label: `官方來源${index + 1}`, action: uriAction(`官方來源${index + 1}`, url.href) }];
+    } catch { return []; }
+  }).slice(0, 2);
   return infoCard({
     title: `🌿 ${r.tip.title}`,
     subtitle: r.tip.body,
     hero: r.tip.image_url || undefined,
     rows,
     note: oldNote,
+    buttons: sourceButtons,
     altText: r.tip.title,
+  });
+}
+
+async function previewTip(tipId: string): Promise<LineMessage> {
+  if (!/^[0-9a-f-]{36}$/i.test(tipId)) return textMsg("⚠️ 這則健康資訊連結已失效。");
+  const tip = await selectOne<{
+    id: string; tip_date: string; title: string; body: string; detail_points: string[];
+    image_url: string | null; source_urls: string[];
+  }>("sb_daily_tips",
+    `id=eq.${tipId}&active=eq.true&status=eq.approved&approved_at=not.is.null&select=id,tip_date,title,body,detail_points,image_url,source_urls`);
+  if (!tip) return textMsg("⚠️ 這則健康資訊目前無法閱讀。");
+  return tipReadCard({
+    ok: true, bound: false, is_today: false, points_added: 0,
+    message: "這是測試預覽，不提供閱讀積點。",
+    tip: { ...tip, date: tip.tip_date },
   });
 }
 
@@ -742,6 +765,8 @@ export async function handlePostback(
       return await dailyCheckin(u);
     case "tip_detail":
       return await readTip(u, params.get("tip") ?? "");
+    case "tip_preview_detail":
+      return await previewTip(params.get("tip") ?? "");
     case "tip_disclaimer_agree":
       return await agreeTipDisclaimer(u, params.get("tip") ?? "", params.get("version") ?? "");
     case "ask_consultant":

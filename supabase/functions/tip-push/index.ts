@@ -54,6 +54,11 @@ function testTipCard(tip: Tip) {
     subtitle: tip.summary ?? "健康資訊測試訊息。",
     hero: tip.image_url ?? undefined,
     note: `預計發布日：${tip.tip_date}。本次測試不提供閱讀積點。`,
+    buttons: [{
+      label: "查看詳細資訊與來源",
+      action: postbackAction("查看詳細資訊與來源", `action=tip_preview_detail&tip=${tip.id}`),
+      primary: true,
+    }],
     altText: `[測試] ${tip.title}`,
   });
 }
