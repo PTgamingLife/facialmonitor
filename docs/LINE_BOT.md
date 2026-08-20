@@ -352,8 +352,8 @@ uri 格落在正確的 `page-*` → AI 連續三輪記得前文 → 綁定 → �
 - `HEALTHBOT_OPENAI_MODEL`：可省略，預設 `gpt-4.1-mini`
 - `HEALTHBOT_TIP_SOURCE_URLS`：逗號分隔的官方來源白名單
 - `HEALTHBOT_ADMIN_LINE_USER_ID`：接收待審與缺稿通知的管理者 LINE User ID
-- `HEALTHBOT_TIP_PLAN_SECRET`：只允許觸發產稿
-- `HEALTHBOT_TIP_PUSH_SECRET`：只允許預檢與推播
+- `HEALTHBOT_TIP_PLAN_SECRET_SHA256`：Vault 產稿密鑰的 SHA-256；Edge 不保存明文
+- `HEALTHBOT_TIP_PUSH_SECRET_SHA256`：Vault 推播密鑰的 SHA-256；Edge 不保存明文
 
 兩把觸發密鑰必須不同；不得使用 service-role key，也不得放在 URL query string。
 

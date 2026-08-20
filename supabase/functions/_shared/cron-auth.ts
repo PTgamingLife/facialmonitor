@@ -12,3 +12,17 @@ export function authorizeCron(req: Request, header: string, expected: string): R
   }
   return null;
 }
+
+export async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function authorizeCronHash(req: Request, header: string, expectedHash: string): Promise<Response | null> {
+  if (!expectedHash) return Response.json({ ok: false, error: "not_configured" }, { status: 503 });
+  const supplied = req.headers.get(header) ?? "";
+  if (!supplied || !secureEqual(await sha256Hex(supplied), expectedHash)) {
+    return Response.json({ ok: false, error: "unauthorized" }, { status: 401 });
+  }
+  return null;
+}

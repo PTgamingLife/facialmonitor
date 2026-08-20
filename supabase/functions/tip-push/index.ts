@@ -1,8 +1,8 @@
-import { authorizeCron } from "../_shared/cron-auth.ts";
+import { authorizeCronHash } from "../_shared/cron-auth.ts";
 import { infoCard, multicast, postbackAction, push } from "../_shared/line.ts";
 import { patch, rpc, select, selectOne, upsert } from "../_shared/db.ts";
 
-const PUSH_SECRET = Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET") ?? "";
+const PUSH_SECRET_HASH = Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET_SHA256") ?? "";
 const ADMIN_LINE_ID = Deno.env.get("HEALTHBOT_ADMIN_LINE_USER_ID") ?? "";
 
 type Tip = { id: string; tip_date: string; title: string; summary: string | null; image_url: string | null };
@@ -83,7 +83,7 @@ async function preflight(): Promise<Response> {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-  const denied = authorizeCron(req, "x-tip-push-secret", PUSH_SECRET);
+  const denied = await authorizeCronHash(req, "x-tip-push-secret", PUSH_SECRET_HASH);
   if (denied) return denied;
   const body = await req.json().catch(() => ({})) as { mode?: string };
   if (body.mode === "preflight") return await preflight();

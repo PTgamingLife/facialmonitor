@@ -1,8 +1,8 @@
-import { authorizeCron } from "../_shared/cron-auth.ts";
+import { authorizeCronHash } from "../_shared/cron-auth.ts";
 import { APP_BASE_URL, assetUrl, infoCard, push, uriAction } from "../_shared/line.ts";
 import { insert, patch, select } from "../_shared/db.ts";
 
-const PLAN_SECRET = Deno.env.get("HEALTHBOT_TIP_PLAN_SECRET") ?? "";
+const PLAN_SECRET_HASH = Deno.env.get("HEALTHBOT_TIP_PLAN_SECRET_SHA256") ?? "";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("HEALTHBOT_OPENAI_KEY") ?? "";
 const MODEL = Deno.env.get("HEALTHBOT_OPENAI_MODEL") ?? "gpt-4.1-mini";
 const ADMIN_LINE_ID = Deno.env.get("HEALTHBOT_ADMIN_LINE_USER_ID") ?? "";
@@ -143,7 +143,7 @@ async function generate(dates: string[], sources: string[]): Promise<TipDraft[]>
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-  const denied = authorizeCron(req, "x-tip-plan-secret", PLAN_SECRET);
+  const denied = await authorizeCronHash(req, "x-tip-plan-secret", PLAN_SECRET_HASH);
   if (denied) return denied;
   if (!OPENAI_KEY) return Response.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
 
