@@ -332,3 +332,61 @@ uri 格落在正確的 `page-*` → AI 連續三輪記得前文 → 綁定 → �
 | `真人` / `AI` | 暫停 / 恢復 AI |
 | `說明` | 功能總覽 |
 | 其他任何訊息 | AI 健康問答 |
+# 每日健康資訊：產稿、審核與推播
+
+## 流程
+
+1. 每週日台灣 22:00，`pg_cron` 以 Vault 中的專用密鑰觸發 `tip-plan`。
+2. `tip-plan` 只補未來 14 天缺少的日期；已存在或已核准內容不覆蓋。
+3. 官方來源頁面會先清理、限長，再以不可信資料分隔符交給 OpenAI；輸出使用嚴格 JSON Schema。
+4. 草稿一律以 `status=draft`、`approved_at=null` 寫入，療效敏感詞放在 `risk_flags`。
+5. 管理者會在 LINE 收到待審通知，登入 App 的管理後台逐則通過或退回。
+6. 每天台灣 07:30 預檢；08:00 由 `tip-push` 搶租約後分批 multicast（500 人／批）。
+7. 使用者按「詳細資訊」後，webhook 以一支 `rpc_read_tip` 完成全文、首次閱讀、積點與餘額查詢。
+8. 舊卡可讀但不補領；只有伺服器判定為台灣當日、且確實進入推播流程的文章首次閱讀 +3 點。
+
+## Edge Function secrets
+
+既有 `OPENAI_API_KEY` 直接沿用。另需：
+
+- `HEALTHBOT_OPENAI_MODEL`：可省略，預設 `gpt-4.1-mini`
+- `HEALTHBOT_TIP_SOURCE_URLS`：逗號分隔的官方來源白名單
+- `HEALTHBOT_ADMIN_LINE_USER_ID`：接收待審與缺稿通知的管理者 LINE User ID
+- `HEALTHBOT_TIP_PLAN_SECRET_SHA256`：Vault 產稿密鑰的 SHA-256；Edge 不保存明文
+- `HEALTHBOT_TIP_PUSH_SECRET_SHA256`：Vault 推播密鑰的 SHA-256；Edge 不保存明文
+
+兩把觸發密鑰必須不同；不得使用 service-role key，也不得放在 URL query string。
+
+## Vault secrets
+
+Cron 只從 Vault 讀取以下值：
+
+- `healthbot_project_url`
+- `healthbot_tip_plan_secret`
+- `healthbot_tip_push_secret`
+
+Vault 值必須分別與 Edge Function secrets 對應。migration 會建立三個工作：
+
+- `healthbot-tip-plan-weekly`：UTC 週日 14:00（台灣週日 22:00）
+- `healthbot-tip-preflight-daily`：UTC 23:30（台灣 07:30）
+- `healthbot-tip-push-daily`：UTC 00:00（台灣 08:00）
+
+## 安全部署順序
+
+1. 先建立 Edge secrets 與 Vault secrets。
+2. 部署 `tip-plan`、`tip-push`、`line-webhook`。
+3. 套用 migration。
+4. 用 `tip-push` 的 `{ "mode": "preview" }` 檢查收件人數與 Flex JSON；不會送出。
+5. 手動產一批草稿，確認草稿在未核准時無法由公開 API 讀到。
+6. 以測試管理員核准今天一則，確認預覽卡片。
+7. 第一次正式推播前再次核對 LINE 訊息額度與名單人數。
+
+## 驗收條件
+
+- 同一天重複觸發 `tip-push` 不會重送已成功批次。
+- 執行中斷後，租約逾時只重試未成功批次。
+- 同一會員同一文章連按只會增加一次積點。
+- 舊日期卡片回完整內容，但 `points_added=0`。
+- 未綁定 LINE 用戶可以閱讀，但不加點並收到綁定提示。
+- 修改已核准內容會自動退回 `draft` 並提高版本號。
+- 未核准與未到日期內容無法由公開 RLS 讀取。

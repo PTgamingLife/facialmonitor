@@ -679,3 +679,17 @@ input[type="file"] { display:none; }
 .migrate-btn:disabled { opacity:.5; cursor:not-allowed; }
 .migrate-note { font-size:11px; color:var(--text-hint); margin-top:8px; line-height:1.8; }
 .migrate-card.done .migrate-btn { display:none; }
+
+/* ── 管理者：每日健康資訊審核 ── */
+.admin-tip-filter-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.admin-tip-card { padding:14px 0; border-bottom:1px solid var(--gold-pale); }
+.admin-tip-card:last-child { border-bottom:0; }
+.admin-tip-head { display:flex; justify-content:space-between; gap:10px; color:var(--text-dark); font-size:13px; }
+.admin-tip-head span { color:var(--text-hint); font-size:11px; }
+.admin-tip-warning { margin-top:8px; padding:8px; background:rgba(217,83,79,.09); color:var(--alert-color); border-radius:var(--radius-sm); font-size:12px; }
+.admin-tip-summary,.admin-tip-body { margin-top:8px; color:var(--text-soft); font-size:12.5px; line-height:1.8; white-space:pre-wrap; }
+.admin-tip-card details { margin-top:8px; }
+.admin-tip-card summary { color:var(--gold-main); cursor:pointer; font-size:12px; }
+.admin-tip-card ol { padding-left:20px; color:var(--text-soft); font-size:12px; line-height:1.8; }
+.admin-tip-sources,.admin-tip-review-note { font-size:11px; color:var(--text-hint); line-height:1.7; overflow-wrap:anywhere; }
+.admin-tip-actions { display:flex; gap:8px; margin-top:12px; }

@@ -346,6 +346,78 @@ async function dailyCheckin(u: LineUser): Promise<LineMessage> {
   });
 }
 
+type TipReadResult = {
+  ok: boolean;
+  error?: string;
+  message?: string;
+  bound?: boolean;
+  needs_disclaimer?: boolean;
+  disclaimer_version?: string;
+  disclaimer_body?: string;
+  tip_id?: string;
+  first_time?: boolean;
+  points_added?: number;
+  balance?: number;
+  is_today?: boolean;
+  tip?: {
+    id: string; date: string; title: string; body: string;
+    detail_points: string[]; image_url: string | null; source_urls: string[];
+  };
+};
+
+function tipReadCard(r: TipReadResult): LineMessage {
+  if (!r.ok || !r.tip) return textMsg(`⚠️ ${r.message ?? "這則健康資訊目前無法閱讀。"}`);
+  const rows = (r.tip.detail_points ?? []).slice(0, 3).map((point, i) => ({
+    label: `${i + 1}`, value: point, accent: i === 0,
+  }));
+  if ((r.points_added ?? 0) > 0) {
+    rows.push({ label: "今日閱讀", value: `+${r.points_added} 點`, accent: true });
+    rows.push({ label: "積點餘額", value: `${r.balance ?? 0} 點`, accent: true });
+  }
+  const oldNote = r.is_today === false
+    ? `這是 ${r.tip.date} 的健康資訊，積點只給當天閱讀喔 🌿`
+    : r.first_time === false && r.bound
+      ? "今天已經閱讀並領過積點囉。"
+      : !r.bound ? r.message : undefined;
+  return infoCard({
+    title: `🌿 ${r.tip.title}`,
+    subtitle: r.tip.body,
+    hero: r.tip.image_url || undefined,
+    rows,
+    note: oldNote,
+    altText: r.tip.title,
+  });
+}
+
+async function readTip(u: LineUser, tipId: string): Promise<LineMessage> {
+  if (!/^[0-9a-f-]{36}$/i.test(tipId)) return textMsg("⚠️ 這則健康資訊連結已失效。");
+  const r = await rpc<TipReadResult>("rpc_read_tip", {
+    p_line_user_id: u.line_user_id, p_tip_id: tipId,
+  });
+  if (r?.needs_disclaimer && r.disclaimer_version && r.disclaimer_body) {
+    return infoCard({
+      title: "閱讀前請先確認",
+      subtitle: r.disclaimer_body,
+      buttons: [{
+        label: "同意並繼續",
+        action: postbackAction("同意並繼續",
+          `action=tip_disclaimer_agree&tip=${tipId}&version=${encodeURIComponent(r.disclaimer_version)}`),
+        primary: true,
+      }],
+      altText: "健康資訊免責聲明",
+    });
+  }
+  return tipReadCard(r ?? { ok: false, message: "讀取失敗，請稍後再試。" });
+}
+
+async function agreeTipDisclaimer(u: LineUser, tipId: string, version: string): Promise<LineMessage> {
+  if (!/^[0-9a-f-]{36}$/i.test(tipId) || !version) return textMsg("⚠️ 這則健康資訊連結已失效。");
+  const r = await rpc<TipReadResult>("rpc_agree_tip_disclaimer", {
+    p_line_user_id: u.line_user_id, p_version: version, p_tip_id: tipId,
+  });
+  return tipReadCard(r ?? { ok: false, message: "確認失敗，請稍後再試。" });
+}
+
 /** 最新健康分數 + 與上一次的差額(只有一次檢測就只報最新的) */
 async function latestScore(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
@@ -668,6 +740,10 @@ export async function handlePostback(
       return await myPoints(u);
     case "daily_checkin":
       return await dailyCheckin(u);
+    case "tip_detail":
+      return await readTip(u, params.get("tip") ?? "");
+    case "tip_disclaimer_agree":
+      return await agreeTipDisclaimer(u, params.get("tip") ?? "", params.get("version") ?? "");
     case "ask_consultant":
       return askConsultant();
     case "buy_credits":

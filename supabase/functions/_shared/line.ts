@@ -55,12 +55,13 @@ export async function verifySignature(rawBody: string, signature: string): Promi
 }
 
 // ── 送訊息 ────────────────────────────────────────────────
-async function post(path: string, body: unknown): Promise<Response> {
+async function post(path: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<Response> {
   return await fetch(`${API}${path}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`,
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   });
@@ -89,9 +90,13 @@ export async function push(to: string, messages: LineMessage | LineMessage[]) {
   return res.ok;
 }
 
-export async function multicast(to: string[], messages: LineMessage | LineMessage[]) {
+export async function multicast(to: string[], messages: LineMessage | LineMessage[], retryKey?: string) {
   const list = Array.isArray(messages) ? messages : [messages];
-  const res = await post("/message/multicast", { to: to.slice(0, 500), messages: list.slice(0, 5) });
+  const res = await post(
+    "/message/multicast",
+    { to: to.slice(0, 500), messages: list.slice(0, 5) },
+    retryKey ? { "X-Line-Retry-Key": retryKey } : {},
+  );
   if (!res.ok) console.error("multicast failed:", res.status, await res.text());
   return res.ok;
 }
