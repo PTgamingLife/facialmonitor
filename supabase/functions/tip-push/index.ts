@@ -48,6 +48,16 @@ function tipCard(tip: Tip) {
   });
 }
 
+function testTipCard(tip: Tip) {
+  return infoCard({
+    title: `🧪 測試｜${tip.title}`,
+    subtitle: tip.summary ?? "健康資訊測試訊息。",
+    hero: tip.image_url ?? undefined,
+    note: `預計發布日：${tip.tip_date}。本次測試不提供閱讀積點。`,
+    altText: `[測試] ${tip.title}`,
+  });
+}
+
 async function ensureBatches(pushId: string): Promise<Batch[]> {
   const existing = await select<Batch>("sb_daily_push_batches",
     `push_id=eq.${pushId}&select=id,batch_no,recipient_ids,status,attempt_count&order=batch_no.asc&limit=10000`);
@@ -85,7 +95,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
   const denied = await authorizeCronHash(req, "x-tip-push-secret", PUSH_SECRET_HASH);
   if (denied) return denied;
-  const body = await req.json().catch(() => ({})) as { mode?: string };
+  const body = await req.json().catch(() => ({})) as { mode?: string; tip_id?: string };
   if (body.mode === "preflight") return await preflight();
   if (body.mode === "preview") {
     const tip = await approvedToday();
@@ -94,6 +104,25 @@ Deno.serve(async (req) => {
       ok: true, dry_run: true, recipient_count: recipients.length,
       approved: !!tip, preview: tip ? tipCard(tip) : null,
     });
+  }
+  if (body.mode === "test") {
+    if (!body.tip_id || !/^[0-9a-f-]{36}$/i.test(body.tip_id)) {
+      return Response.json({ ok: false, error: "invalid_tip_id" }, { status: 400 });
+    }
+    const tip = await selectOne<Tip>("sb_daily_tips",
+      `id=eq.${body.tip_id}&active=eq.true&status=eq.approved&approved_at=not.is.null&select=id,tip_date,title,summary,image_url`);
+    if (!tip) return Response.json({ ok: false, error: "approved_tip_not_found" }, { status: 404 });
+    const recipients = await allFollowers();
+    let sent = 0;
+    let failed = 0;
+    for (let i = 0; i < recipients.length; i += 500) {
+      const ids = recipients.slice(i, i + 500);
+      const ok = await multicast(ids, testTipCard(tip), crypto.randomUUID());
+      if (ok) sent += ids.length;
+      else failed += ids.length;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    return Response.json({ ok: failed === 0, test: true, tip_id: tip.id, sent, failed });
   }
   if (body.mode !== "push") return Response.json({ ok: false, error: "invalid_mode" }, { status: 400 });
 
