@@ -1,0 +1,19 @@
+project_id = "facialmonitor"
+
+[functions.line-webhook]
+verify_jwt = false
+
+[functions.liff-auth]
+verify_jwt = false
+
+[functions.tip-plan]
+verify_jwt = false
+
+[functions.tip-push]
+verify_jwt = false
+
+[functions.payment-fulfill]
+verify_jwt = false
+
+[functions.richmenu-setup]
+verify_jwt = false

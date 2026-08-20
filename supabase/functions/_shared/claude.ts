@@ -7,6 +7,7 @@ const ANTHROPIC_API_KEY = Deno.env.get("HEALTHBOT_ANTHROPIC_KEY")
   ?? Deno.env.get("ANTHROPIC_API_KEY") ?? "";
 const MODEL = Deno.env.get("HEALTHBOT_CLAUDE_MODEL")
   ?? Deno.env.get("CLAUDE_MODEL") ?? "claude-opus-4-8";
+const CHAT_TIMEOUT_MS = 25_000;
 
 export type Turn = { role: "user" | "assistant"; content: string };
 
@@ -75,20 +76,35 @@ export async function chat(
     system += `\n\n## 更早之前的對話摘要\n${summary}`;
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 800,
-      system,
-      messages: history,
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 800,
+        system,
+        messages: history,
+      }),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      console.warn("claude timed out after", CHAT_TIMEOUT_MS, "ms");
+      return "我想太久了 😅 再問我一次好嗎?";
+    }
+    console.error("claude request failed:", err);
+    return "⚠️ 我這邊剛剛卡住了,再問我一次好嗎?";
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     console.error("claude failed:", res.status, await res.text());

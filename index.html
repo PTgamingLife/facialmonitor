@@ -387,6 +387,16 @@
       <div id="admin-stats"></div>
     </div>
 
+    <div class="rcard" id="admin-tip-review-card">
+      <div class="section-title">📝 健康資訊審核</div>
+      <div class="admin-tip-filter-row">
+        <button class="btn-update-code" onclick="loadAdminTips('draft')">待審</button>
+        <button class="btn-outline" onclick="loadAdminTips('approved')">已通過</button>
+        <button class="btn-outline" onclick="loadAdminTips('rejected')">已退回</button>
+      </div>
+      <div id="admin-tip-list"><div class="empty-state">載入中…</div></div>
+    </div>
+
     <div class="rcard">
       <div class="section-title">🔑 密碼設定</div>
       <div class="code-setting-box">

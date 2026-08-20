@@ -3,6 +3,7 @@
 async function loadAdminUsers() {
   const list = document.getElementById('admin-user-list');
   if (!list) return;
+  loadAdminTips('draft');
 
   // 用戶列表
   const { data: users } = await supabase
@@ -57,6 +58,61 @@ async function loadAdminUsers() {
       </div>
     </div>
   </div>`).join('');
+}
+
+async function loadAdminTips(status = 'draft') {
+  const list = document.getElementById('admin-tip-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state">載入中…</div>';
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  const { data: tips, error } = await supabase
+    .from('sb_daily_tips')
+    .select('id,tip_date,title,summary,body,detail_points,source_urls,risk_flags,status,content_version,approved_at,review_note')
+    .eq('status', status)
+    .gte('tip_date', status === 'draft' ? today : '2000-01-01')
+    .order('tip_date', { ascending: true })
+    .limit(60);
+  if (error) { list.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(error.message)}</div>`; return; }
+  if (!tips?.length) { list.innerHTML = '<div class="empty-state">目前沒有這個狀態的內容</div>'; return; }
+
+  list.innerHTML = tips.map(t => {
+    const points = Array.isArray(t.detail_points) ? t.detail_points : [];
+    const flags = Array.isArray(t.risk_flags) ? t.risk_flags : [];
+    const sources = Array.isArray(t.source_urls) ? t.source_urls : [];
+    return `<article class="admin-tip-card">
+      <div class="admin-tip-head"><strong>${escapeHtml(t.tip_date)}｜${escapeHtml(t.title)}</strong><span>v${t.content_version}</span></div>
+      ${flags.length ? `<div class="admin-tip-warning">⚠️ 風險詞：${escapeHtml(flags.join('、'))}</div>` : ''}
+      <div class="admin-tip-summary">${escapeHtml(t.summary ?? '')}</div>
+      <details><summary>查看完整內容</summary>
+        <div class="admin-tip-body">${escapeHtml(t.body)}</div>
+        <ol>${points.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ol>
+        <div class="admin-tip-sources">來源：${sources.map(u => `<a href="${safeHttpUrl(u)}" target="_blank" rel="noopener">${escapeHtml(new URL(safeHttpUrl(u)).hostname)}</a>`).join('、')}</div>
+      </details>
+      ${status === 'draft' ? `<div class="admin-tip-actions">
+        <button class="btn-update-code" onclick="reviewTip('${t.id}','approve',${flags.length > 0})">通過</button>
+        <button class="btn-outline" onclick="reviewTip('${t.id}','reject')">退回</button>
+      </div>` : `<div class="admin-tip-review-note">${escapeHtml(t.review_note ?? '')}</div>`}
+    </article>`;
+  }).join('');
+}
+
+function safeHttpUrl(value) {
+  try {
+    const u = new URL(String(value));
+    return ['https:', 'http:'].includes(u.protocol) ? u.href : 'about:blank';
+  } catch (_) { return 'about:blank'; }
+}
+
+async function reviewTip(tipId, decision, hasRiskFlags = false) {
+  if (decision === 'approve' && hasRiskFlags && !confirm('這篇含有風險字詞。確認已人工核對內容與來源，仍要通過嗎？')) return;
+  const note = decision === 'reject' ? (prompt('退回原因（會留在審核紀錄）') ?? '') : '';
+  if (decision === 'reject' && !note.trim()) return;
+  const { data, error } = await supabase.rpc('rpc_admin_review_tip', {
+    p_tip_id: tipId, p_decision: decision, p_note: note || null
+  });
+  if (error || !data?.ok) { showToast('審核失敗'); return; }
+  showToast(decision === 'approve' ? '✅ 已通過' : '已退回');
+  await loadAdminTips('draft');
 }
 
 async function saveCredits(userId) {
