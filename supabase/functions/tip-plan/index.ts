@@ -149,6 +149,14 @@ Deno.serve(async (req) => {
 
   const start = nextMonday();
   const dates = Array.from({ length: 14 }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return isoDate(d); });
+  const recentCutoff = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString();
+  const recentRuns = await select<{ id: string }>(
+    "sb_tip_plan_runs",
+    `select=id&status=eq.completed&started_at=gte.${encodeURIComponent(recentCutoff)}&order=started_at.desc&limit=1`,
+  );
+  if (recentRuns.length) {
+    return Response.json({ ok: true, created: 0, message: "biweekly plan already completed" });
+  }
   const existing = await select<{ id: string; tip_date: string; status: string; content_version: number }>(
     "sb_daily_tips",
     `select=id,tip_date,status,content_version&tip_date=gte.${dates[0]}&tip_date=lte.${dates.at(-1)}&limit=100`,
