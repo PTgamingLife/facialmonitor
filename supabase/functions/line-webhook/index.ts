@@ -43,6 +43,15 @@ function welcomeCard(name?: string): LineMessage {
   });
 }
 
+function welcomeVideo(): LineMessage {
+  const mediaBase = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome`;
+  return {
+    type: "video",
+    originalContentUrl: `${mediaBase}/kanjian-ai-health-intro.mp4`,
+    previewImageUrl: `${mediaBase}/kanjian-ai-health-intro-preview.jpg`,
+  };
+}
+
 // ── 文字指令(先於 AI 比對) ────────────────────────────────
 async function handleCommand(u: LineUser, text: string): Promise<LineMessage | LineMessage[] | null> {
   const t = text.trim();
@@ -216,7 +225,9 @@ async function handleEvent(event: Record<string, unknown>): Promise<void> {
     await patch("line_users", `line_user_id=eq.${encodeURIComponent(lineUserId)}`, {
       unfollowed_at: null,
     });
-    if (replyToken) await reply(replyToken, welcomeCard(u.display_name ?? profile?.displayName));
+    if (replyToken) {
+      await reply(replyToken, [welcomeVideo(), welcomeCard(u.display_name ?? profile?.displayName)]);
+    }
     return;
   }
 
