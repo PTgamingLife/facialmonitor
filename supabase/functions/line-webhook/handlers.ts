@@ -11,7 +11,6 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
 // 所以直接寫預設值,不用為了改一個網址跑一趟後台設 secret。
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
-const OA_URL         = Deno.env.get("HEALTHBOT_OA_URL") ?? "https://lin.ee/uwmOjc0";
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
 const CREDIT_PRICE   = 60; // 單次檢測固定售價,後端與資料庫也會再次核對
@@ -91,6 +90,12 @@ function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
 }
 
+function referralUrl(code: string): string {
+  return LIFF_ID
+    ? `https://liff.line.me/${LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`
+    : `${appUrl("page-main")}&ref=${encodeURIComponent(code)}`;
+}
+
 /**
  * LINE 內建的分享 URL scheme:按下去直接跳「選擇傳送對象」,選好友就送出。
  *
@@ -102,12 +107,12 @@ function shareUrl(text: string): string {
   return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
 }
 
-/** 分享出去的那段文字:官方帳號連結 + 自己的推薦碼,朋友照著做就綁得起來 */
+/** 分享出去的文字：專屬 LIFF 網址會在登入後自動綁定推薦人。 */
 function inviteText(code: string): string {
   return `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
-    + `加入官方帳號:${OA_URL}\n`
-    + `我的推薦碼:${code}\n\n`
-    + `加好友後傳「小天使 ${code}」給它,你我都有積點可以換檢測次數。`;
+    + `點我的專屬網址加入,登入後會自動綁定推薦人,並獲得 1 次免費檢測:\n`
+    + `${referralUrl(code)}\n\n`
+    + `推薦碼:${code}(備用)`;
 }
 
 const NEED_BIND = infoCard({
@@ -300,7 +305,7 @@ async function shareInvite(u: LineUser): Promise<LineMessage> {
 
   return infoCard({
     title: "📣 分享給朋友",
-    subtitle: "按下面的按鈕會跳出 LINE 的分享視窗,選好友就能一次把官方帳號和你的推薦碼送出去。",
+    subtitle: "按下面的按鈕選好友，對方點專屬網址並登入後，就會自動把你綁定為小天使。",
     bigValue: code,
     bigLabel: "我的推薦碼",
     rows: [
@@ -800,7 +805,7 @@ export async function handlePostback(
       return infoCard({
         title: "✍️ 填寫我的小天使",
         subtitle: "把介紹你來的人的 7 位推薦碼傳給我,格式:小天使 1234567\n"
-          + "填寫後你會拿到積點,對方也會。綁定後不能更改,請確認再送出。",
+          + "首次綁定可得積點及 1 次免費檢測。綁定後不能更改,請確認再送出。",
         altText: "填寫小天使",
       });
 
@@ -810,9 +815,9 @@ export async function handlePostback(
         "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
       return textMsg(
         `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
-        + `用我的推薦碼加入,你我都有積點可以換檢測次數:\n`
-        + `推薦碼：${s?.member_code ?? "—"}\n\n`
-        + `加入後在 LINE 傳「小天使 ${s?.member_code ?? ""}」就完成囉。`,
+        + `點我的專屬網址加入,登入後會自動綁定推薦人,並獲得 1 次免費檢測:\n`
+        + `${referralUrl(s?.member_code ?? "")}\n\n`
+        + `推薦碼：${s?.member_code ?? "—"}(備用)`,
       );
     }
 
