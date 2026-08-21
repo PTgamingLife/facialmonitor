@@ -1,5 +1,5 @@
 import { authorizeCronHash } from "../_shared/cron-auth.ts";
-import { infoCard, multicast, postbackAction, push } from "../_shared/line.ts";
+import { appUrl, infoCard, multicast, postbackAction, push, uriAction } from "../_shared/line.ts";
 import { patch, rpc, select, selectOne, upsert } from "../_shared/db.ts";
 
 const PUSH_SECRET_HASH = Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET_SHA256") ?? "";
@@ -61,6 +61,32 @@ function testTipCard(tip: Tip) {
     }],
     altText: `[測試] ${tip.title}`,
   });
+}
+
+function welcomeTestMessages() {
+  const mediaBase = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome`;
+  return [
+    {
+      type: "video",
+      originalContentUrl: `${mediaBase}/kanjian-ai-health-intro.mp4`,
+      previewImageUrl: `${mediaBase}/kanjian-ai-health-intro-preview.jpg`,
+    },
+    infoCard({
+      title: "歡迎加入健康顧問 🌿",
+      subtitle: "我可以幫你看懂面舌診報告、安排每天的養生任務，也隨時回答健康問題。",
+      rows: [
+        { label: "第一步", value: "綁定會員" },
+        { label: "第二步", value: "做面舌診" },
+        { label: "第三步", value: "填小天使拿積點", accent: true },
+      ],
+      note: "這是現有會員的開場影片測試訊息。",
+      buttons: [
+        { label: "綁定我的會員", action: postbackAction("綁定我的會員", "action=bind_start"), primary: true },
+        { label: "先去做面舌診", action: uriAction("去做面舌診", appUrl("page-challenge")) },
+      ],
+      altText: "歡迎加入健康顧問",
+    }),
+  ];
 }
 
 async function ensureBatches(pushId: string): Promise<Batch[]> {
@@ -128,6 +154,19 @@ Deno.serve(async (req) => {
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
     return Response.json({ ok: failed === 0, test: true, tip_id: tip.id, sent, failed });
+  }
+  if (body.mode === "welcome_video_test") {
+    const recipients = await allFollowers();
+    let sent = 0;
+    let failed = 0;
+    for (let i = 0; i < recipients.length; i += 500) {
+      const ids = recipients.slice(i, i + 500);
+      const ok = await multicast(ids, welcomeTestMessages(), crypto.randomUUID());
+      if (ok) sent += ids.length;
+      else failed += ids.length;
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+    return Response.json({ ok: failed === 0, test: true, kind: "welcome_video", sent, failed });
   }
   if (body.mode !== "push") return Response.json({ ok: false, error: "invalid_mode" }, { status: 400 });
 
