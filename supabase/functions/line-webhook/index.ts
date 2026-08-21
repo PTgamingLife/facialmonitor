@@ -13,7 +13,7 @@
 //   HEALTHBOT_ANTHROPIC_KEY(可退回專案既有的 ANTHROPIC_API_KEY)
 
 import {
-  appUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,
+  appUrl, assetUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,
   uriAction, verifySignature,
 } from "../_shared/line.ts";
 import { chat, summarize } from "../_shared/claude.ts";
@@ -41,6 +41,14 @@ function welcomeCard(name?: string): LineMessage {
     ],
     altText: "歡迎加入健康顧問",
   });
+}
+
+function welcomeVideo(): LineMessage {
+  return {
+    type: "video",
+    originalContentUrl: assetUrl("assets/welcome/kanjian-ai-health-intro.mp4"),
+    previewImageUrl: assetUrl("assets/welcome/kanjian-ai-health-intro-preview.jpg"),
+  };
 }
 
 // ── 文字指令(先於 AI 比對) ────────────────────────────────
@@ -216,7 +224,9 @@ async function handleEvent(event: Record<string, unknown>): Promise<void> {
     await patch("line_users", `line_user_id=eq.${encodeURIComponent(lineUserId)}`, {
       unfollowed_at: null,
     });
-    if (replyToken) await reply(replyToken, welcomeCard(u.display_name ?? profile?.displayName));
+    if (replyToken) {
+      await reply(replyToken, [welcomeVideo(), welcomeCard(u.display_name ?? profile?.displayName)]);
+    }
     return;
   }
 
