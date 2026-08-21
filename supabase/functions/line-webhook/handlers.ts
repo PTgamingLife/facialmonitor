@@ -111,9 +111,9 @@ function inviteText(code: string): string {
 }
 
 const NEED_BIND = infoCard({
-  title: "先綁定會員才看得到喔",
-  subtitle: "在 App 首頁找到你的 7 位會員碼,直接傳「綁定 1234567」給我就完成了。",
-  buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", appUrl("page-main")), primary: true }],
+  title: "開啟 App 即可自動綁定",
+  subtitle: "用 LINE 登入後，系統會安全確認你的身分並自動完成綁定，不必輸入會員碼。",
+  buttons: [{ label: "開啟 App 並自動綁定", action: uriAction("開啟 App", liffUrl("page-main")), primary: true }],
   altText: "請先綁定會員",
 });
 
@@ -785,10 +785,9 @@ export async function handlePostback(
 
     case "bind_start":
       return infoCard({
-        title: "🔗 綁定會員",
-        subtitle: "打開 App 首頁,右上角那組 7 位數字就是你的會員碼。\n"
-          + "直接傳「綁定 1234567」給我就完成。",
-        buttons: [{ label: "開啟 App 查會員碼", action: uriAction("開啟 App", liffUrl("page-main")), primary: true }],
+        title: "🔗 自動綁定會員",
+        subtitle: "開啟 App 並用 LINE 登入，系統就會自動把目前的 LINE 帳號與會員資料綁定。",
+        buttons: [{ label: "開啟 App 並自動綁定", action: uriAction("開啟 App", liffUrl("page-main")), primary: true }],
         altText: "綁定會員",
       });
 

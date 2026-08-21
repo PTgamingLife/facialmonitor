@@ -25,19 +25,25 @@ import {
 import { handlePostback, helpCard } from "./handlers.ts";
 
 // ── 歡迎訊息 ───────────────────────────────────────────────
+const LIFF_ID = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
+
+function liffUrl(page: string): string {
+  return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
+}
+
 function welcomeCard(name?: string): LineMessage {
   return infoCard({
     title: `${name ? name + ",歡" : "歡"}迎加入健康顧問 🌿`,
     subtitle: "我可以幫你看懂面舌診報告、安排每天的養生任務,也隨時回答健康問題。",
     rows: [
-      { label: "第一步", value: "綁定會員" },
+      { label: "第一步", value: "開啟 App，自動綁定" },
       { label: "第二步", value: "做面舌診" },
       { label: "第三步", value: "填小天使拿積點", accent: true },
     ],
-    note: "有會員碼的話,直接傳「綁定 1234567」給我就好。",
+    note: "從這裡開啟 App 並用 LINE 登入，系統就會自動綁定，不必再輸入會員碼。",
     buttons: [
-      { label: "綁定我的會員", action: postbackAction("綁定我的會員", "action=bind_start"), primary: true },
-      { label: "先去做面舌診", action: uriAction("去做面舌診", appUrl("page-challenge")) },
+      { label: "開啟 App 並自動綁定", action: uriAction("開啟 App", liffUrl("page-main")), primary: true },
+      { label: "先去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")) },
     ],
     altText: "歡迎加入健康顧問",
   });
