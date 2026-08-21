@@ -154,8 +154,10 @@ async function doDraw() {
 }
 
 function shareRefCode(code) {
+  const referralUrl = `https://liff.line.me/${window.LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`;
   const text = `我在用「大數據健康檢測」測體質、做 14 天養生任務，滿有感的 🌿\n\n`
-    + `用我的推薦碼加入，你我都有積點可以換檢測次數：\n推薦碼：${code}`;
+    + `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n`
+    + `${referralUrl}\n\n推薦碼：${code}（備用）`;
 
   if (navigator.share) {
     navigator.share({ text }).catch(() => {});

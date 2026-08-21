@@ -142,6 +142,59 @@ async function autoLoginInLiff() {
   }
 }
 
+/** 推薦網址：LINE 驗證完成後，自動把網址中的推薦人設為小天使。 */
+async function processReferralLink() {
+  // LINE 會在 liff.init() 後才把 LIFF URL 的額外參數還原到網址。
+  if (!await initLiff()) return;
+  const params = new URLSearchParams(location.search);
+  const code = params.get('ref')?.trim() ?? '';
+  if (!/^\d{7}$/.test(code) || !currentUser?.id) return;
+
+  const marker = `hq_referral_${currentUser.id}_${code}`;
+  if (sessionStorage.getItem(marker)) return;
+  sessionStorage.setItem(marker, 'processing');
+
+  // 優先用 LINE 原生加好友提示。若後台尚未連結官方帳號或 LIFF 不是 Full，
+  // requestFriendship 會拒絕；不因此中斷綁定，完成後仍會提供官方帳號入口。
+  try {
+    const friendship = await liff.getFriendship?.();
+    if (friendship && !friendship.friendFlag && liff.requestFriendship) {
+      await liff.requestFriendship();
+    }
+  } catch (e) {
+    console.info('friendship prompt unavailable', e);
+  }
+
+  const { data, error } = await supabase.rpc('rpc_bind_angel', {
+    p_code: code,
+    p_source: 'web',
+  });
+
+  // 清除網址中的推薦碼，重新整理不會再次嘗試；資料庫本身仍有唯一綁定保護。
+  params.delete('ref');
+  history.replaceState({}, document.title,
+    `${location.pathname}${params.toString() ? '?' + params.toString() : ''}${location.hash}`);
+
+  if (error) {
+    sessionStorage.removeItem(marker);
+    showToast('推薦人綁定失敗，請稍後再試');
+    console.error('auto bind referral failed', error);
+    return;
+  }
+  sessionStorage.setItem(marker, data?.ok ? 'bound' : 'finished');
+
+  if (data?.ok) {
+    currentUser.points = data.balance ?? currentUser.points;
+    currentUser.credits = data.credits ?? currentUser.credits;
+    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
+    showToast(`✅ 已綁定小天使 ${data.angel_name}，獲得 ${data.points_awarded ?? 0} 點及 1 次免費檢測`);
+  } else if (data?.error === 'already_bound') {
+    showToast('你已經綁定過小天使，不會重複變更');
+  } else {
+    showToast(data?.message ?? '推薦人綁定失敗');
+  }
+}
+
 /* ══════════════════════════════════════════════════════════
    舊 Google 帳號資料轉移
 
@@ -290,6 +343,9 @@ async function handleSessionUser(session) {
                || (existing.phone === window.ADMIN_PHONE && existing.name === window.ADMIN_NAME);
   enterApp(isAdmin);
 
+  // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
+  await processReferralLink();
+
   // 轉移卡片只對「LINE 帳號、而且還沒轉移過」的人顯示。
   // 登在舊 Google 帳號時給他看這張卡沒有意義 —— 按下去只會得到
   // 「這已經是同一個帳號了」，白繞一圈。
@@ -310,12 +366,12 @@ async function startShareFlow() {
   if (!code) { showToast('會員碼還沒載入，請稍後再試'); return; }
 
   // shareTargetPicker 只有在 LINE 內建瀏覽器裡才有；在外面開就退回複製文字
+  const referralUrl = `https://liff.line.me/${window.LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`;
   const text =
     `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n` +
-    `用我的推薦碼加入，你我都有積點可以換免費檢測：\n` +
-    `推薦碼：${code}\n\n` +
-    (window.OA_URL ? `先加官方帳號 👉 ${window.OA_URL}\n` : '') +
-    `加入後在 LINE 傳「小天使 ${code}」就完成囉。`;
+    `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n` +
+    `${referralUrl}\n\n` +
+    `推薦碼：${code}（備用）`;
 
   if (typeof liff === 'undefined' || !liff.isApiAvailable?.('shareTargetPicker')) {
     copyText(text);
