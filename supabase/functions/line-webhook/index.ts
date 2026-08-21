@@ -13,7 +13,7 @@
 //   HEALTHBOT_ANTHROPIC_KEY(可退回專案既有的 ANTHROPIC_API_KEY)
 
 import {
-  appUrl, assetUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,
+  appUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,
   uriAction, verifySignature,
 } from "../_shared/line.ts";
 import { chat, summarize } from "../_shared/claude.ts";
@@ -44,10 +44,11 @@ function welcomeCard(name?: string): LineMessage {
 }
 
 function welcomeVideo(): LineMessage {
+  const mediaBase = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome`;
   return {
     type: "video",
-    originalContentUrl: assetUrl("assets/welcome/kanjian-ai-health-intro.mp4"),
-    previewImageUrl: assetUrl("assets/welcome/kanjian-ai-health-intro-preview.jpg"),
+    originalContentUrl: `${mediaBase}/kanjian-ai-health-intro.mp4`,
+    previewImageUrl: `${mediaBase}/kanjian-ai-health-intro-preview.jpg`,
   };
 }
 
