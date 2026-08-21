@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.richmenu-setup]
 verify_jwt = false
+
+[functions.challenge-push]
+verify_jwt = false

@@ -44,14 +44,9 @@ async function loadReward() {
   </div>
 
   <div class="card">
-    <div class="card-title">我的小天使</div>
-    ${s.angel
-      ? `<div class="hist-type">${escapeHtml(s.angel.name ?? '')}</div>`
-      : `<div class="hint-text">還沒填。輸入介紹你來的人的 7 位推薦碼，你會得 ${rates.bind_angel ?? 10} 點。</div>
-         <input class="admin-edit-input" id="angel-code" type="text" inputmode="numeric"
-                maxlength="7" placeholder="7 位推薦碼" style="width:100%;margin:8px 0">
-         <button class="btn-main" onclick="submitAngel()">送出</button>
-         <div class="modal-result" id="angel-result"></div>`}
+    <div class="card-title">14 天個人健康挑戰</div>
+    <div class="hint-text">依最近一次健康檢測，一次排定 14 天內容並寫入後台；每天 08:20 由 LINE 提醒。</div>
+    <button class="btn-main" onclick="applyHealthChallenge()">申請挑戰</button>
   </div>
 
   <div class="card">
@@ -107,24 +102,10 @@ async function loadReward() {
   </div>`;
 }
 
-async function submitAngel() {
-  const input = document.getElementById('angel-code');
-  const res   = document.getElementById('angel-result');
-  const code  = (input?.value ?? '').trim();
-
-  if (!/^\d{7}$/.test(code)) {
-    res.textContent = '請輸入 7 位數字'; res.className = 'modal-result err'; return;
-  }
-  res.textContent = '處理中…'; res.className = 'modal-result';
-
-  const { data, error } = await supabase.rpc('rpc_bind_angel', { p_code: code, p_source: 'web' });
-  if (error || !data?.ok) {
-    res.textContent = data?.message ?? '設定失敗，請稍後再試';
-    res.className = 'modal-result err';
-    return;
-  }
-  showToast(`✅ 已認定「${data.angel_name}」為小天使，+${data.points_awarded} 點`);
-  loadReward();
+async function applyHealthChallenge() {
+  const { data, error } = await supabase.rpc('rpc_apply_health_challenge', { p_user_id: currentUser.id });
+  if (error || !data?.ok) { showToast(data?.error === 'no_report' ? '請先完成一次健康檢測' : '申請失敗，請稍後再試'); return; }
+  showToast(data.already_active ? '你已有進行中的挑戰' : `✅ 已排定，${data.starts_on} 開始`);
 }
 
 async function doRedeem(n) {

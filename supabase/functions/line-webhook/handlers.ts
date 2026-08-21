@@ -187,6 +187,17 @@ async function credits(u: LineUser): Promise<LineMessage> {
 }
 
 async function taskToday(u: LineUser): Promise<LineMessage> {
+  if (u.sb_user_id) {
+    const c = await selectOne<{ health_focus:string; starts_on:string; plan:Record<string,unknown>[] }>(
+      "sb_health_challenges", `user_id=eq.${u.sb_user_id}&status=eq.active&select=health_focus,starts_on,plan`);
+    if (c) {
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone:"Asia/Taipei" });
+      const day = Math.floor((Date.parse(today)-Date.parse(c.starts_on))/86400000)+1;
+      if (day < 1) return infoCard({title:"✅ 14 天挑戰申請完成",subtitle:`挑戰將於 ${c.starts_on} 開始，每天 08:20 提醒。`,altText:"14 天挑戰已排定"});
+      const t = c.plan[Math.min(day,14)-1] ?? {};
+      return infoCard({title:`🌿 Day ${Math.min(day,14)}｜${String(t.title??"今日任務")}`,subtitle:String(t.task??"完成今天的小任務。"),rows:[{label:"健康重點",value:c.health_focus},{label:"為什麼",value:String(t.why??"建立健康習慣")}],altText:"今日個人健康挑戰"});
+    }
+  }
   let day = 1;
   if (u.sb_user_id) {
     const first = await firstScanAt(u.sb_user_id);
@@ -626,7 +637,7 @@ async function myReward(u: LineUser): Promise<LineMessage> {
     note: "把推薦碼給朋友,他完成第一次檢測你就得點;他當月進步 10 分,你再得一次。",
     buttons: [
       { label: "分享我的推薦碼", action: postbackAction("分享推薦碼", "action=share_invite"), primary: true },
-      ...(s.angel ? [] : [{ label: "填寫我的小天使", action: postbackAction("填寫小天使", "action=set_angel") }]),
+      { label: "申請 14 天健康挑戰", action: postbackAction("申請挑戰", "action=challenge_apply") },
     ],
     altText: "我的小天使與推薦碼",
   });
@@ -802,12 +813,14 @@ export async function handlePostback(
       return await myInvitees(u);
 
     case "set_angel":
-      return infoCard({
-        title: "✍️ 填寫我的小天使",
-        subtitle: "把介紹你來的人的 7 位推薦碼傳給我,格式:小天使 1234567\n"
-          + "首次綁定可得積點及 1 次免費檢測。綁定後不能更改,請確認再送出。",
-        altText: "填寫小天使",
-      });
+    case "challenge_apply": {
+      if (!u.sb_user_id) return NEED_BIND;
+      const r = await rpc<{ok:boolean;already_active?:boolean;error?:string;focus?:string;starts_on?:string}>(
+        "rpc_apply_health_challenge", {p_user_id:u.sb_user_id});
+      if (r?.error === "no_report") return infoCard({title:"先完成一次健康檢測",subtitle:"需要最近一次健康報告，才能安排適合你的 14 天挑戰。",buttons:[{label:"去做面舌診",action:uriAction("去檢測",liffUrl("page-challenge")),primary:true}],altText:"請先完成健康檢測"});
+      if (r?.already_active) return await taskToday(u);
+      return infoCard({title:"✅ 14 天健康挑戰申請完成",subtitle:`健康重點：${r?.focus??"日常體質調養"}\n從 ${r?.starts_on??"明天"} 開始，每天 08:20 提醒。`,note:"14 天內容已一次排定並寫入後台，不會每天重新計算。",altText:"14 天挑戰申請完成"});
+    }
 
     case "share_code": {
       if (!u.sb_user_id) return NEED_BIND;

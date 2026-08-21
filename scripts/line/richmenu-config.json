@@ -72,9 +72,9 @@
           "action": "ask_consultant"
         },
         {
-          "label": "填寫小天使",
+          "label": "申請挑戰",
           "type": "postback",
-          "action": "set_angel"
+          "action": "challenge_apply"
         },
         {
           "label": "我推薦的人",
