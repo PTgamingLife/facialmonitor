@@ -17,6 +17,7 @@ const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
 const PLAN_PRICE     = 680;
 const PLAN_CREDITS   = 12;
+const PLAN_PRODUCT   = "facial-scan-annual";
 const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
   ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
@@ -72,7 +73,7 @@ async function checkoutUrl(u: LineUser): Promise<string | null> {
   const fingerprint = await crypto.subtle.digest("SHA-256", encoder.encode(CHECKOUT_SECRET));
   console.log("checkout secret fingerprint:", base64Url(new Uint8Array(fingerprint)).slice(0, 12));
   const expires = Math.floor(Date.now() / 1000) + 20 * 60;
-  const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}`;
+  const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}\n${PLAN_PRODUCT}`;
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(CHECKOUT_SECRET),
@@ -85,6 +86,7 @@ async function checkoutUrl(u: LineUser): Promise<string | null> {
   url.searchParams.set("userId", u.sb_user_id);
   url.searchParams.set("lineUserId", u.line_user_id);
   url.searchParams.set("expires", String(expires));
+  url.searchParams.set("productCode", PLAN_PRODUCT);
   url.searchParams.set("signature", base64Url(new Uint8Array(mac)));
   return url.toString();
 }
