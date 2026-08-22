@@ -13,7 +13,10 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-const CREDIT_PRICE   = 60; // 單次檢測固定售價,後端與資料庫也會再次核對
+// 年費方案:680 元 12 次。這裡只是用來「顯示」——
+// 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
+const PLAN_PRICE     = 680;
+const PLAN_CREDITS   = 12;
 const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
   ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
@@ -263,7 +266,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
     rows: [
       { label: "① 推薦或被推薦", value: "雙方都拿積點", accent: true },
       { label: "② 每日打卡", value: "一天 +3 點" },
-      { label: "③ 購買次數", value: `NT$ ${CREDIT_PRICE} / 次` },
+      { label: "③ 年費方案", value: `NT$ ${PLAN_PRICE} / ${PLAN_CREDITS} 次` },
     ],
     note: enough
       ? `你的積點已經夠換 1 次了(${cost} 點),直接按中間那顆。`
@@ -274,7 +277,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
       enough
         ? { label: "用積點兌換 1 次", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), tone: "mid" }
         : { label: "每日打卡賺積點", action: postbackAction("每日打卡", "action=daily_checkin"), tone: "mid" },
-      { label: `購買次數（${CREDIT_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), tone: "soft" },
+      { label: `年費 ${PLAN_CREDITS} 次（${PLAN_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), tone: "soft" },
     ],
     altText: "檢測次數用完了",
   });
@@ -580,21 +583,44 @@ function askConsultant(): LineMessage {
   });
 }
 
+/**
+ * 開放期優惠的一行說明。促銷視窗與每月次數都放在資料庫,
+ * 這裡只負責唸出來 —— 營運要延長或喊停,改資料表就好,不用重新部署。
+ * 查不到或已過期就回 null,卡片上那一列會整列不出現。
+ */
+async function freeCreditNote(): Promise<string | null> {
+  const promo = await selectOne<{
+    first_month: string; last_month: string;
+    credits_per_month: number; active: boolean;
+  }>("sb_promo_free_credit", "id=is.true&select=first_month,last_month,credits_per_month,active");
+  if (!promo?.active) return null;
+
+  const month = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" }).slice(0, 7);
+  if (month < promo.first_month.slice(0, 7) || month > promo.last_month.slice(0, 7)) return null;
+
+  return `每月免費 +${promo.credits_per_month} 次（至 ${promo.last_month.slice(0, 7)}）`;
+}
+
 /** 購買檢測次數 */
 async function buyCredits(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
   const paymentUrl = await checkoutUrl(u);
+  const promo = await freeCreditNote();
   return infoCard({
-    title: "🛒 購買檢測次數",
-    bigValue: `NT$ ${CREDIT_PRICE}`,
-    bigLabel: "1 次面舌診檢測",
+    title: "🛒 年費方案",
+    bigValue: `NT$ ${PLAN_PRICE}`,
+    bigLabel: `一年 ${PLAN_CREDITS} 次面舌診檢測`,
     subtitle: paymentUrl
-      ? "LINE Pay 付款完成後,系統會自動增加 1 次檢測。"
+      ? `LINE Pay 付款完成後,系統會自動增加 ${PLAN_CREDITS} 次檢測。`
       : "付款服務尚未完成安全設定,請稍後再試。",
+    rows: [
+      { label: "平均單次", value: `約 NT$ ${Math.round(PLAN_PRICE / PLAN_CREDITS)}`, accent: true },
+      ...(promo ? [{ label: "開放期優惠", value: promo }] : []),
+    ],
     note: "也可以用積點免費兌換 —— 點下方選單的「兌換 / 抽獎」。",
     buttons: [
       ...(paymentUrl
-        ? [{ label: `LINE Pay 付款 ${CREDIT_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
+        ? [{ label: `LINE Pay 付款 ${PLAN_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
         : []),
       { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") },
     ],
