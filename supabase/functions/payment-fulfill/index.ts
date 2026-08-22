@@ -28,13 +28,17 @@ Deno.serve(async (req) => {
   const amount = Number(body?.amount);
   const credits = Number(body?.credits);
 
+  // 這裡只做「形狀」檢查。金額與次數對不對,由 RPC 去 sb_products 查表核對 ——
+  // 商品一改價,只有資料表要動;把價錢也硬寫在這裡,就會變成改了資料庫、
+  // 忘了改函式,然後新價的訂單被自己的 Edge Function 擋掉。
   if (
     !/^FM[0-9A-Za-z]{10,40}$/.test(orderId)
     || !transactionId || transactionId.length > 40
     || !/^[0-9a-f-]{36}$/i.test(userId)
     || !lineUserId || lineUserId.length > 80
-    || productCode !== "facial-scan-single"
-    || amount !== 60 || credits !== 1
+    || !/^[a-z0-9-]{3,40}$/.test(productCode)
+    || !Number.isInteger(amount) || amount < 1 || amount > 100000
+    || !Number.isInteger(credits) || credits < 1 || credits > 100
   ) {
     return Response.json({ ok: false, error: "invalid payload" }, { status: 400 });
   }
@@ -60,7 +64,7 @@ Deno.serve(async (req) => {
   if (!result.already_fulfilled) {
     await push(lineUserId, infoCard({
       title: "✅ LINE Pay 付款成功",
-      bigValue: "+1",
+      bigValue: `+${credits}`,
       bigLabel: "面舌診檢測次數",
       rows: [{ label: "目前剩餘次數", value: String(result.credits), accent: true }],
       note: "次數已自動入帳,現在就可以開始檢測。",
