@@ -13,7 +13,11 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-const CREDIT_PRICE   = 60; // 單次檢測固定售價,後端與資料庫也會再次核對
+// 年費方案:680 元 12 次。這裡只是用來「顯示」——
+// 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
+const PLAN_PRICE     = 680;
+const PLAN_CREDITS   = 12;
+const PLAN_PRODUCT   = "facial-scan-annual";
 const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
   ?? "https://pay-api.apricostudio.shop/facialmonitor/start";
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
@@ -69,7 +73,7 @@ async function checkoutUrl(u: LineUser): Promise<string | null> {
   const fingerprint = await crypto.subtle.digest("SHA-256", encoder.encode(CHECKOUT_SECRET));
   console.log("checkout secret fingerprint:", base64Url(new Uint8Array(fingerprint)).slice(0, 12));
   const expires = Math.floor(Date.now() / 1000) + 20 * 60;
-  const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}`;
+  const payload = `${u.sb_user_id}\n${u.line_user_id}\n${expires}\n${PLAN_PRODUCT}`;
   const key = await crypto.subtle.importKey(
     "raw",
     encoder.encode(CHECKOUT_SECRET),
@@ -82,6 +86,7 @@ async function checkoutUrl(u: LineUser): Promise<string | null> {
   url.searchParams.set("userId", u.sb_user_id);
   url.searchParams.set("lineUserId", u.line_user_id);
   url.searchParams.set("expires", String(expires));
+  url.searchParams.set("productCode", PLAN_PRODUCT);
   url.searchParams.set("signature", base64Url(new Uint8Array(mac)));
   return url.toString();
 }
@@ -187,6 +192,17 @@ async function credits(u: LineUser): Promise<LineMessage> {
 }
 
 async function taskToday(u: LineUser): Promise<LineMessage> {
+  if (u.sb_user_id) {
+    const c = await selectOne<{ health_focus:string; starts_on:string; plan:Record<string,unknown>[] }>(
+      "sb_health_challenges", `user_id=eq.${u.sb_user_id}&status=eq.active&select=health_focus,starts_on,plan`);
+    if (c) {
+      const today = new Date().toLocaleDateString("sv-SE", { timeZone:"Asia/Taipei" });
+      const day = Math.floor((Date.parse(today)-Date.parse(c.starts_on))/86400000)+1;
+      if (day < 1) return infoCard({title:"✅ 14 天挑戰申請完成",subtitle:`挑戰將於 ${c.starts_on} 開始，每天 08:20 提醒。`,altText:"14 天挑戰已排定"});
+      const t = c.plan[Math.min(day,14)-1] ?? {};
+      return infoCard({title:`🌿 Day ${Math.min(day,14)}｜${String(t.title??"今日任務")}`,subtitle:String(t.task??"完成今天的小任務。"),rows:[{label:"健康重點",value:c.health_focus},{label:"為什麼",value:String(t.why??"建立健康習慣")}],altText:"今日個人健康挑戰"});
+    }
+  }
   let day = 1;
   if (u.sb_user_id) {
     const first = await firstScanAt(u.sb_user_id);
@@ -252,7 +268,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
     rows: [
       { label: "① 推薦或被推薦", value: "雙方都拿積點", accent: true },
       { label: "② 每日打卡", value: "一天 +3 點" },
-      { label: "③ 購買次數", value: `NT$ ${CREDIT_PRICE} / 次` },
+      { label: "③ 年費方案", value: `NT$ ${PLAN_PRICE} / ${PLAN_CREDITS} 次` },
     ],
     note: enough
       ? `你的積點已經夠換 1 次了(${cost} 點),直接按中間那顆。`
@@ -263,7 +279,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
       enough
         ? { label: "用積點兌換 1 次", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), tone: "mid" }
         : { label: "每日打卡賺積點", action: postbackAction("每日打卡", "action=daily_checkin"), tone: "mid" },
-      { label: `購買次數（${CREDIT_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), tone: "soft" },
+      { label: `年費 ${PLAN_CREDITS} 次（${PLAN_PRICE} 元）`, action: postbackAction("購買次數", "action=buy_credits"), tone: "soft" },
     ],
     altText: "檢測次數用完了",
   });
@@ -569,21 +585,44 @@ function askConsultant(): LineMessage {
   });
 }
 
+/**
+ * 開放期優惠的一行說明。促銷視窗與每月次數都放在資料庫,
+ * 這裡只負責唸出來 —— 營運要延長或喊停,改資料表就好,不用重新部署。
+ * 查不到或已過期就回 null,卡片上那一列會整列不出現。
+ */
+async function freeCreditNote(): Promise<string | null> {
+  const promo = await selectOne<{
+    first_month: string; last_month: string;
+    credits_per_month: number; active: boolean;
+  }>("sb_promo_free_credit", "id=is.true&select=first_month,last_month,credits_per_month,active");
+  if (!promo?.active) return null;
+
+  const month = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" }).slice(0, 7);
+  if (month < promo.first_month.slice(0, 7) || month > promo.last_month.slice(0, 7)) return null;
+
+  return `每月免費 +${promo.credits_per_month} 次（至 ${promo.last_month.slice(0, 7)}）`;
+}
+
 /** 購買檢測次數 */
 async function buyCredits(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
   const paymentUrl = await checkoutUrl(u);
+  const promo = await freeCreditNote();
   return infoCard({
-    title: "🛒 購買檢測次數",
-    bigValue: `NT$ ${CREDIT_PRICE}`,
-    bigLabel: "1 次面舌診檢測",
+    title: "🛒 年費方案",
+    bigValue: `NT$ ${PLAN_PRICE}`,
+    bigLabel: `一年 ${PLAN_CREDITS} 次面舌診檢測`,
     subtitle: paymentUrl
-      ? "LINE Pay 付款完成後,系統會自動增加 1 次檢測。"
+      ? `LINE Pay 付款完成後,系統會自動增加 ${PLAN_CREDITS} 次檢測。`
       : "付款服務尚未完成安全設定,請稍後再試。",
+    rows: [
+      { label: "平均單次", value: `約 NT$ ${Math.round(PLAN_PRICE / PLAN_CREDITS)}`, accent: true },
+      ...(promo ? [{ label: "開放期優惠", value: promo }] : []),
+    ],
     note: "也可以用積點免費兌換 —— 點下方選單的「兌換 / 抽獎」。",
     buttons: [
       ...(paymentUrl
-        ? [{ label: `LINE Pay 付款 ${CREDIT_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
+        ? [{ label: `LINE Pay 付款 ${PLAN_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
         : []),
       { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1") },
     ],
@@ -626,7 +665,7 @@ async function myReward(u: LineUser): Promise<LineMessage> {
     note: "把推薦碼給朋友,他完成第一次檢測你就得點;他當月進步 10 分,你再得一次。",
     buttons: [
       { label: "分享我的推薦碼", action: postbackAction("分享推薦碼", "action=share_invite"), primary: true },
-      ...(s.angel ? [] : [{ label: "填寫我的小天使", action: postbackAction("填寫小天使", "action=set_angel") }]),
+      { label: "申請 14 天健康挑戰", action: postbackAction("申請挑戰", "action=challenge_apply") },
     ],
     altText: "我的小天使與推薦碼",
   });
@@ -802,12 +841,14 @@ export async function handlePostback(
       return await myInvitees(u);
 
     case "set_angel":
-      return infoCard({
-        title: "✍️ 填寫我的小天使",
-        subtitle: "把介紹你來的人的 7 位推薦碼傳給我,格式:小天使 1234567\n"
-          + "首次綁定可得積點及 1 次免費檢測。綁定後不能更改,請確認再送出。",
-        altText: "填寫小天使",
-      });
+    case "challenge_apply": {
+      if (!u.sb_user_id) return NEED_BIND;
+      const r = await rpc<{ok:boolean;already_active?:boolean;error?:string;focus?:string;starts_on?:string}>(
+        "rpc_apply_health_challenge", {p_user_id:u.sb_user_id});
+      if (r?.error === "no_report") return infoCard({title:"先完成一次健康檢測",subtitle:"需要最近一次健康報告，才能安排適合你的 14 天挑戰。",buttons:[{label:"去做面舌診",action:uriAction("去檢測",liffUrl("page-challenge")),primary:true}],altText:"請先完成健康檢測"});
+      if (r?.already_active) return await taskToday(u);
+      return infoCard({title:"✅ 14 天健康挑戰申請完成",subtitle:`健康重點：${r?.focus??"日常體質調養"}\n從 ${r?.starts_on??"明天"} 開始，每天 08:20 提醒。`,note:"14 天內容已一次排定並寫入後台，不會每天重新計算。",altText:"14 天挑戰申請完成"});
+    }
 
     case "share_code": {
       if (!u.sb_user_id) return NEED_BIND;

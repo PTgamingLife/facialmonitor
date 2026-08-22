@@ -124,10 +124,10 @@ async function renderPointTasks(summary) {
 
   const tasks = [
     {
-      key: 'bind_angel', icon: '👼', title: '填寫我的小天使',
-      points: pts('bind_angel', 10),
-      desc: hasAngel ? `已填：${summary.angel.name ?? '—'}` : '輸入介紹你來的人的 7 位推薦碼',
-      done: hasAngel, once: true, page: 'page-reward',
+      key: 'health_challenge', icon: '🗓️', title: '申請 14 天健康挑戰',
+      points: 0,
+      desc: '依最近健康檢測一次排定，每天由 LINE 提醒',
+      done: false, once: false, page: 'page-reward',
     },
     {
       key: 'invite_confirmed', icon: '🤝', title: '推薦朋友完成第一次檢測',
