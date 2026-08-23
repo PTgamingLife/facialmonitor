@@ -82,7 +82,7 @@ function welcomeTestMessages() {
       rows: [
         { label: "第一步", value: "開啟 App，自動綁定" },
         { label: "第二步", value: "做面舌診" },
-        { label: "第三步", value: "填小天使拿積點", accent: true },
+        { label: "第三步", value: "申請 14 天健康挑戰", accent: true },
       ],
       note: "這是現有會員的開場影片測試訊息。",
       buttons: [

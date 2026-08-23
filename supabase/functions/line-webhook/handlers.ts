@@ -285,29 +285,22 @@ async function startScan(u: LineUser): Promise<LineMessage> {
   });
 }
 
-/** 推薦或被推薦:兩條路都在這裡分岔 —— 填別人的碼,或把自己的碼給別人 */
+/** 推薦分享與個人健康挑戰入口 */
 async function referralMenu(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
 
-  const s = await rpc<{ member_code: string; angel: { name: string } | null }>(
-    "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
-
   return infoCard({
-    title: "🤝 推薦或被推薦",
-    subtitle: "兩邊都能拿積點,積點可以換檢測次數。",
+    title: "🌿 推薦與健康挑戰",
+    subtitle: "分享專屬網址給朋友，或依最近一次健康檢測申請個人化 14 天挑戰。",
     rows: [
-      { label: "填推薦人", value: s?.angel ? `已填:${s.angel.name}` : "你和對方各得積點", accent: !s?.angel },
+      { label: "健康挑戰", value: "一次排定 14 天內容", accent: true },
       { label: "分享給朋友", value: "朋友首檢你就得點" },
     ],
     buttons: [
-      // 已經填過小天使就不再給那顆 —— 綁定後不能改,按了只會拿到錯誤訊息
-      ...(s?.angel
-        ? []
-        : [{ label: "填推薦人", action: postbackAction("填推薦人", "action=set_angel"), tone: "deep" as const }]),
-      { label: "分享給朋友", action: postbackAction("分享給朋友", "action=share_invite"),
-        tone: s?.angel ? ("deep" as const) : ("mid" as const) },
+      { label: "申請 14 天健康挑戰", action: postbackAction("申請挑戰", "action=challenge_apply"), tone: "deep" },
+      { label: "分享給朋友", action: postbackAction("分享給朋友", "action=share_invite"), tone: "mid" },
     ],
-    altText: "推薦或被推薦",
+    altText: "推薦與 14 天健康挑戰",
   });
 }
 
@@ -906,7 +899,7 @@ export function helpCard(): LineMessage {
     title: "❓ 這個帳號可以做什麼",
     rows: [
       { label: "綁定 1234567", value: "綁定會員" },
-      { label: "小天使 1234567", value: "填寫推薦人" },
+      { label: "申請挑戰", value: "安排 14 天健康挑戰" },
       { label: "兌換 1234567", value: "用兌換碼加次數" },
       { label: "積點 / 次數 / 推薦碼", value: "查自己的資料" },
       { label: "真人", value: "轉真人客服" },
