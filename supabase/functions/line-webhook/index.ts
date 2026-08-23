@@ -32,20 +32,22 @@ function liffUrl(page: string): string {
 }
 
 function welcomeCard(name?: string): LineMessage {
+  const promoImage = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome/kanjian-ai-health-intro-preview.jpg`;
   return infoCard({
-    title: `${name ? name + ",歡" : "歡"}迎加入健康顧問 🌿`,
-    subtitle: "我可以幫你看懂面舌診報告、安排每天的養生任務,也隨時回答健康問題。",
+    title: `${name ? name + "，歡迎你" : "歡迎你"}｜限時免費體驗 🌿`,
+    hero: promoImage,
+    subtitle: "用一張臉部與舌頭照片，快速了解目前的健康狀態，並獲得適合自己的 14 天健康方向。",
     rows: [
-      { label: "第一步", value: "開啟 App，自動綁定" },
-      { label: "第二步", value: "做面舌診" },
-      { label: "第三步", value: "申請 14 天健康挑戰", accent: true },
+      { label: "限時優惠", value: "2027 年 1 月 31 日前免費體驗", accent: true },
+      { label: "優惠結束後", value: "年費 NT$680" },
+      { label: "年費內容", value: "全年 12 次面舌診檢測" },
     ],
-    note: "從這裡開啟 App 並用 LINE 登入，系統就會自動綁定，不必再輸入會員碼。",
+    note: "從這裡開啟 App 並用 LINE 登入，系統會自動綁定，不必輸入會員碼。活動內容依系統顯示的可用額度為準。",
     buttons: [
-      { label: "開啟 App 並自動綁定", action: uriAction("開啟 App", liffUrl("page-main")), primary: true },
-      { label: "先去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")) },
+      { label: "立即免費體驗", action: uriAction("免費體驗", liffUrl("page-main")), primary: true },
+      { label: "查看面舌診檢測", action: uriAction("查看檢測", liffUrl("page-challenge")) },
     ],
-    altText: "歡迎加入健康顧問",
+    altText: "2027 年 2 月前限時免費體驗，之後年費 680 元",
   });
 }
 
