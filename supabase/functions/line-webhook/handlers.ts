@@ -13,9 +13,9 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-// 年費方案:680 元 12 次。這裡只是用來「顯示」——
+// 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
-const PLAN_PRICE     = 680;
+const PLAN_PRICE     = 1680;
 const PLAN_CREDITS   = 12;
 const PLAN_PRODUCT   = "facial-scan-annual";
 const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
@@ -604,15 +604,16 @@ async function buyCredits(u: LineUser): Promise<LineMessage> {
   return infoCard({
     title: "🛒 年費方案",
     bigValue: `NT$ ${PLAN_PRICE}`,
-    bigLabel: `一年 ${PLAN_CREDITS} 次面舌診檢測`,
+    bigLabel: `每月 1 次檢測｜全年 ${PLAN_CREDITS} 次`,
     subtitle: paymentUrl
-      ? `LINE Pay 付款完成後,系統會自動增加 ${PLAN_CREDITS} 次檢測。`
+      ? `LINE Pay 付款完成後，系統會自動增加 ${PLAN_CREDITS} 次檢測額度。`
       : "付款服務尚未完成安全設定,請稍後再試。",
     rows: [
       { label: "平均單次", value: `約 NT$ ${Math.round(PLAN_PRICE / PLAN_CREDITS)}`, accent: true },
+      { label: "專業服務", value: "健康管理師建議與報告" },
       ...(promo ? [{ label: "開放期優惠", value: promo }] : []),
     ],
-    note: "也可以用積點免費兌換 —— 點下方選單的「兌換 / 抽獎」。",
+    note: "每月安排一次檢測，持續追蹤健康變化；也可以用積點兌換額外檢測。",
     buttons: [
       ...(paymentUrl
         ? [{ label: `LINE Pay 付款 ${PLAN_PRICE} 元`, action: uriAction("LINE Pay 付款", paymentUrl), primary: true }]
