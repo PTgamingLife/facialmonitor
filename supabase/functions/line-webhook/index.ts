@@ -38,7 +38,7 @@ function welcomeCard(name?: string): LineMessage {
     rows: [
       { label: "第一步", value: "開啟 App，自動綁定" },
       { label: "第二步", value: "做面舌診" },
-      { label: "第三步", value: "填小天使拿積點", accent: true },
+      { label: "第三步", value: "申請 14 天健康挑戰", accent: true },
     ],
     note: "從這裡開啟 App 並用 LINE 登入，系統就會自動綁定，不必再輸入會員碼。",
     buttons: [
