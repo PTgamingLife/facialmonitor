@@ -39,15 +39,16 @@ function welcomeCard(name?: string): LineMessage {
     subtitle: "用一張臉部與舌頭照片，快速了解目前的健康狀態，並獲得適合自己的 14 天健康方向。",
     rows: [
       { label: "限時優惠", value: "2027 年 1 月 31 日前免費體驗", accent: true },
-      { label: "優惠結束後", value: "年費 NT$680" },
-      { label: "年費內容", value: "全年 12 次面舌診檢測" },
+      { label: "優惠結束後", value: "年費 NT$1,680" },
+      { label: "檢測服務", value: "每月 1 次，全年 12 次" },
+      { label: "專業服務", value: "健康管理師建議與報告" },
     ],
     note: "從這裡開啟 App 並用 LINE 登入，系統會自動綁定，不必輸入會員碼。活動內容依系統顯示的可用額度為準。",
     buttons: [
       { label: "立即免費體驗", action: uriAction("免費體驗", liffUrl("page-main")), primary: true },
       { label: "查看面舌診檢測", action: uriAction("查看檢測", liffUrl("page-challenge")) },
     ],
-    altText: "2027 年 2 月前限時免費體驗，之後年費 680 元",
+    altText: "2027 年 2 月前限時免費體驗，之後年費 1,680 元，含每月檢測與健康管理師建議報告",
   });
 }
 
