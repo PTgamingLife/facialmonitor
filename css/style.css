@@ -391,7 +391,15 @@ body.font-lg .nav-tab { font-size:12px; }
 .upload-ring-anim {
   width:64px; height:64px; border-radius:50%;
   border:2px solid var(--gold-pale); margin:0 auto 12px;
+  display:flex; align-items:center; justify-content:center;
   animation:uploadPulse 2.5s ease infinite;
+}
+.upload-ring-anim::before {
+  content:"按";
+  color:var(--gold-main);
+  font-size:32px;
+  line-height:1;
+  font-weight:900;
 }
 @keyframes uploadPulse { 0%,100%{transform:scale(1);opacity:.4} 50%{transform:scale(1.2);opacity:.9} }
 
