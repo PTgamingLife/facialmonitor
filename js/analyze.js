@@ -186,6 +186,10 @@ async function startAnalyze() {
     renderReport(currentReport);
     showPage('page-report');
 
+    // 首檢送的免費抽獎券是資料庫 trigger 在存紀錄時發的，前端這裡才問得到。
+    // 不主動跳出來的話，使用者根本不會知道有這張券。
+    if (typeof maybeOfferFreeSpin === 'function') maybeOfferFreeSpin();
+
   } catch (e) {
     stopCarousel();
     renderStep(3);

@@ -24,11 +24,10 @@ const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
 const encoder = new TextEncoder();
 
 const TESTIMONIAL_IMAGES = [
+  "img/testimonials/testimonial-04.jpg",
   "img/testimonials/testimonial-01.jpg",
   "img/testimonials/testimonial-02.jpg",
   "img/testimonials/testimonial-03.jpg",
-  "img/testimonials/testimonial-04.jpg",
-  "img/testimonials/testimonial-05.jpg",
 ];
 
 /** 見證照使用獨立 bubble，接在健康分數卡後即可在 LINE 裡左右滑動。 */
@@ -705,8 +704,10 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
   const costRedeem = s?.rates?.redeem_credit ?? 100;
   const costDraw = s?.rates?.lottery_draw ?? 30;
 
-  const prizes = await select<{ name: string; description: string; image_url: string; stock: number }>(
-    "sb_lottery_prizes", `active=eq.true&stock=gt.0&select=name,description,image_url,stock&order=sort.asc`);
+  // 刻意不取 stock:庫存只用來決定「還抽不抽得到」,不對使用者顯示。
+  // 把剩餘數量印在卡片上,等於讓人看著數字倒數,反而催出「快沒了才抽」的行為。
+  const prizes = await select<{ name: string; description: string; image_url: string }>(
+    "sb_lottery_prizes", `active=eq.true&stock=gt.0&select=name,description,image_url&order=sort.asc`);
 
   const bubbles: LineMessage[] = [
     toBubble(infoCard({
@@ -728,7 +729,6 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
       title: `🎁 ${p.name}`,
       subtitle: p.description ?? undefined,
       hero: p.image_url || undefined,
-      rows: [{ label: "剩餘數量", value: `${p.stock} 份` }],
       note: `每抽 ${costDraw} 點,獎品依機率隨機抽出。`,
       buttons: [{ label: `馬上抽（${costDraw} 點）`, action: postbackAction("馬上抽", "action=draw_confirm"), primary: true }],
       altText: p.name,
@@ -912,3 +912,4 @@ export function helpCard(): LineMessage {
 }
 
 export { bindMember, NEED_BIND };
+

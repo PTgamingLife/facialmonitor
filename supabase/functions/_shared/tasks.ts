@@ -43,3 +43,4 @@ export function taskOfDay(day: number): Task {
   const d = Math.min(Math.max(day, 1), TASK_PLAN.length);
   return TASK_PLAN[d - 1];
 }
+
