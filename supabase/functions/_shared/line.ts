@@ -274,3 +274,4 @@ export function appUrl(hash: string): string {
 export function assetUrl(path: string): string {
   return `${APP_BASE_URL}/${path.replace(/^\/+/, "")}`;
 }
+

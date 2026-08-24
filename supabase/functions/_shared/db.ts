@@ -102,6 +102,16 @@ export async function patch(
   return res.ok;
 }
 
+/** DELETE /rest/v1/<table>?<query> */
+export async function remove(table: string, query: string): Promise<boolean> {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`, {
+    method: "DELETE",
+    headers: headers({ Prefer: "return=minimal" }),
+  });
+  if (!res.ok) console.error("delete failed:", table, res.status, await res.text());
+  return res.ok;
+}
+
 /** POST /rest/v1/rpc/<name> */
 export async function rpc<T = unknown>(
   name: string,
@@ -124,3 +134,4 @@ export async function rpc<T = unknown>(
     return null;
   }
 }
+
