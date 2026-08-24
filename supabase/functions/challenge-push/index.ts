@@ -1,6 +1,6 @@
 import { authorizeCronHash } from "../_shared/cron-auth.ts";
 import { infoCard, push } from "../_shared/line.ts";
-import { insert, patch, select } from "../_shared/db.ts";
+import { insert, patch, remove, select } from "../_shared/db.ts";
 
 const HASH = Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET_SHA256") ?? "";
 type Challenge={id:string;user_id:string;health_focus:string;starts_on:string;plan:Array<Record<string,unknown>>};
@@ -26,7 +26,13 @@ Deno.serve(async(req)=>{
       note:"依最近一次健康檢測安排；若感到不適請停止，並諮詢醫療專業人員。",
       altText:`14 天健康挑戰 Day ${day}`,
     }));
-    if(ok)sent++;else failed++;
+    if(ok){
+      sent++;
+    }else{
+      // 只有成功送達才保留冪等占位。LINE 暫時失敗時清除，讓排程可補送。
+      await remove("sb_health_challenge_deliveries",`challenge_id=eq.${c.id}&day_no=eq.${day}`);
+      failed++;
+    }
   }
   return Response.json({ok:failed===0,sent,failed});
 });
