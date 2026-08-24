@@ -22,11 +22,13 @@ const LINEPAY_URL     = Deno.env.get("HEALTHBOT_LINEPAY_URL")
 const CHECKOUT_SECRET = Deno.env.get("HEALTHBOT_CHECKOUT_SECRET") ?? "";
 const encoder = new TextEncoder();
 
+// 顯示順序就是這個陣列的順序,04 刻意排第一張 —— 輪播第一眼看到的那張
+// 決定要不要繼續滑,不是照檔名排。要換頭香就調這裡。
 const TESTIMONIAL_IMAGES = [
+  "img/testimonials/testimonial-04.jpg",
   "img/testimonials/testimonial-01.jpg",
   "img/testimonials/testimonial-02.jpg",
   "img/testimonials/testimonial-03.jpg",
-  "img/testimonials/testimonial-04.jpg",
   "img/testimonials/testimonial-05.jpg",
 ];
 
