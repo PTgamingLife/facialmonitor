@@ -25,9 +25,9 @@ const encoder = new TextEncoder();
 
 const TESTIMONIAL_IMAGES = [
   "img/testimonials/testimonial-04.jpg",
-  "img/testimonials/testimonial-01.jpg",
-  "img/testimonials/testimonial-02.jpg",
   "img/testimonials/testimonial-03.jpg",
+  "img/testimonials/testimonial-02.jpg",
+  "img/testimonials/testimonial-01.jpg",
 ];
 
 /** 見證照使用獨立 bubble，接在健康分數卡後即可在 LINE 裡左右滑動。 */
