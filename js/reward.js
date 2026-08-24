@@ -85,7 +85,6 @@ async function loadReward() {
         <div class="hist-item" style="cursor:default">
           <div class="hist-top">
             <div class="hist-type">🎁 ${escapeHtml(p.name)}</div>
-            <div class="hist-date">剩 ${p.stock}</div>
           </div>
           ${p.description ? `<div class="hist-desc">${escapeHtml(p.description)}</div>` : ''}
         </div>`).join('')
