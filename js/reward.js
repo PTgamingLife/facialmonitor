@@ -131,6 +131,8 @@ async function doRedeem(n) {
    動畫絕不能參與決定獎項 —— 否則等於把中獎邏輯交給使用者的瀏覽器。 */
 
 const WHEEL_COLORS = ['#0D5C63', '#22C1C3', '#4DA3E5', '#0A7C7C', '#5FD3D4', '#2E86AB'];
+// 中獎後聯絡兌獎的窗口，與 LINE bot 的 ANGEL_URL 是同一個人。
+const ANGEL_LINE_URL = 'https://line.me/ti/p/ZC-w2BuPoi';
 let _wheelPrizes = [];
 let _wheelAngle  = 0;      // 累積角度，每次接著轉不回頭
 let _wheelBusy   = false;
@@ -171,6 +173,8 @@ async function openLotteryWheel() {
       <button class="btn-main" id="lw-spin" onclick="spinWheel()" ${canSpin ? '' : 'disabled'}>
         ${free > 0 ? '免費抽一次' : `抽一次（${cost} 點）`}
       </button>
+      <a id="lw-angel" class="btn-ghost" style="display:none;text-align:center;text-decoration:none"
+         href="${ANGEL_LINE_URL}" target="_blank" rel="noopener">聯絡大天使兌獎</a>
       <button class="btn-ghost" onclick="closeLotteryWheel()">關閉</button>
     </div>`;
   box.classList.add('show');
@@ -275,7 +279,10 @@ async function spinWheel() {
     const sub  = document.getElementById('lw-sub');
     if (sub) sub.textContent = left > 0 ? `還有 ${left} 次免費機會` : `每抽 ${data.points_spent || 30} 點`;
     if (btn) { btn.disabled = false; btn.textContent = left > 0 ? '免費再抽' : '再抽一次'; }
-    if (won) showToast(`🎉 抽中「${data.prize_name}」，我們會與你聯繫`);
+    // 中獎才給兌獎入口。沒中還放一顆「聯絡大天使」只會讓人以為自己中了。
+    const angel = document.getElementById('lw-angel');
+    if (angel) angel.style.display = won ? 'block' : 'none';
+    if (won) showToast(`🎉 抽中「${data.prize_name}」，按「聯絡大天使兌獎」確認兌換方式`);
   }, cv && idx >= 0 ? 4300 : 0);   // 對齊 CSS transition 的 4.2s
 }
 

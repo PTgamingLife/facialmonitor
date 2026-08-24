@@ -41,6 +41,14 @@ function enterApp(isAdmin) {
   // ?p=share 不是頁面,是「開啟 LINE 的分享視窗」這個動作
   if (wanted === 'share') { showPage('page-main'); startShareFlow(); return; }
 
+  // ?p=wheel 同理:從 LINE 的抽獎卡片點進來,直接把轉盤打開。
+  // LINE 的 Flex Message 放不了動畫,想看轉盤只能跳到這裡。
+  if (wanted === 'wheel') {
+    showPage('page-reward');
+    setTimeout(() => { if (typeof openLotteryWheel === 'function') openLotteryWheel(); }, 500);
+    return;
+  }
+
   if (wanted && document.getElementById(wanted) && wanted !== 'page-login') {
     showPage(wanted);
     return;
