@@ -13,6 +13,9 @@ import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
 // 還是留 env 可以蓋過去:換顧問、換收款帳號時不必重新部署。
 const CONSULTANT_URL = Deno.env.get("HEALTHBOT_CONSULTANT_URL") ?? "https://line.me/ti/p/ZC-w2BuPoi";
 const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
+// 中獎後聯絡兌獎的窗口。先跟顧問同一個人,但獨立成一個變數 ——
+// 之後要把「兌獎」跟「健康諮詢」拆給不同人時,改 env 就好,不必改程式。
+const ANGEL_URL      = Deno.env.get("HEALTHBOT_ANGEL_URL") ?? CONSULTANT_URL;
 // 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
 const PLAN_PRICE     = 1680;
@@ -709,6 +712,16 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
   const prizes = await select<{ name: string; description: string; image_url: string }>(
     "sb_lottery_prizes", `active=eq.true&stock=gt.0&select=name,description,image_url&order=sort.asc`);
 
+  // 有沒有免費券會改變整張卡的文案。不查的話卡片會寫「抽一次要 100 點」,
+  // 但實際上扣 0 點 —— 使用者看到的跟真正發生的不一樣,那是最糟的一種 bug。
+  const lot = await rpc<{ free_tickets: number }>(
+    "rpc_my_lottery_status", { p_user_id: u.sb_user_id });
+  const freeTickets = lot?.free_tickets ?? 0;
+  const priceNote = freeTickets > 0
+    ? `你有 ${freeTickets} 次免費抽獎機會,這次不扣點。`
+    : `每抽 ${costDraw} 點,獎品依機率隨機抽出。`;
+  const drawLabel = freeTickets > 0 ? "免費抽一次" : `馬上抽（${costDraw} 點）`;
+
   const bubbles: LineMessage[] = [
     toBubble(infoCard({
       title: "🔄 積點兌換檢測次數",
@@ -729,8 +742,13 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
       title: `🎁 ${p.name}`,
       subtitle: p.description ?? undefined,
       hero: p.image_url || undefined,
-      note: `每抽 ${costDraw} 點,獎品依機率隨機抽出。`,
-      buttons: [{ label: `馬上抽（${costDraw} 點）`, action: postbackAction("馬上抽", "action=draw_confirm"), primary: true }],
+      note: priceNote,
+      buttons: [
+        // 轉盤動畫是網頁的東西,LINE 的 Flex Message 放不了動畫。
+        // 想看轉盤就得跳到 App;留在 LINE 直接抽也可以,只是沒有動畫。
+        { label: "🎡 到轉盤抽", action: uriAction("到轉盤抽", liffUrl("wheel")), tone: "deep" },
+        { label: drawLabel, action: postbackAction("馬上抽", "action=draw_confirm"), tone: "mid" },
+      ],
       altText: p.name,
     })));
   }
@@ -767,16 +785,33 @@ async function doRedeem(u: LineUser, n: number): Promise<LineMessage> {
 async function doDraw(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
   const r = await rpc<{
-    ok: boolean; message?: string; prize_name?: string; prize_image?: string; balance?: number;
+    ok: boolean; message?: string; prize_name?: string; prize_image?: string;
+    balance?: number; used_free_ticket?: boolean; free_tickets?: number;
   }>("rpc_draw_lottery", { p_user_id: u.sb_user_id });
 
   if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "抽獎失敗,請稍後再試。"}`);
+
+  // 「再接再厲」是沒中的那一格,不能用中獎的文案與兌獎按鈕 ——
+  // 對著沒中的人說「我們會與你聯繫兌獎」只會讓人以為自己中了。
+  const won = r.prize_name !== "再接再厲";
+  const rows = [
+    ...(r.used_free_ticket ? [{ label: "本次花費", value: "免費券", accent: true }] : []),
+    { label: "剩餘積點", value: `${r.balance} 點` },
+    ...((r.free_tickets ?? 0) > 0
+      ? [{ label: "剩餘免費抽獎", value: `${r.free_tickets} 次`, accent: true }]
+      : []),
+  ];
+
   return infoCard({
-    title: `🎉 抽中 ${r.prize_name}`,
-    hero: r.prize_image || undefined,
-    rows: [{ label: "剩餘積點", value: `${r.balance} 點` }],
-    note: "我們會盡快與你聯繫兌獎方式。",
-    altText: `抽中 ${r.prize_name}`,
+    title: won ? `🎉 抽中 ${r.prize_name}` : "😅 再接再厲",
+    subtitle: won ? undefined : "這次沒中,下次再來試試。",
+    hero: won ? (r.prize_image || undefined) : undefined,
+    rows,
+    note: won ? "按下方按鈕聯絡大天使,確認兌獎方式。" : undefined,
+    buttons: won
+      ? [{ label: "聯絡大天使兌獎", action: uriAction("聯絡大天使", ANGEL_URL), tone: "deep" as const }]
+      : [{ label: "再抽一次", action: postbackAction("再抽一次", "action=draw_confirm"), tone: "mid" as const }],
+    altText: won ? `抽中 ${r.prize_name}` : "再接再厲",
   });
 }
 
@@ -875,12 +910,15 @@ export async function handlePostback(
       return await doRedeem(u, Math.max(1, Math.min(10, Number(params.get("n") ?? 1))));
 
     case "draw_confirm": {
-      const s = await rpc<{ rates: { lottery_draw: number } }>(
-        "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
+      const lot = await rpc<{ free_tickets: number; cost: number }>(
+        "rpc_my_lottery_status", { p_user_id: u.sb_user_id });
+      const free = lot?.free_tickets ?? 0;
       return confirmCard({
         title: "確認抽獎",
-        body: `抽一次要 ${s?.rates?.lottery_draw ?? 30} 點,獎品隨機。要抽嗎?`,
-        confirmLabel: "馬上抽",
+        body: free > 0
+          ? `這次用掉 1 張免費抽獎券,不扣積點。你還有 ${free} 張。獎品隨機,要抽嗎?`
+          : `抽一次要 ${lot?.cost ?? 100} 點,獎品隨機。要抽嗎?`,
+        confirmLabel: free > 0 ? "免費抽" : "馬上抽",
         confirmData: "action=draw_do",
       });
     }
