@@ -17,6 +17,11 @@ import { patch, select, selectOne, upsert } from "../_shared/db.ts";
 
 type Audience = "all" | "bound" | "active_30d";
 
+// hero    圖片當卡片頂圖。infoCard 的 hero 固定 20:13 且 cover,
+//         直式圖塞進去只會看到中間一條,文字全被裁掉。
+// message 圖片改成獨立的 LINE 圖片訊息接在卡片前面,保留原始比例。
+type ImageLayout = "hero" | "message";
+
 type Payload = {
   broadcast_id?: string;
   title?: string;
@@ -24,6 +29,8 @@ type Payload = {
   note?: string;
   image_url?: string;
   link_url?: string;
+  link_label?: string;
+  image_layout?: ImageLayout;
   audience?: Audience;
   dry_run?: boolean;
 };
@@ -35,6 +42,8 @@ type BroadcastRow = {
   note: string | null;
   image_url: string | null;
   link_url: string | null;
+  link_label: string | null;
+  image_layout: ImageLayout;
   audience: Audience;
   status: string;
 };
@@ -42,20 +51,30 @@ type BroadcastRow = {
 function buildFlex(row: {
   title: string; subtitle?: string | null; note?: string | null;
   image_url?: string | null; link_url?: string | null;
+  link_label?: string | null; image_layout?: ImageLayout | null;
 }): LineMessage {
+  const label = row.link_label?.trim() || "立即報名";
+  // image_layout = message 時圖片已經單獨送一則了,卡片就不要再放頂圖,
+  // 否則同一張圖會出現兩次。
+  const hero = (row.image_layout ?? "hero") === "hero" ? (row.image_url ?? undefined) : undefined;
   return infoCard({
     title: row.title,
     subtitle: row.subtitle ?? undefined,
-    hero: row.image_url ?? undefined,
+    hero,
     note: row.note ?? undefined,
     buttons: [
       ...(row.link_url
-        ? [{ label: "立即報名", action: uriAction("立即報名", row.link_url), primary: true }]
+        ? [{ label, action: uriAction(label, row.link_url), primary: true }]
         : []),
       { label: "先問問 AI", action: { type: "message", label: "先問問 AI", text: `我想了解「${row.title}」` } },
     ],
     altText: row.title,
   });
+}
+
+/** 圖片訊息:originalContentUrl 與 previewImageUrl 都必須是 HTTPS 的 JPEG/PNG。 */
+function buildImage(url: string): LineMessage {
+  return { type: "image", originalContentUrl: url, previewImageUrl: url };
 }
 
 /** 依分眾條件取名單;audience=all 走 broadcast API,不需要名單 */
@@ -112,12 +131,19 @@ Deno.serve(async (req) => {
       note: body.note ?? null,
       image_url: body.image_url ?? null,
       link_url: body.link_url ?? null,
+      link_label: body.link_label ?? null,
+      image_layout: body.image_layout ?? "hero",
       audience: body.audience ?? "all",
       status: "draft",
     };
   }
 
   const flex = buildFlex(row);
+  // 一次送出的訊息陣列。圖片走 message 版位時排在卡片前面 ——
+  // 先看到圖再看到字,順序反過來圖會被當成附註。
+  const messages: LineMessage[] = row.image_layout === "message" && row.image_url
+    ? [buildImage(row.image_url), flex]
+    : [flex];
   const targets = await audienceList(row.audience);
   const estimated = row.audience === "all" ? await estimateAll() : targets.length;
 
@@ -128,7 +154,7 @@ Deno.serve(async (req) => {
       audience: row.audience,
       estimated_recipients: estimated,
       message: "這是預覽,沒有送出。確認後帶 dry_run: false 才會真的推播(會計費)。",
-      preview: flex,
+      preview: messages,
     });
   }
 
@@ -141,6 +167,8 @@ Deno.serve(async (req) => {
       note: row.note,
       image_url: row.image_url,
       link_url: row.link_url,
+      link_label: row.link_label,
+      image_layout: row.image_layout,
       audience: row.audience,
       flex_json: flex,
       status: "sending",
@@ -157,13 +185,13 @@ Deno.serve(async (req) => {
   let ok = true;
 
   if (row.audience === "all") {
-    ok = await broadcast(flex);
+    ok = await broadcast(messages);
     sent = ok ? estimated : 0;
   } else {
     // multicast 一批最多 500 人
     for (let i = 0; i < targets.length; i += 500) {
       const batch = targets.slice(i, i + 500);
-      const batchOk = await multicast(batch, flex);
+      const batchOk = await multicast(batch, messages);
       if (batchOk) sent += batch.length;
       else ok = false;
     }
