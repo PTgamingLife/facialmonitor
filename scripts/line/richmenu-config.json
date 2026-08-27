@@ -8,9 +8,9 @@
   "layout": {
     "tabBarHeight": 222,
     "rows": 2,
-    "cols": 3,
+    "cols": 2,
     "cellHeight": 732,
-    "note": "222 + 732*2 = 1686;833 + 833 + 834 = 2500。兩個分頁版型相同,切換時視覺零位移。"
+    "note": "222 + 732*2 = 1686;1250 + 1250 = 2500。兩個分頁版型相同,切換時視覺零位移。"
   },
   "tabs": [
     {
@@ -32,24 +32,14 @@
           "action": "score_latest"
         },
         {
-          "label": "我的積分",
+          "label": "每日挑戰",
           "type": "postback",
-          "action": "my_points"
-        },
-        {
-          "label": "每日打卡",
-          "type": "postback",
-          "action": "daily_checkin"
+          "action": "daily_challenge"
         },
         {
           "label": "分享推薦",
           "type": "postback",
           "action": "share_invite"
-        },
-        {
-          "label": "問健康 AI",
-          "type": "message",
-          "text": "我想問健康問題"
         }
       ]
     },
@@ -72,19 +62,9 @@
           "action": "ask_consultant"
         },
         {
-          "label": "申請挑戰",
-          "type": "postback",
-          "action": "challenge_apply"
-        },
-        {
           "label": "我推薦的人",
           "type": "postback",
           "action": "my_invitees"
-        },
-        {
-          "label": "購買次數",
-          "type": "postback",
-          "action": "buy_credits"
         },
         {
           "label": "兌換 / 抽獎",
