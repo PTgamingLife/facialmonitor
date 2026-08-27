@@ -58,7 +58,7 @@ jobs:
         run: |
           # LINE / LINE Pay / cron 這些外部來源不會帶 Supabase JWT,
           # 一定要 --no-verify-jwt,否則會在進到函式自己的驗簽之前就被擋掉。
-          NO_JWT="line-webhook richmenu-setup liff-auth payment-fulfill tip-plan tip-push challenge-push"
+          NO_JWT="line-webhook richmenu-setup liff-auth payment-fulfill tip-plan tip-push challenge-push line-broadcast"
           ONLY="${{ github.event.inputs.only }}"
 
           for dir in supabase/functions/*/; do
