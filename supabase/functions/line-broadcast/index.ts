@@ -9,11 +9,23 @@
 //   POST { "title": "...", "subtitle": "...", "image_url": "...",
 //          "link_url": "...", "audience": "bound", "dry_run": true }
 //
-// 部署:supabase functions deploy line-broadcast
-// 不要加 --no-verify-jwt,這支只給後台呼叫。
+// 部署:--no-verify-jwt + 密鑰標頭 x-broadcast-secret。
+// 改成密鑰是為了讓 pg_cron 叫得動 —— verify_jwt 會在進到這支之前就擋掉,
+// 而 vault 裡沒有 service role key(也不該為了排程把它放進去)。
+//
+// 排程:{ "due": true, "dry_run": false } 會撿出 scheduled_at 已到期的草稿送出,
+// 一支每日 cron 就夠,不必每則圖文各排一個 one-shot job。
 
+import { authorizeCronHash } from "../_shared/cron-auth.ts";
 import { broadcast, infoCard, LineMessage, multicast, uriAction } from "../_shared/line.ts";
 import { patch, select, selectOne, upsert } from "../_shared/db.ts";
+
+// 專用密鑰優先;還沒設就退回 tip-push 的密鑰,讓排程立刻能動。
+// 這裡做 fallback 是可以的 —— 兩支都是本系統的內部排程端點,退錯了頂多
+// 是共用一把鑰匙,不會像 LINE 憑證那樣拿別人的身分去對外發話。
+// 設好 HEALTHBOT_BROADCAST_SECRET_SHA256 之後就會自動改用專用的那把。
+const SECRET_HASH = Deno.env.get("HEALTHBOT_BROADCAST_SECRET_SHA256")
+  ?? Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET_SHA256") ?? "";
 
 type Audience = "all" | "bound" | "active_30d";
 
@@ -32,6 +44,7 @@ type Payload = {
   link_label?: string;
   image_layout?: ImageLayout;
   audience?: Audience;
+  due?: boolean;
   dry_run?: boolean;
 };
 
@@ -104,6 +117,9 @@ async function estimateAll(): Promise<number> {
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
 
+  const denied = await authorizeCronHash(req, "x-broadcast-secret", SECRET_HASH);
+  if (denied) return denied;
+
   let body: Payload;
   try {
     body = await req.json();
@@ -114,9 +130,22 @@ Deno.serve(async (req) => {
   // 預設不送,必須明確關掉 dry_run 才會真的推播
   const dryRun = body.dry_run !== false;
 
-  // 來源:既有草稿,或這次呼叫直接帶的內容
+  // 來源:到期的排程、既有草稿,或這次呼叫直接帶的內容
   let row: BroadcastRow | null = null;
-  if (body.broadcast_id) {
+  if (body.due) {
+    // 只撿一則。同一天排兩則是設定錯誤,一次全送出去會讓使用者被洗版;
+    // 剩下的留到明天那次 cron,而且會留在 draft 讓人看得出來排錯了。
+    const dueRows = await select<BroadcastRow>(
+      "line_broadcasts",
+      `status=eq.draft&scheduled_at=not.is.null`
+        + `&scheduled_at=lte.${encodeURIComponent(new Date().toISOString())}`
+        + `&select=*&order=scheduled_at.asc&limit=1`,
+    );
+    if (!dueRows.length) {
+      return Response.json({ ok: true, skipped: "nothing_due" });
+    }
+    row = dueRows[0];
+  } else if (body.broadcast_id) {
     row = await selectOne<BroadcastRow>("line_broadcasts", `id=eq.${body.broadcast_id}&select=*`);
     if (!row) return Response.json({ ok: false, error: "broadcast_not_found" }, { status: 404 });
     if (row.status === "sent") {
