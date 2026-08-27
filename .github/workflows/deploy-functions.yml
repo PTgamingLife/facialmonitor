@@ -41,6 +41,12 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
+        env:
+          # version: latest 會打 GitHub API 查最新版。未授權的請求是用 runner 的
+          # 共用 IP 計額度,尖峰時會 rate limit exceeded —— run #6 就是這樣掛的,
+          # 而且掛掉時正式環境會安靜地停在舊版,正是這條 pipeline 要防的事。
+          # 帶上 GITHUB_TOKEN 之後改用本 repo 的額度,不再跟別人搶。
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🦕 安裝 Deno
         uses: denoland/setup-deno@v1
