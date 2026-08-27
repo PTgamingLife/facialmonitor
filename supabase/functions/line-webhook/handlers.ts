@@ -190,8 +190,11 @@ async function credits(u: LineUser): Promise<LineMessage> {
     rows: [{ label: "積點餘額", value: `${s?.points ?? 0} 點` }],
     note: `${cost} 點可以換 1 次檢測。`,
     buttons: [
-      { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), primary: true },
-      { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")) },
+      { label: "用積點兌換", action: postbackAction("用積點兌換", "action=redeem_confirm&n=1"), tone: "deep" },
+      // 購買次數從圖文選單拿掉了,但「次數不夠」最自然的下一步就是買 ——
+      // 入口收在這裡,想買的人找得到,不想買的人也不會被推銷。
+      { label: "購買次數", action: postbackAction("購買次數", "action=buy_credits"), tone: "mid" },
+      { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")), tone: "soft" },
     ],
     altText: "剩餘看見健康次數",
   });
@@ -363,6 +366,105 @@ async function dailyCheckin(u: LineUser): Promise<LineMessage> {
       { label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true },
     ],
     altText: r.first_time ? "打卡完成" : "今天已打卡",
+  });
+}
+
+type DailyQuiz = {
+  id: string;
+  title: string;
+  quiz_question: string | null;
+  quiz_options: string[] | null;
+  quiz_answer: number | null;
+  quiz_explain: string | null;
+};
+
+function taipeiToday(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" });
+}
+
+async function todayQuiz(): Promise<DailyQuiz | null> {
+  return await selectOne<DailyQuiz>(
+    "sb_daily_tips",
+    `tip_date=eq.${taipeiToday()}&status=eq.approved`
+      + `&select=id,title,quiz_question,quiz_options,quiz_answer,quiz_explain`,
+  );
+}
+
+/**
+ * 每日挑戰:當天健康資訊的一題選擇題。答對才算完成,給分沿用打卡那支 RPC。
+ *
+ * 沒有題目就退回原本的打卡 —— 內容有人工審核,總有排不到或被退稿的日子,
+ * 那些天不能讓選單上的按鈕變成死的。
+ */
+async function dailyChallenge(u: LineUser): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const tip = await todayQuiz();
+  if (!tip?.quiz_question || !tip.quiz_options?.length) return await dailyCheckin(u);
+
+  return infoCard({
+    title: "🎯 今日挑戰",
+    subtitle: tip.quiz_question,
+    note: `📌 出自今天的健康資訊:${tip.title}`,
+    buttons: tip.quiz_options.slice(0, 4).map((opt, i) => ({
+      label: `${"ABCD"[i]}. ${opt}`,
+      // 只帶「選了第幾個」。正確答案留在資料庫,不會出現在 postback 裡 ——
+      // postback 是使用者端送回來的,把答案寫進去等於公開答案。
+      action: postbackAction(`選 ${"ABCD"[i]}`, `action=challenge_answer&tip=${tip.id}&c=${i}`),
+      tone: "soft" as const,
+    })),
+    altText: "今日挑戰",
+  });
+}
+
+async function answerChallenge(u: LineUser, tipId: string, choice: number): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+
+  const tip = await selectOne<DailyQuiz>(
+    "sb_daily_tips",
+    `id=eq.${tipId}&tip_date=eq.${taipeiToday()}&status=eq.approved`
+      + `&select=id,title,quiz_question,quiz_options,quiz_answer,quiz_explain`,
+  );
+  // 比對當天那一題。舊卡片翻回去按也沒用,tip_date 已經對不上今天。
+  if (!tip || tip.quiz_answer === null) {
+    return textMsg("這題已經過期了,回選單看今天的挑戰吧。");
+  }
+
+  if (choice !== tip.quiz_answer) {
+    return infoCard({
+      title: "再想一下 🤔",
+      subtitle: "這個不是最合適的答案。回今天的健康資訊看一下,再選一次。",
+      buttons: [
+        { label: "再試一次", action: postbackAction("再試一次", "action=daily_challenge"), tone: "deep" },
+        { label: "看今天的健康資訊", action: postbackAction("看健康資訊", `action=tip_detail&tip=${tip.id}`), tone: "mid" },
+      ],
+      altText: "答錯了",
+    });
+  }
+
+  // 答對才給分。rpc_daily_checkin 本身就是一天一次,答對兩次不會給兩次。
+  const r = await rpc<{
+    ok: boolean; message?: string; first_time: boolean;
+    points_added: number; balance: number; streak: number;
+  }>("rpc_daily_checkin", { p_user_id: u.sb_user_id });
+
+  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "計分失敗,請稍後再試。"}`);
+
+  const rows = [
+    { label: "連續挑戰", value: `${r.streak} 天`, accent: r.streak > 1 },
+    { label: "積點餘額", value: `${r.balance} 點`, accent: true },
+  ];
+  if (r.first_time) rows.unshift({ label: "今日挑戰", value: `+${r.points_added} 點`, accent: true });
+
+  return infoCard({
+    title: r.first_time ? "✅ 答對了" : "答對了,不過今天已經拿過分了",
+    subtitle: tip.quiz_explain ?? undefined,
+    rows,
+    note: `📌 ${tip.title}`,
+    buttons: [
+      { label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), tone: "deep" },
+    ],
+    altText: r.first_time ? "挑戰完成" : "今天已完成挑戰",
   });
 }
 
@@ -571,16 +673,32 @@ async function myPoints(u: LineUser): Promise<LineMessage> {
 
 /** 詢問北醫健康管理顧問 */
 function askConsultant(): LineMessage {
+  // 兩條路刻意並列:真人有專業與責任但要等,AI 秒回但不做判斷。
+  // 讓使用者自己選,比替他決定好 —— 急著問跟需要專業判斷是兩種需求。
   return infoCard({
-    title: "👩‍⚕️ 詢問健康管理顧問",
-    subtitle: CONSULTANT_URL
-      ? "北醫背景的健康管理顧問,可以聊體質調理、報告怎麼看、要不要進一步檢查。"
-      : "顧問的聯絡方式還在設定中,稍後再試。",
-    note: CONSULTANT_URL ? "顧問回覆需要一點時間,急症請直接就醫或撥 119。" : undefined,
-    buttons: CONSULTANT_URL
-      ? [{ label: "加顧問 LINE", action: uriAction("加顧問 LINE", CONSULTANT_URL), primary: true }]
-      : [],
-    altText: "詢問健康管理顧問",
+    title: "👩‍⚕️ 想問誰?",
+    subtitle: "真人顧問回覆需要一點時間;健康 AI 可以馬上聊。",
+    rows: [
+      { label: "北醫健康管理師", value: "專業判斷、報告解讀" },
+      { label: "健康 AI", value: "隨時回覆、體質與日常調理" },
+    ],
+    note: "兩者都不做醫療診斷。急症請直接就醫或撥 119。",
+    buttons: [
+      ...(CONSULTANT_URL
+        ? [{
+          label: "問北醫健康管理師",
+          action: uriAction("問北醫健康管理師", CONSULTANT_URL),
+          tone: "deep" as const,
+        }]
+        : []),
+      {
+        label: "問健康 AI",
+        // message action:送出去就會走進 AI 對話,不必再開一頁。
+        action: { type: "message", label: "問健康 AI", text: "我想問健康問題" },
+        tone: "mid" as const,
+      },
+    ],
+    altText: "想問誰",
   });
 }
 
@@ -840,6 +958,11 @@ export async function handlePostback(
       return await myPoints(u);
     case "daily_checkin":
       return await dailyCheckin(u);
+    case "daily_challenge":
+      return await dailyChallenge(u);
+    case "challenge_answer":
+      return await answerChallenge(
+        u, params.get("tip") ?? "", Number(params.get("c") ?? -1));
     case "tip_detail":
       return await readTip(u, params.get("tip") ?? "");
     case "tip_preview_detail":

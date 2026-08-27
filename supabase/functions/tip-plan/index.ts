@@ -24,6 +24,10 @@ type TipDraft = {
   detail_points: [string, string, string];
   source_urls: string[];
   category: string;
+  quiz_question: string;
+  quiz_options: [string, string, string];
+  quiz_answer: number;
+  quiz_explain: string;
 };
 
 function taipeiDate(offsetDays = 0): Date {
@@ -92,7 +96,10 @@ function schema(dates: string[]) {
         type: "array", minItems: dates.length, maxItems: dates.length,
         items: {
           type: "object", additionalProperties: false,
-          required: ["date", "title", "summary", "body", "detail_points", "source_urls", "category"],
+          required: [
+            "date", "title", "summary", "body", "detail_points", "source_urls", "category",
+            "quiz_question", "quiz_options", "quiz_answer", "quiz_explain",
+          ],
           properties: {
             date: { type: "string", enum: dates },
             title: { type: "string", minLength: 6, maxLength: 36 },
@@ -101,6 +108,15 @@ function schema(dates: string[]) {
             detail_points: { type: "array", minItems: 3, maxItems: 3, items: { type: "string", minLength: 8, maxLength: 90 } },
             source_urls: { type: "array", minItems: 1, maxItems: 3, items: { type: "string" } },
             category: { type: "string", enum: ["飲食", "運動", "睡眠", "壓力", "預防保健", "季節養生"] },
+            // 每日挑戰的題目。固定 3 個選項:LINE 卡片上 3 顆按鈕剛好,
+            // 4 顆會把卡片撐得很長,2 顆猜對的機率太高。
+            quiz_question: { type: "string", minLength: 10, maxLength: 60 },
+            quiz_options: {
+              type: "array", minItems: 3, maxItems: 3,
+              items: { type: "string", minLength: 2, maxLength: 24 },
+            },
+            quiz_answer: { type: "integer", enum: [0, 1, 2] },
+            quiz_explain: { type: "string", minLength: 10, maxLength: 90 },
           },
         },
       },
@@ -210,6 +226,8 @@ Deno.serve(async (req) => {
       const values = {
         tip_date: tip.date, title: tip.title, summary: tip.summary, body: tip.body,
         detail_points: tip.detail_points, source_urls: safeSources,
+        quiz_question: tip.quiz_question, quiz_options: tip.quiz_options,
+        quiz_answer: tip.quiz_answer, quiz_explain: tip.quiz_explain,
         risk_flags: flags, status: "draft", active: true,
         generated_batch_id: runId || null, image_url: assetUrl("bg.png"),
         approved_at: null, approved_by: null, rejected_at: null, rejected_by: null, review_note: null,
