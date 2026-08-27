@@ -116,7 +116,11 @@ function shareUrl(text: string): string {
 
 /** 分享出去的文字：專屬 LIFF 網址會在登入後自動綁定推薦人。 */
 function inviteText(code: string): string {
-  return `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
+  // 開頭那句是鉤子:先讓對方想到自己,再講產品。
+  // 這段文字與網頁版 shareRefCode() 必須一致 —— 同一則訊息從兩個地方送出去,
+  // 各寫各的就會變成兩套說法(先前就漂移過)。
+  return `如果我可以更快知道自己的身體狀況⋯⋯\n\n`
+    + `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
     + `點我的專屬網址加入,登入後會自動綁定推薦人,並獲得 1 次免費檢測:\n`
     + `${referralUrl(code)}\n\n`
     + `推薦碼:${code}(備用)`;
