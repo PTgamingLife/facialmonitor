@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>幸運轉盤｜看·健</title>
+
+<!--
+  彈窗版轉盤 —— 給 Size = Tall 的 LIFF app 用(pagegame / 2011132698-6J9iB9YG)。
+
+  刻意不共用 index.html:那一包是 172 KB(auth/report/analyze/admin/features…),
+  塞進彈窗會先給使用者一片白畫面,小遊戲的體感就沒了。這裡只載 LIFF SDK 與
+  Supabase,其餘自帶。
+
+  中什麼獎完全由 rpc_draw_lottery 決定,轉盤只把伺服器給的結果轉到定位。
+  順序不能反 —— 反過來等於把中獎邏輯交給使用者的瀏覽器。
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+  :root{
+    --deep:#0D5C63; --primary:#22C1C3; --pale:#E6F7F8;
+    --soft:#8FA3B8; --mid:#41565F; --bg:#FFFFFF;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--deep);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:18px 20px calc(18px + env(safe-area-inset-bottom));
+    text-align:center;
+  }
+  h1{font-size:19px;margin:0 0 2px;letter-spacing:1px}
+  .sub{font-size:12.5px;color:var(--mid);margin-bottom:14px;line-height:1.6}
+  .stage{position:relative;width:260px;height:260px;margin-bottom:14px}
+  canvas{width:260px;height:260px;transition:transform 4.2s cubic-bezier(.17,.67,.24,1)}
+  .pin{
+    position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+    width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;
+    border-top:20px solid var(--deep);filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));
+  }
+  .result{font-size:14px;min-height:22px;margin-bottom:12px;font-weight:700}
+  .result.win{color:var(--primary)}
+  .result.err{color:#D9534F;font-weight:400}
+  .btn{
+    display:block;width:100%;max-width:300px;border:none;border-radius:999px;
+    padding:14px;font-size:15.5px;font-weight:700;cursor:pointer;margin-bottom:9px;
+    font-family:inherit;text-decoration:none;
+  }
+  .btn-main{background:var(--deep);color:#fff}
+  .btn-main:disabled{background:#C8D4DA;color:#fff}
+  .btn-sub{background:var(--pale);color:var(--deep)}
+  .btn-ghost{background:none;color:var(--soft);font-weight:400;font-size:13px}
+  .hidden{display:none}
+  .note{font-size:11px;color:var(--soft);line-height:1.7;margin-top:6px}
+</style>
+</head>
+<body>
+
+<h1>幸運轉盤</h1>
+<div class="sub" id="status">載入中…</div>
+
+<div class="stage">
+  <canvas id="wheel" width="520" height="520"></canvas>
+  <div class="pin"></div>
+</div>
+
+<div class="result" id="result"></div>
+
+<button class="btn btn-main" id="spin" disabled>準備中…</button>
+<a class="btn btn-sub hidden" id="angel" target="_blank" rel="noopener">聯絡大天使兌獎</a>
+<button class="btn btn-ghost" onclick="closeGame()">關閉</button>
+
+<div class="note">獎品依機率隨機抽出，結果由伺服器決定。<br>兌獎方式將由專人與你聯繫。</div>
+
+<script>
+const LIFF_ID   = '2011132698-6J9iB9YG';           // pagegame（Tall）
+const SB_URL    = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
+const SB_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
+const ANGEL_URL = 'https://line.me/ti/p/ZC-w2BuPoi';
+const COLORS    = ['#0D5C63','#22C1C3','#4DA3E5','#0A7C7C','#5FD3D4','#2E86AB'];
+
+const sb = window.supabase.createClient(SB_URL, SB_ANON);
+let prizes = [], angle = 0, busy = false;
+
+const $ = (id) => document.getElementById(id);
+
+function closeGame() {
+  // 在 LINE 裡就收起彈窗；在外部瀏覽器 closeWindow() 沒有作用，退回上一頁。
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else history.length > 1 ? history.back() : window.close();
+}
+
+function say(msg, cls) {
+  const el = $('result');
+  el.textContent = msg || '';
+  el.className = 'result' + (cls ? ' ' + cls : '');
+}
+
+function drawWheel() {
+  const cv = $('wheel'), ctx = cv.getContext('2d');
+  const n = prizes.length, seg = (Math.PI * 2) / n;
+  const cx = cv.width / 2, cy = cv.height / 2, r = cx - 8;
+
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  prizes.forEach((p, i) => {
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, i * seg, (i + 1) * seg);
+    ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(i * seg + seg / 2);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 26px "Noto Sans TC",sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    // 名稱太長會疊到圓心，切掉比縮到看不清好
+    ctx.fillText(p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name, r - 18, 0);
+    ctx.restore();
+  });
+
+  ctx.beginPath(); ctx.arc(cx, cy, 42, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.strokeStyle = '#0D5C63'; ctx.lineWidth = 4; ctx.stroke();
+  ctx.fillStyle = '#0D5C63';
+  ctx.font = 'bold 30px "Noto Serif TC",serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('抽', cx, cy);
+}
+
+function paintStatus(free, cost, points) {
+  $('status').innerHTML = free > 0
+    ? `你有 <b style="color:var(--primary)">${free}</b> 次免費機會，這次不扣點`
+    : `每抽 ${cost} 點　·　目前 ${points} 點`;
+  const btn = $('spin');
+  const can = free > 0 || points >= cost;
+  btn.disabled = !can;
+  btn.textContent = free > 0 ? '免費抽一次' : (can ? `抽一次（${cost} 點）` : `積點不足（差 ${cost - points} 點）`);
+}
+
+async function load() {
+  const { data, error } = await sb.rpc('rpc_my_lottery_status');
+  if (error || !data) { say('資料載入失敗，請關閉重開。', 'err'); return; }
+  prizes = data.prizes ?? [];
+  if (!prizes.length) { $('status').textContent = '獎品補貨中，晚點再來'; return; }
+  drawWheel();
+  paintStatus(data.free_tickets ?? 0, data.cost ?? 100, data.points ?? 0);
+}
+
+async function spin() {
+  if (busy) return;
+  busy = true;
+  const btn = $('spin');
+  btn.disabled = true; btn.textContent = '抽獎中…';
+  say('');
+  $('angel').classList.add('hidden');
+
+  // 先問伺服器抽到什麼，再轉過去。順序不能反。
+  const { data, error } = await sb.rpc('rpc_draw_lottery');
+  if (error || !data?.ok) {
+    busy = false; btn.disabled = false; btn.textContent = '再抽一次';
+    say(data?.message ?? '抽獎失敗，請稍後再試。', 'err');
+    return;
+  }
+
+  const idx = prizes.findIndex((p) => p.name === data.prize_name);
+  const cv  = $('wheel');
+  if (idx >= 0) {
+    const segDeg = 360 / prizes.length;
+    // 指針在正上方；canvas 0 度在三點鐘方向，所以目標是 270 度。
+    // 落點在扇形內隨機偏移，避免每次都停正中央、看起來像假的。
+    const center = (idx + 0.5) * segDeg + (Math.random() - 0.5) * segDeg * 0.6;
+    angle += 360 * 5 + ((((270 - center) - (angle % 360)) % 360) + 360) % 360;
+    cv.style.transform = `rotate(${angle}deg)`;
+  }
+
+  setTimeout(() => {
+    busy = false;
+    say(`🎉 抽中「${data.prize_name}」`, 'win');
+    $('angel').href = ANGEL_URL;
+    $('angel').classList.remove('hidden');
+    const left = data.free_tickets ?? 0;
+    paintStatus(left, data.points_spent || 100, data.balance ?? 0);
+    if (!$('spin').disabled) $('spin').textContent = left > 0 ? '免費再抽' : '再抽一次';
+  }, idx >= 0 ? 4300 : 0);      // 對齊 CSS transition 的 4.2s
+}
+
+async function boot() {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+    const idToken = liff.getIDToken();
+    if (!idToken) throw new Error('拿不到 LINE 身分，請關閉重開。');
+
+    // 走跟主 App 同一支 liff-auth —— 新的 LIFF app 在同一個 LINE Login channel，
+    // ID token 的 aud 不變，後端一行都不用改。
+    const res = await fetch(SB_URL + '/functions/v1/liff-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗');
+
+    const { error } = await sb.auth.verifyOtp({ token_hash: body.token_hash, type: 'magiclink' });
+    if (error) throw new Error('登入失敗：' + error.message);
+
+    await load();
+  } catch (e) {
+    console.error(e);
+    $('status').textContent = '';
+    say(e.message || '初始化失敗，請關閉重開。', 'err');
+  }
+}
+
+$('spin').addEventListener('click', spin);
+boot();
+</script>
+</body>
+</html>
