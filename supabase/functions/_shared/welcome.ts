@@ -11,6 +11,14 @@ export function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
 }
 
+// 面舌診檢測的獨立 LIFF app(scan.html)。只載檢測與報告,不用整包 App。
+// 沒設 env 就退回主 App 的檢測頁 —— 還沒建立那支 app 時行為完全不變。
+const SCAN_LIFF_ID = Deno.env.get("HEALTHBOT_SCAN_LIFF_ID") ?? "";
+
+export function scanUrl(): string {
+  return SCAN_LIFF_ID ? `https://liff.line.me/${SCAN_LIFF_ID}` : liffUrl("page-challenge");
+}
+
 function mediaBase(): string {
   return `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome`;
 }
@@ -29,7 +37,7 @@ export function welcomeCard(name?: string): LineMessage {
     note: "從這裡開啟 App 並用 LINE 登入，系統會自動綁定，不必輸入會員碼。活動內容依系統顯示的可用額度為準。",
     buttons: [
       { label: "立即免費體驗", action: uriAction("免費體驗", liffUrl("page-main")), primary: true },
-      { label: "查看面舌診檢測", action: uriAction("查看檢測", liffUrl("page-challenge")) },
+      { label: "查看面舌診檢測", action: uriAction("查看檢測", scanUrl()) },
     ],
     altText: "2027 年 2 月前限時免費體驗，之後年費 1,680 元，含每月檢測與健康管理師建議報告",
   });
@@ -54,7 +62,7 @@ export function boundCard(name?: string): LineMessage {
     ],
     note: "本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。",
     buttons: [
-      { label: "開始第一次檢測", action: uriAction("開始檢測", liffUrl("page-challenge")), primary: true },
+      { label: "開始第一次檢測", action: uriAction("開始檢測", scanUrl()), primary: true },
     ],
     altText: "綁定完成，可以開始使用了",
   });

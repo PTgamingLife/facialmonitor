@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>面舌診檢測｜看·健</title>
+
+<!--
+  面舌診檢測的獨立 LIFF 入口。
+
+  跟 game.html 的取捨不一樣 —— 那支是 9 KB 全自帶,因為抽獎只有一個轉盤。
+  這支刻意「不」自帶:分析流程(js/analyze.js)與報告渲染(js/report.js)
+  直接載入既有檔案,一行都不重寫。
+
+  理由:報告內容是這個專案最常改的東西(產品連結、體質描述、營養素對應)。
+  複製一份到這裡,改的時候只會改到一邊 —— 見證照片順序、分享文案、
+  歡迎訊息都已經因為兩份而漂移過。共用同一份就不會有這個問題。
+
+  代價是要多載 css/style.css(45 KB),但那是 Pages 的靜態檔,
+  使用者開過主 App 就已經在快取裡。省下的是 features.js / admin.js /
+  auth.js / reward.js 那一整包跟檢測無關的東西。
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css?v=12">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+  /* 這支沒有底部導覽,把主 App 留給 nav 的空間收掉 */
+  .page { padding-bottom: 24px; }
+  .scan-boot {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:70vh; gap:14px; padding:0 24px; text-align:center;
+  }
+  .scan-boot-msg { font-size:14px; color:var(--text-soft,#6B5B4A); line-height:1.8 }
+  .scan-boot-msg.err { color:#C0392B }
+  .free-spin-bar {
+    margin:12px 0; padding:14px; border-radius:12px; text-align:center;
+    background:rgba(6,199,85,.08); border:1px solid rgba(6,199,85,.3);
+  }
+  .free-spin-bar a { color:#06C755; font-weight:700; text-decoration:none; font-size:15px }
+</style>
+</head>
+<body>
+
+<!-- 載入 / 錯誤畫面。登入成功後換成檢測頁。 -->
+<div class="page active" id="page-boot">
+  <div class="scan-boot">
+    <div class="scan-boot-msg" id="boot-msg">正在登入…</div>
+    <button class="btn-ghost" id="boot-close" style="display:none" onclick="closeScan()">關閉</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════ 檢測 ══════════════════════════ -->
+<div class="page" id="page-challenge">
+  <div class="top-bar">
+    <span class="top-bar-brand">面舌診檢測</span>
+    <div class="top-bar-actions">
+      <button class="top-bar-btn" onclick="closeScan()">✕ 關閉</button>
+    </div>
+  </div>
+
+  <div class="challenge-content" style="padding-top:14px">
+
+    <div class="credits-bar">
+      <div class="credits-info">⏱ 剩餘次數：<span class="credits-num" id="credits-display">-</span> 次</div>
+      <button class="credit-badge" onclick="openCodeModal()">＋ 添加次數</button>
+    </div>
+
+    <div class="member-bar">
+      <span>會員碼：<span id="member-code-display">-------</span></span>
+      <button class="copy-btn" onclick="copyText(document.getElementById('member-code-display').textContent)">📋</button>
+    </div>
+
+    <div class="steps" id="steps-bar">
+      <div class="step-dot active" id="sdot-1">1</div>
+      <div class="step-line" id="sline-1"></div>
+      <div class="step-dot" id="sdot-2">2</div>
+      <div class="step-line" id="sline-2"></div>
+      <div class="step-dot" id="sdot-3">3</div>
+    </div>
+
+    <!-- Step 1 -->
+    <div id="step-1">
+      <div class="rcard">
+        <div class="section-title">📷 步驟一：臉部照片</div>
+        <p style="font-size:13px;color:var(--text-soft);line-height:1.8;margin-bottom:14px">請上傳清晰的正面面部照片。<br>光線均勻、卸妝自然狀態效果最佳。</p>
+        <div class="upload-zone" id="face-zone">
+          <div class="upload-ring-anim"></div>
+          <span class="upload-icon">📷</span>
+          <div class="upload-text">點擊上傳臉部照片</div>
+          <div class="upload-hint">卸妝、均勻光線效果最佳</div>
+        </div>
+        <input type="file" id="face-input" accept="image/*">
+        <button class="btn-gold" id="btn-step1" style="display:none" onclick="goStep(2)">下一步 →</button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div id="step-2" style="display:none">
+      <div class="rcard">
+        <div class="section-title">👅 步驟二：舌頭照片</div>
+        <p style="font-size:13px;color:var(--text-soft);line-height:1.8;margin-bottom:14px">自然伸出舌頭，光線充足拍攝。<br>建議早晨空腹、勿先刷牙進食。</p>
+        <div class="upload-zone" id="tongue-zone">
+          <div class="upload-ring-anim"></div>
+          <span class="upload-icon">👅</span>
+          <div class="upload-text">點擊上傳舌頭照片</div>
+          <div class="upload-hint">建議早晨空腹，自然光下拍攝</div>
+        </div>
+        <input type="file" id="tongue-input" accept="image/*">
+        <button class="btn-gold" id="btn-step2" style="display:none" onclick="goStep(3)">下一步 →</button>
+        <button class="btn-ghost" onclick="goStep(1)">← 返回</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div id="step-3" style="display:none">
+      <div class="rcard">
+        <div class="section-title">✅ 步驟三：確認送出</div>
+        <p style="font-size:13px;color:var(--text-soft);margin-bottom:14px">請確認兩張照片後送出分析。</p>
+        <div class="thumb-row">
+          <div class="thumb-box"><img id="face-thumb" src="" alt="face"><div class="thumb-label">面部照片</div></div>
+          <div class="thumb-box"><img id="tongue-thumb" src="" alt="tongue"><div class="thumb-label">舌部照片</div></div>
+        </div>
+        <div style="background:rgba(196,154,90,.08);border-radius:var(--radius-sm);padding:10px 12px;border-left:3px solid var(--gold-main);font-size:12px;color:var(--text-soft);line-height:1.8;margin-bottom:14px">
+          ⚠️ 診斷前請勿刷舌苔、化濃妝或飲用深色飲品（咖啡、奶茶）<br>以確保 AI 識別準確度
+        </div>
+        <div id="analyze-error" class="error-box" style="display:none"></div>
+        <button class="btn-gold" id="btn-analyze" onclick="startAnalyze()">✦ 開始分析診斷</button>
+        <button class="btn-ghost" onclick="goStep(2)">← 返回</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="step-loading" style="display:none">
+      <div class="loading-card">
+        <div class="loading-ring-wrap">
+          <div class="loading-ring-1"></div>
+          <div class="loading-ring-2"></div>
+        </div>
+        <img class="loading-owl-img" src="img/mascot-analyze.png" alt="AI 分析中">
+        <div class="loading-text">正在進行面舌診分析</div>
+        <div class="loading-sub">AI 正在觀察面部氣色與舌象…</div>
+      </div>
+      <div class="carousel-box" style="margin-top:14px">
+        <div class="carousel-title">改變，只需每天十分鐘</div>
+        <div class="carousel-imgs">
+          <div class="carousel-track-inner" id="carousel-track"></div>
+        </div>
+        <div class="carousel-dots" id="carousel-dots"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ 報告 ══════════════════════════ -->
+<div class="page" id="page-report">
+  <div class="top-bar">
+    <span class="top-bar-brand">☯ 健康分析報告</span>
+    <div class="top-bar-actions">
+      <button class="top-bar-btn" onclick="closeScan()">✕ 關閉</button>
+    </div>
+  </div>
+
+  <div class="report-content-wrap">
+    <div id="report-content"></div>
+
+    <!-- 首檢送的免費抽獎券:有券才顯示,由 maybeOfferFreeSpin() 開啟 -->
+    <div class="free-spin-bar" id="free-spin-bar" style="display:none">
+      🎁 首次檢測完成，送你一次免費抽獎<br>
+      <a id="free-spin-link" href="#">去轉盤抽 →</a>
+    </div>
+
+    <a href="https://line.me/ti/p/ZC-w2BuPoi" target="_blank" rel="noopener" style="display:block;text-decoration:none;margin-bottom:10px">
+      <div style="width:100%;padding:14px;background:rgba(6,199,85,.1);border:1px solid rgba(6,199,85,.35);border-radius:var(--radius-md);text-align:center;font-size:15px;color:#06C755;letter-spacing:2px;font-weight:700">
+        💬 LINE 聯絡健康團隊
+      </div>
+    </a>
+
+    <div class="action-row">
+      <button class="btn-share" onclick="downloadReport()">📸 下載報告</button>
+      <button class="btn-restart" onclick="restartDiagnosis()">🔄 重新診斷</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 既有檔案,原封不動載入。版號跟 index.html 一致,不然會拿到不同版本。 -->
+<script src="js/config.js?v=12"></script>
+<script src="js/utils.js?v=12"></script>
+<script src="js/report.js?v=12"></script>
+<script src="js/analyze.js?v=12"></script>
+
+<script>
+// 這支只有「檢測」與「報告」兩頁,不需要 auth.js 的整套分頁與路由。
+// 下面補的是 analyze.js / report.js 會呼叫、但定義在其他檔案裡的那幾個函式。
+
+const SCAN_LIFF_ID = window.SCAN_LIFF_ID || window.LIFF_ID;
+const MAIN_LIFF_URL = `https://liff.line.me/${window.LIFF_ID}`;
+const GAME_LIFF_URL = 'https://liff.line.me/2011132698-6J9iB9YG';
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach((p) => {
+    p.classList.toggle('active', p.id === pageId);
+  });
+  window.scrollTo(0, 0);
+}
+
+function closeScan() {
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else history.length > 1 ? history.back() : window.close();
+}
+
+// 添加次數要走 LINE Pay,那一整套在主 App 裡。這裡不重做,直接把人送過去。
+function openCodeModal() {
+  if (window.liff?.isInClient?.()) liff.openWindow({ url: `${MAIN_LIFF_URL}?p=page-main`, external: false });
+  else location.href = `${MAIN_LIFF_URL}?p=page-main`;
+}
+
+// analyze.js 在報告渲染完會呼叫這支。主 App 是直接把轉盤彈出來,
+// 這裡改成顯示一條連到轉盤 LIFF 的橫幅 —— 轉盤已經是獨立的一支,不再各做一份。
+async function maybeOfferFreeSpin() {
+  try {
+    const { data } = await supabase.rpc('rpc_my_lottery_status');
+    if ((data?.free_tickets ?? 0) <= 0) return;
+    document.getElementById('free-spin-link').href = GAME_LIFF_URL;
+    document.getElementById('free-spin-bar').style.display = 'block';
+    showToast('🎁 首次檢測完成，送你一次免費抽獎！');
+  } catch (_) { /* 抽獎狀態拿不到不該擋住報告 */ }
+}
+
+function bootMsg(msg, isErr) {
+  const el = document.getElementById('boot-msg');
+  el.textContent = msg;
+  el.className = 'scan-boot-msg' + (isErr ? ' err' : '');
+  document.getElementById('boot-close').style.display = isErr ? 'block' : 'none';
+}
+
+// 拿不到 ID token 幾乎都是同一件事:這支 LIFF app 的 Scopes 沒勾 openid。
+// 每個 LIFF app 各自帶一份 scope —— 別支勾了不代表這支也有。
+// 先試一次重新授權,用網址參數擋住第二次,不然會變成無限 login 迴圈。
+function reauth() {
+  const url = new URL(location.href);
+  if (url.searchParams.get('r') === '1') {
+    bootMsg('拿不到 LINE 身分 —— 這個 LIFF app 要勾選 openid 權限。', true);
+    return;
+  }
+  url.searchParams.set('r', '1');
+  try { liff.logout(); } catch (_) { /* 不在 LINE 裡就沒得登出 */ }
+  liff.login({ redirectUri: url.toString() });
+}
+
+async function boot() {
+  try {
+    await liff.init({ liffId: SCAN_LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+    const idToken = liff.getIDToken();
+    if (!idToken) { reauth(); return; }
+
+    // 跟主 App、轉盤走同一支 liff-auth。身分一律由後端向 LINE 驗證。
+    const res = await fetch(window.LIFF_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗');
+
+    const { error } = await supabase.auth.verifyOtp({ token_hash: body.token_hash, type: 'magiclink' });
+    if (error) throw new Error('登入失敗：' + error.message);
+
+    const { data: authData } = await supabase.auth.getUser();
+    const { data: row } = await supabase
+      .from('sb_users').select('*').eq('auth_id', authData.user.id).single();
+    if (!row) throw new Error('找不到會員資料，請先從主頁登入一次');
+
+    currentUser = { ...row, total_scans: row.total_used ?? 0, member_code: row.member_code ?? '' };
+
+    initUploads();
+    updateCreditsDisplay();
+    showPage('page-challenge');
+  } catch (e) {
+    console.error(e);
+    bootMsg(e.message || '初始化失敗，請關閉重開。', true);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

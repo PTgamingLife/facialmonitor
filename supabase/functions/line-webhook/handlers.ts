@@ -7,6 +7,7 @@ import {
 import { rpc, select, selectOne } from "../_shared/db.ts";
 import { CATEGORY_ICON, taskOfDay } from "../_shared/tasks.ts";
 import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
+import { scanUrl } from "../_shared/welcome.ts";
 
 // 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
 // 所以直接寫預設值,不用為了改一個網址跑一趟後台設 secret。
@@ -156,7 +157,7 @@ async function scoreTrend(u: LineUser): Promise<LineMessage> {
     return infoCard({
       title: "本月還沒有可比較的分數",
       subtitle: `這個月做兩次面舌診,分數進步 ${threshold} 分以上,你和你的小天使都能拿積點。`,
-      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", appUrl("page-challenge")), primary: true }],
+      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), primary: true }],
       altText: "本月分數",
     });
   }
@@ -175,7 +176,7 @@ async function scoreTrend(u: LineUser): Promise<LineMessage> {
       : gap > 0
         ? `再進步 ${gap} 分就達標,你和小天使都能拿積點。`
         : `已達標,結算後就會入帳。`,
-    buttons: [{ label: "再測一次", action: uriAction("再測一次", appUrl("page-challenge")), primary: true }],
+    buttons: [{ label: "再測一次", action: uriAction("再測一次", scanUrl()), primary: true }],
     altText: "本月健康分數",
   });
 }
@@ -198,7 +199,7 @@ async function credits(u: LineUser): Promise<LineMessage> {
       // 購買次數從圖文選單拿掉了,但「次數不夠」最自然的下一步就是買 ——
       // 入口收在這裡,想買的人找得到,不想買的人也不會被推銷。
       { label: "購買次數", action: postbackAction("購買次數", "action=buy_credits"), tone: "mid" },
-      { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")), tone: "soft" },
+      { label: "開始檢測", action: uriAction("開始檢測", scanUrl()), tone: "soft" },
     ],
     altText: "剩餘看見健康次數",
   });
@@ -264,7 +265,7 @@ async function startScan(u: LineUser): Promise<LineMessage> {
       bigLabel: "剩餘檢測次數",
       note: "光線充足、素顏、舌頭自然伸出,結果會準很多。",
       buttons: [
-        { label: "開始檢測", action: uriAction("開始檢測", liffUrl("page-challenge")), primary: true },
+        { label: "開始檢測", action: uriAction("開始檢測", scanUrl()), primary: true },
       ],
       altText: "面舌診檢測",
     });
@@ -367,7 +368,7 @@ async function dailyCheckin(u: LineUser): Promise<LineMessage> {
     rows,
     note: r.tip ? `📌 ${r.tip.title}` : undefined,
     buttons: [
-      { label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true },
+      { label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), primary: true },
     ],
     altText: r.first_time ? "打卡完成" : "今天已打卡",
   });
@@ -466,7 +467,7 @@ async function answerChallenge(u: LineUser, tipId: string, choice: number): Prom
     rows,
     note: `📌 ${tip.title}`,
     buttons: [
-      { label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), tone: "deep" },
+      { label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), tone: "deep" },
     ],
     altText: r.first_time ? "挑戰完成" : "今天已完成挑戰",
   });
@@ -580,7 +581,7 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
     const emptyScoreCard = infoCard({
       title: "還沒有檢測紀錄",
       subtitle: "做完第一次面舌診之後,這裡就會顯示你的健康分數。",
-      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")), primary: true }],
+      buttons: [{ label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), primary: true }],
       altText: "還沒有檢測紀錄",
     });
 
@@ -617,7 +618,7 @@ async function latestScore(u: LineUser): Promise<LineMessage> {
       : "再測一次就能看出變化幅度。",
     buttons: [
       { label: "看詳細報告", action: uriAction("看詳細報告", liffUrl("page-history")), tone: "deep" },
-      { label: "再測一次", action: uriAction("再測一次", liffUrl("page-challenge")), tone: "mid" },
+      { label: "再測一次", action: uriAction("再測一次", scanUrl()), tone: "mid" },
     ],
     altText: "我的健康分數",
   });
@@ -903,7 +904,7 @@ async function doRedeem(u: LineUser, n: number): Promise<LineMessage> {
       { label: "檢測次數", value: `${r.credits} 次`, accent: true },
       { label: "剩餘積點", value: `${r.balance} 點` },
     ],
-    buttons: [{ label: "現在就去檢測", action: uriAction("去檢測", liffUrl("page-challenge")), primary: true }],
+    buttons: [{ label: "現在就去檢測", action: uriAction("去檢測", scanUrl()), primary: true }],
     altText: "兌換成功",
   });
 }
@@ -1005,7 +1006,7 @@ export async function handlePostback(
       if (!u.sb_user_id) return NEED_BIND;
       const r = await rpc<{ok:boolean;already_active?:boolean;error?:string;focus?:string;starts_on?:string}>(
         "rpc_apply_health_challenge", {p_user_id:u.sb_user_id});
-      if (r?.error === "no_report") return infoCard({title:"先完成一次健康檢測",subtitle:"需要最近一次健康報告，才能安排適合你的 14 天挑戰。",buttons:[{label:"去做面舌診",action:uriAction("去檢測",liffUrl("page-challenge")),primary:true}],altText:"請先完成健康檢測"});
+      if (r?.error === "no_report") return infoCard({title:"先完成一次健康檢測",subtitle:"需要最近一次健康報告，才能安排適合你的 14 天挑戰。",buttons:[{label:"去做面舌診",action:uriAction("去檢測",scanUrl()),primary:true}],altText:"請先完成健康檢測"});
       if (r?.already_active) return await taskToday(u);
       return infoCard({title:"✅ 14 天健康挑戰申請完成",subtitle:`健康重點：${r?.focus??"日常體質調養"}\n從 ${r?.starts_on??"明天"} 開始，每天 08:20 提醒。`,note:"14 天內容已一次排定並寫入後台，不會每天重新計算。",altText:"14 天挑戰申請完成"});
     }
