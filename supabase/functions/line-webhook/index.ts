@@ -23,43 +23,10 @@ import {
   loadHistory, loadMemberContext, LineUser, messageCount, saveMessage,
 } from "./member.ts";
 import { handlePostback, helpCard } from "./handlers.ts";
+import { liffUrl, welcomeCard, welcomeVideo } from "../_shared/welcome.ts";
 
-// ── 歡迎訊息 ───────────────────────────────────────────────
-const LIFF_ID = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
-
-function liffUrl(page: string): string {
-  return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
-}
-
-function welcomeCard(name?: string): LineMessage {
-  const promoImage = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome/kanjian-ai-health-intro-preview.jpg`;
-  return infoCard({
-    title: `${name ? name + "，歡迎你" : "歡迎你"}｜限時免費體驗 🌿`,
-    hero: promoImage,
-    subtitle: "用一張臉部與舌頭照片，快速了解目前的健康狀態，並獲得適合自己的 14 天健康方向。",
-    rows: [
-      { label: "限時優惠", value: "2027 年 1 月 31 日前免費體驗", accent: true },
-      { label: "優惠結束後", value: "年費 NT$1,680" },
-      { label: "檢測服務", value: "每月 1 次，全年 12 次" },
-      { label: "專業服務", value: "健康管理師建議與報告" },
-    ],
-    note: "從這裡開啟 App 並用 LINE 登入，系統會自動綁定，不必輸入會員碼。活動內容依系統顯示的可用額度為準。",
-    buttons: [
-      { label: "立即免費體驗", action: uriAction("免費體驗", liffUrl("page-main")), primary: true },
-      { label: "查看面舌診檢測", action: uriAction("查看檢測", liffUrl("page-challenge")) },
-    ],
-    altText: "2027 年 2 月前限時免費體驗，之後年費 1,680 元，含每月檢測與健康管理師建議報告",
-  });
-}
-
-function welcomeVideo(): LineMessage {
-  const mediaBase = `${Deno.env.get("SUPABASE_URL") ?? ""}/storage/v1/object/public/line-public-media/welcome`;
-  return {
-    type: "video",
-    originalContentUrl: `${mediaBase}/kanjian-ai-health-intro.mp4`,
-    previewImageUrl: `${mediaBase}/kanjian-ai-health-intro-preview.jpg`,
-  };
-}
+// 歡迎訊息與 liffUrl 移到 _shared/welcome.ts —— liff-auth 綁定完成時也要送同一份,
+// 各留一份就會漂移(改了文案只改一邊,新朋友依進入路徑收到不同訊息)。
 
 // ── 文字指令(先於 AI 比對) ────────────────────────────────
 async function handleCommand(u: LineUser, text: string): Promise<LineMessage | LineMessage[] | null> {

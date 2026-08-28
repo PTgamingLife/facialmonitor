@@ -56,6 +56,10 @@ function enterApp(isAdmin) {
 
   if (isAdmin) showPage('page-admin');
   else         showPage('page-main');
+
+  // 頁面先開好再蓋面板 —— 使用者按「留在這裡逛逛」時底下已經是首頁，
+  // 不會看到空白再閃一下。
+  showBoundPanel();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -108,12 +112,53 @@ async function exchangeLiffToken() {
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗，請稍後再試。');
 
+  // 第一次綁定才要跳「回到 LINE」那一步。老會員每次登入都被擋一頁只會煩人。
+  window._justBoundNew = !!body.is_new;
+
   // token_hash 是一次性的，換完就作廢
   const { error } = await supabase.auth.verifyOtp({
     token_hash: body.token_hash,
     type: 'magiclink'
   });
   if (error) throw new Error('登入失敗：' + error.message);
+}
+
+/**
+ * 綁定完成後把人送回 LINE。
+ *
+ * liff-auth 在綁定當下就往 OA 推了一則歡迎訊息，但使用者現在人在這個網頁裡，
+ * 不會知道。給一顆按鈕把他送回聊天室 —— 不然他關掉網頁只會看到一片空白，
+ * 不知道下一步該做什麼。
+ *
+ * 只在 LINE 內開啟時顯示:在外部瀏覽器 closeWindow() 沒有意義。
+ */
+function showBoundPanel() {
+  if (!window._justBoundNew) return false;
+  window._justBoundNew = false;
+  if (typeof liff === 'undefined' || !liff.isInClient?.()) return false;
+
+  let box = document.getElementById('bound-panel');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'bound-panel';
+    box.className = 'modal-overlay';
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `
+    <div class="modal-box" style="max-width:330px;text-align:center">
+      <div style="font-size:44px;line-height:1;margin-bottom:10px">🌿</div>
+      <div class="modal-title">綁定完成</div>
+      <div class="modal-sub">
+        歡迎訊息已經送到你的 LINE 聊天室。<br>
+        回去就能開始第一次面舌診檢測。
+      </div>
+      <button class="btn-main" onclick="liff.closeWindow()">回到 LINE</button>
+      <button class="btn-ghost" onclick="document.getElementById('bound-panel').classList.remove('show')">
+        留在這裡逛逛
+      </button>
+    </div>`;
+  box.classList.add('show');
+  return true;
 }
 
 async function loginWithLine() {
