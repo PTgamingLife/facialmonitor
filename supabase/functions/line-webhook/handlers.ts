@@ -16,6 +16,10 @@ const LIFF_ID        = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39
 // 中獎後聯絡兌獎的窗口。先跟顧問同一個人,但獨立成一個變數 ——
 // 之後要把「兌獎」跟「健康諮詢」拆給不同人時,改 env 就好,不必改程式。
 const ANGEL_URL      = Deno.env.get("HEALTHBOT_ANGEL_URL") ?? CONSULTANT_URL;
+// 轉盤用獨立的 LIFF app(pagegame,Size = Tall)—— 彈窗開啟,不會離開聊天室。
+// 主 App 那個是 Full,點下去會蓋掉整個畫面,玩個抽獎不該有那種份量。
+const GAME_LIFF_URL  = Deno.env.get("HEALTHBOT_GAME_LIFF_URL")
+  ?? "https://liff.line.me/2011132698-6J9iB9YG";
 // 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
 const PLAN_PRICE     = 1680;
@@ -868,7 +872,7 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
       buttons: [
         // 轉盤動畫是網頁的東西,LINE 的 Flex Message 放不了動畫。
         // 想看轉盤就得跳到 App;留在 LINE 直接抽也可以,只是沒有動畫。
-        { label: "🎡 到轉盤抽", action: uriAction("到轉盤抽", liffUrl("wheel")), tone: "deep" },
+        { label: "🎡 到轉盤抽", action: uriAction("到轉盤抽", GAME_LIFF_URL), tone: "deep" },
         { label: drawLabel, action: postbackAction("馬上抽", "action=draw_confirm"), tone: "mid" },
       ],
       altText: p.name,
