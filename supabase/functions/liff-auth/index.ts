@@ -18,6 +18,9 @@
 //   HEALTHBOT_APP_ORIGIN        允許呼叫的網頁來源(CORS),例如
 //                               https://ptgaminglife.github.io
 
+import { push } from "../_shared/line.ts";
+import { boundCard } from "../_shared/welcome.ts";
+
 const LIFF_CHANNEL_ID = Deno.env.get("HEALTHBOT_LIFF_CHANNEL_ID") ?? "";
 const APP_ORIGIN = (Deno.env.get("HEALTHBOT_APP_ORIGIN") ?? "").replace(/\/$/, "");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -159,6 +162,7 @@ Deno.serve(async (req) => {
   const email = `line.${sub.toLowerCase()}@line.local`;
 
   let user = await findByLineId(sub);
+  const isNew = !user;
 
   if (!user) {
     const authId = await createAuthUser(email, name, sub);
@@ -195,8 +199,39 @@ Deno.serve(async (req) => {
     body: JSON.stringify({ sb_user_id: user.id, bind_status: "bound" }),
   });
 
+  // 綁定完成後在 OA 送一則歡迎訊息。使用者關掉這個網頁回到聊天室時,
+  // 訊息已經在那裡等他 —— 不然他回去只會看到一片空白,不知道下一步該做什麼。
+  //
+  // welcomed_at 當冪等鎖:重新整理、重新登入、多開分頁都只會送一次。
+  // 先寫旗標再送(而不是送完才寫):寧可漏送也不要連送兩則洗版,
+  // 而且 LINE push 是計費的。
+  const lineRows = await (await rest(
+    `line_users?line_user_id=eq.${encodeURIComponent(sub)}&select=welcomed_at&limit=1`,
+  )).json().catch(() => []);
+  if (Array.isArray(lineRows) && lineRows[0] && !lineRows[0].welcomed_at) {
+    const claimed = await rest(
+      `line_users?line_user_id=eq.${encodeURIComponent(sub)}&welcomed_at=is.null`,
+      {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ welcomed_at: new Date().toISOString() }),
+      },
+    );
+    const rows = await claimed.json().catch(() => []);
+    // 搶到那一列的人才送 —— 同時兩個請求進來,只有一個 PATCH 得到 welcomed_at is null。
+    if (Array.isArray(rows) && rows.length > 0) {
+      try {
+        await push(sub, boundCard(name));
+      } catch (err) {
+        console.error("welcome push failed:", err);
+      }
+    }
+  }
+
   const tokenHash = await issueSession(user.email ?? email);
   if (!tokenHash) return json({ ok: false, message: "登入失敗,請稍後再試。" }, 500, origin);
 
-  return json({ ok: true, token_hash: tokenHash, user_id: user.id, name }, 200, origin);
+  // is_new 給前端判斷要不要顯示「回到 LINE」那一步 —— 老會員每次登入
+  // 都被擋一頁只會煩人。
+  return json({ ok: true, token_hash: tokenHash, user_id: user.id, name, is_new: isNew }, 200, origin);
 });
