@@ -10,6 +10,10 @@ window.LIFF_AUTH_URL = window.SUPABASE_URL + '/functions/v1/liff-auth';
    否則 LIFF 拿到的 userId 與 webhook 收到的不是同一組，帳號會對不起來。 */
 window.LIFF_ID = '2011132698-FNcAIg39';
 
+/* 面舌診檢測的獨立 LIFF app(healthpage,Size = Full)。
+   檢測要拍兩張照片又要看完整報告,Tall 彈窗會太擠,所以用 Full。 */
+window.SCAN_LIFF_ID = '2011132698-JSOBcdBA';
+
 /* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
    在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
    長得像 https://lin.ee/xxxxxxx */
