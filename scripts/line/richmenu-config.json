@@ -38,9 +38,9 @@
           "action": "daily_challenge"
         },
         {
-          "label": "分享推薦",
+          "label": "兌換 / 抽獎",
           "type": "postback",
-          "action": "share_invite"
+          "action": "reward_shop"
         }
       ]
     },
@@ -68,9 +68,9 @@
           "action": "my_invitees"
         },
         {
-          "label": "兌換 / 抽獎",
+          "label": "分享推薦",
           "type": "postback",
-          "action": "reward_shop"
+          "action": "share_invite"
         }
       ]
     }
