@@ -1,0 +1,45 @@
+name: 🍱 重建圖文選單
+
+# 只有手動觸發 —— 不掛 push。
+#
+# 重建會先刪掉舊的 alias 與 menu 再重新建立,中間有短暫幾秒選單是空的。
+# 那是使用者看得到的東西,不該因為改了一行註解就自動跑一次。
+#
+# 存在的理由:原本這支腳本只能在有 LINE token 的本機跑,人不在電腦前就改不了選單。
+# 放到 Actions 之後,token 收在 repo secret,從手機也能按。
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "只印出 payload,不呼叫 LINE API"
+        type: boolean
+        default: false
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ✅ 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 🔑 檢查 token
+        run: |
+          if [ -z "${{ secrets.HEALTHBOT_LINE_TOKEN }}" ]; then
+            echo "✖ 缺少 secret HEALTHBOT_LINE_TOKEN"
+            echo "  到 Settings → Secrets and variables → Actions 新增,"
+            echo "  值是 Messaging API channel 的 channel access token。"
+            exit 1
+          fi
+
+      - name: 🟢 安裝 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 🍱 重建圖文選單
+        env:
+          HEALTHBOT_LINE_TOKEN: ${{ secrets.HEALTHBOT_LINE_TOKEN }}
+          HEALTHBOT_APP_URL: https://ptgaminglife.github.io/facialmonitor
+        run: |
+          node scripts/line/setup-richmenu.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
