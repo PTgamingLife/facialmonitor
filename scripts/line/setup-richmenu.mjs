@@ -82,7 +82,11 @@ function buildAreas(config, tab) {
     if (cell.type === "uri") {
       // 有 liffId 就走 LIFF:在 LINE 裡開會自動帶身分,使用者不用再登入一次。
       // LIFF 只保證帶過去 query string,不保證帶 hash,所以頁面用 ?p= 指定。
-      if (config.liffId) {
+      if (cell.liffId) {
+        // 這一格有自己的 LIFF app(例如面舌診的 healthpage、轉盤的 pagegame)。
+        // 那些是獨立頁面,不吃 ?p= 路由,直接開就好。
+        action = { type: "uri", label: cell.label, uri: `https://liff.line.me/${cell.liffId}` };
+      } else if (config.liffId) {
         action = { type: "uri", label: cell.label,
                    uri: `https://liff.line.me/${config.liffId}?p=${cell.target}` };
       } else {
