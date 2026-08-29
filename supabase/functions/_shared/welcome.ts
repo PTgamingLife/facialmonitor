@@ -11,9 +11,10 @@ export function liffUrl(page: string): string {
   return LIFF_ID ? `https://liff.line.me/${LIFF_ID}?p=${page}` : appUrl(page);
 }
 
-// 面舌診檢測的獨立 LIFF app(scan.html)。只載檢測與報告,不用整包 App。
-// 沒設 env 就退回主 App 的檢測頁 —— 還沒建立那支 app 時行為完全不變。
-const SCAN_LIFF_ID = Deno.env.get("HEALTHBOT_SCAN_LIFF_ID") ?? "";
+// 面舌診檢測的獨立 LIFF app(healthpage,Size = Full)。只載檢測與報告,
+// 不用整包 App。跟 GAME_LIFF_URL 一樣直接寫預設值 —— 這不是機密,
+// 它本來就會印在按鈕上給客戶看,不必為了一個網址跑一趟後台設 secret。
+const SCAN_LIFF_ID = Deno.env.get("HEALTHBOT_SCAN_LIFF_ID") ?? "2011132698-JSOBcdBA";
 
 export function scanUrl(): string {
   return SCAN_LIFF_ID ? `https://liff.line.me/${SCAN_LIFF_ID}` : liffUrl("page-challenge");
