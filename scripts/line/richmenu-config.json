@@ -23,8 +23,9 @@
       "cells": [
         {
           "label": "面舌診檢測",
-          "type": "postback",
-          "action": "start_scan"
+          "type": "uri",
+          "liffId": "2011132698-JSOBcdBA",
+          "_note": "healthpage(Full)。直接開 scan.html,不先回一張卡片 —— 選單已經寫著要做什麼,中間再擋一張卡片只是多兩次點擊。"
         },
         {
           "label": "我的健康分數",
