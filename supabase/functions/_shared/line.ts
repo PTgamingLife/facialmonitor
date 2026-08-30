@@ -29,7 +29,10 @@ export const C = {
   pale:     "#E6F7F8",   // 健康青淡底(補)
   textDark: "#0D5C63",
   textMid:  "#41565F",   // 內文(補)
-  textSoft: "#8FA3B8",   // 藍灰 — 只用在小字
+  textSoft: "#526B75",   // 深藍灰 — 小字也維持可讀對比
+  surface:  "#F1F7F5",   // 淡青底 — 區分卡片與內容區
+  border:   "#D8E6E2",
+  deepEnd:  "#13757A",
   alert:    "#D9534F",
 };
 
@@ -133,14 +136,14 @@ type Btn = { label: string; action: LineMessage; primary?: boolean; tone?: Tone 
 
 const TONE_STYLE: Record<Tone, { style: string; color: string }> = {
   deep: { style: "primary",   color: C.deep },
-  mid:  { style: "primary",   color: C.primary },
+  mid:  { style: "primary",   color: "#16787B" },
   soft: { style: "secondary", color: C.pale },
 };
 
 export function button({ label, action, primary = false, tone }: Btn): LineMessage {
   const t = tone
     ? TONE_STYLE[tone]
-    : { style: primary ? "primary" : "secondary", color: primary ? C.primary : C.bgAlt };
+    : { style: primary ? "primary" : "secondary", color: primary ? C.deep : C.pale };
   return {
     type: "button",
     style: t.style,
@@ -170,25 +173,24 @@ export function infoCard(opts: {
   buttons?: Btn[];
   altText?: string;
 }): LineMessage {
-  const body: LineMessage[] = [
-    { type: "text", text: opts.title, weight: "bold", size: "lg", color: C.textDark, wrap: true },
-  ];
+  const body: LineMessage[] = [];
 
   if (opts.subtitle) {
     body.push({
       type: "text", text: opts.subtitle, size: "sm",
-      color: C.textMid, wrap: true, margin: "sm",
+      color: C.textMid, wrap: true,
     });
   }
 
   if (opts.bigValue) {
     body.push({
-      type: "box", layout: "vertical", margin: "lg", spacing: "none",
-      backgroundColor: C.pale, cornerRadius: "md", paddingAll: "12px",
+      type: "box", layout: "vertical", margin: "lg", spacing: "sm",
+      backgroundColor: C.bg, cornerRadius: "16px", paddingAll: "20px",
+      borderColor: C.border, borderWidth: "1px",
       contents: [
-        { type: "text", text: opts.bigValue, size: "xxl", weight: "bold", color: C.deep, align: "center" },
+        { type: "text", text: opts.bigValue, size: "xxl", weight: "bold", color: C.deep, align: "center", wrap: true },
         ...(opts.bigLabel
-          ? [{ type: "text", text: opts.bigLabel, size: "xs", color: C.textSoft, align: "center" }]
+          ? [{ type: "text", text: opts.bigLabel, size: "sm", color: C.textSoft, align: "center", wrap: true }]
           : []),
       ],
     });
@@ -196,14 +198,16 @@ export function infoCard(opts: {
 
   if (opts.rows?.length) {
     body.push({
-      type: "box", layout: "vertical", margin: "lg", spacing: "sm",
+      type: "box", layout: "vertical", margin: "lg", spacing: "md",
+      backgroundColor: C.bg, paddingAll: "16px", cornerRadius: "16px",
+      borderColor: C.border, borderWidth: "1px",
       contents: opts.rows.map((r) => ({
-        type: "box", layout: "horizontal",
+        type: "box", layout: "horizontal", spacing: "md",
         contents: [
           { type: "text", text: r.label, size: "sm", color: C.textMid, flex: 3, wrap: true },
           {
             type: "text", text: r.value, size: "sm", flex: 2, align: "end",
-            weight: "bold", color: r.accent ? C.primary : C.textDark, wrap: true,
+            weight: "bold", color: r.accent ? "#16787B" : C.textDark, wrap: true,
           },
         ],
       })),
@@ -219,8 +223,20 @@ export function infoCard(opts: {
 
   const bubble: Record<string, unknown> = {
     type: "bubble",
-    body: { type: "box", layout: "vertical", backgroundColor: C.bg, paddingAll: "18px", contents: body },
-    styles: { body: { backgroundColor: C.bg }, footer: { backgroundColor: C.bg } },
+    header: {
+      type: "box", layout: "vertical", paddingAll: "20px", spacing: "sm",
+      backgroundColor: C.deep,
+      background: { type: "linearGradient", angle: "120deg", startColor: C.deep, endColor: C.deepEnd },
+      contents: [
+        { type: "text", text: "看·健  /  健康顧問", size: "xs", color: "#D8F2EE", wrap: true },
+        { type: "text", text: opts.title, weight: "bold", size: "xl", color: C.bg, wrap: true },
+      ],
+    },
+    ...(body.length ? { body: {
+      type: "box", layout: "vertical", backgroundColor: C.surface,
+      paddingAll: "20px", contents: body,
+    } } : {}),
+    styles: { header: { backgroundColor: C.deep }, body: { backgroundColor: C.surface }, footer: { backgroundColor: C.surface } },
   };
 
   if (opts.hero) {
@@ -230,7 +246,7 @@ export function infoCard(opts: {
   if (opts.buttons?.length) {
     bubble.footer = {
       type: "box", layout: "vertical", spacing: "sm",
-      backgroundColor: C.bg, paddingAll: "14px",
+      backgroundColor: C.surface, paddingAll: "16px",
       contents: opts.buttons.map(button),
     };
   }

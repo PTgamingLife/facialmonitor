@@ -16,6 +16,7 @@
 """
 
 from pathlib import Path
+import json
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -115,11 +116,11 @@ def center_text(d, box, text, f, fill):
             y + (h - (bottom - top)) / 2 - top), text, font=f, fill=fill)
 
 
-def draw_icon(d, cx, cy, r, kind):
+def draw_icon(d, cx, cy, r, kind, ink=ICON_COL, plate=ICON_BG):
     """簡單的線條 icon。畫在半徑 r 的底圈中央;線寬跟著 r 等比縮放。"""
-    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=ICON_BG)
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=plate)
     # 9 是半徑 76 時的線寬。放大底圈卻不加粗線條,icon 會顯得比原本更虛。
-    c, lw = ICON_COL, max(3, round(9 * r / 76))
+    c, lw = ink, max(3, round(6 * r / 76))
     s = r * 0.52   # icon 本體的半徑
 
     if kind == "scan":            # 掃描框 + 中央圓(面舌診)
@@ -127,8 +128,10 @@ def draw_icon(d, cx, cy, r, kind):
             x, y = cx + dx * s, cy + dy * s
             d.line([x, y, x - dx * s * 0.45, y], fill=c, width=lw)
             d.line([x, y, x, y - dy * s * 0.45], fill=c, width=lw)
-        d.ellipse([cx - s * 0.34, cy - s * 0.34, cx + s * 0.34, cy + s * 0.34],
+        d.ellipse([cx - s * 0.40, cy - s * 0.65, cx + s * 0.40, cy + s * 0.38],
                   outline=c, width=lw)
+        d.arc([cx - s * 0.64, cy + s * 0.20, cx + s * 0.64, cy + s * 1.1],
+              195, 345, fill=c, width=lw)
     elif kind == "doc":           # 文件 + 三條線
         d.rounded_rectangle([cx - s * 0.72, cy - s, cx + s * 0.72, cy + s],
                             radius=12, outline=c, width=lw)
@@ -233,45 +236,80 @@ def draw_icon(d, cx, cy, r, kind):
         d.line([rx - (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)
 
 
+# Presentation only: labels and hit geometry are read from the live config.
+DETAILS = {
+    "scan": ("拍攝臉部與舌頭", "deep"),
+    "chart": ("查看最新檢測結果", "blue"),
+    "check": ("完成任務・累積健康", "mint"),
+    "gift": ("積點換好禮", "sand"),
+    "ticket": ("查看可用檢測次數", "mint"),
+    "doctor": ("健康問題・專人協助", "deep"),
+    "people": ("查看好友推薦紀錄", "blue"),
+    "share": ("邀請好友一起加入", "sand"),
+}
+PALETTES = {
+    "deep": ("#0B424A", "#13757A", "#FFFFFF", "#C7ECE9", "#286D73", "#F0FFFF"),
+    "blue": ("#F4F9FD", "#DFEBF5", "#163F59", "#486379", "#D0E2F0", "#2A658A"),
+    "mint": ("#F1FAF7", "#D9EEE8", "#164D49", "#446C64", "#C8E3DA", "#216C61"),
+    "sand": ("#FCF8F0", "#EFE5D2", "#614B2E", "#756247", "#E9DCC2", "#896735"),
+}
+
+
+def rgb(value):
+    return tuple(int(value[i:i+2], 16) for i in (1, 3, 5))
+
+
+def gradient(size, first, last):
+    strip = Image.new("RGB", (1, size[1]))
+    a, b = rgb(first), rgb(last)
+    strip.putdata([tuple(round(a[k] + (b[k]-a[k])*y/(size[1]-1))
+                         for k in range(3)) for y in range(size[1])])
+    return strip.resize(size)
+
+
 def build(tab):
-    img = Image.new("RGB", (W, H), BG)
+    config = json.loads((ROOT / "scripts/line/richmenu-config.json").read_text(encoding="utf-8"))
+    layout = config["layout"]
+    assert config["canvas"] == {"width": W, "height": H}
+    assert (layout["tabBarHeight"], layout["cellHeight"], layout["cols"], layout["rows"]) == (TAB_H, CELL_H, COLS, ROWS)
+    source = next(t for t in config["tabs"] if t["key"] == tab["key"])
+    assert len(source["cells"]) == len(tab["cells"]) == COLS * ROWS
+    img = Image.new("RGB", (W, H), "#ECF1EF")
     d = ImageDraw.Draw(img)
-
-    # ── 分頁列 ──
-    tab_w = W // 2
+    d.rectangle((0, 0, W, TAB_H-1), fill="#0B424A")
     for i, label in enumerate(tab["tab_labels"]):
-        x0 = tab_w * i
-        x1 = W if i == 1 else tab_w
-        on = (i == tab["active"])
-        d.rectangle([x0, 0, x1, TAB_H], fill=TAB_ON if on else TAB_OFF)
-        center_text(d, (x0, 0, x1 - x0, TAB_H), label, font(72),
-                    WHITE if on else TEXT_DARK)
-    # 選中分頁底部加一條白線,狀態更明顯
-    ax0 = tab_w * tab["active"]
-    d.rectangle([ax0, TAB_H - 10, ax0 + (W - ax0 if tab["active"] == 1 else tab_w), TAB_H],
-                fill=WHITE)
+        x = i * 1250
+        on = i == tab["active"]
+        if on:
+            d.rounded_rectangle((x+38, 28, x+1212, TAB_H-28), radius=58, fill="#F1FAF7")
+        center_text(d, (x, 20, 1250, TAB_H-40),
+                    "健康檢測" if i == 0 else "推薦與服務", font(78),
+                    "#0B424A" if on else "#C7ECE9")
 
-    # ── 六格 ──
-    # 版面配比:上 1/3 放小貼圖,下 2/3 放字。
-    # 手機上圖文選單一格只有指甲大,字才是使用者真正在讀的東西,
-    # icon 只要能認出是哪一類就夠,不需要跟字搶空間。
-    ICON_R = 114                 # 原本 76,放大 1.5 倍
-    for idx, (label, icon) in enumerate(tab["cells"]):
-        r, c = divmod(idx, COLS)
-        x, y, w = COL_X[c], ROW_Y[r], COL_W[c]
-
-        # 格線(內側畫,不會蓋到相鄰格)
-        if c > 0:
-            d.rectangle([x, y, x + 3, y + CELL_H], fill=LINE_COL)
-        if r > 0:
-            d.rectangle([x, y, x + w, y + 3], fill=LINE_COL)
-
-        # 上 1/3:小貼圖。整組(圖+字)在格子裡垂直置中,不要上擠下空。
-        draw_icon(d, x + w / 2, y + CELL_H * 0.26, ICON_R, icon)
-        # 下 2/3:標籤,字級自動縮到塞得下為止
-        f_label = fit_font(d, label, w - 70, 112)
-        center_text(d, (x, y + CELL_H * 0.50, w, CELL_H * 0.38), label, f_label, TEXT_DARK)
-
+    for idx, (cell, (_, icon)) in enumerate(zip(source["cells"], tab["cells"])):
+        row, col = divmod(idx, COLS)
+        x, y = COL_X[col]+28, ROW_Y[row]+24
+        cw, ch = 1194, CELL_H-48
+        caption, theme = DETAILS[icon]
+        top, bottom, ink, muted, plate, icon_ink = PALETTES[theme]
+        tile = gradient((cw, ch), top, bottom)
+        td = ImageDraw.Draw(tile)
+        # Low contrast contour rings add depth away from the text area.
+        for radius in (245, 310, 375):
+            td.ellipse((cw-110-radius, -80-radius, cw-110+radius, -80+radius), outline=plate, width=3)
+        cx, cy, radius = cw//2, 215, 153
+        td.ellipse((cx-radius-10, cy-radius+5, cx+radius+10, cy+radius+25), fill=plate)
+        draw_icon(td, cx, cy, radius, icon, ink=icon_ink,
+                  plate="#235F66" if theme == "deep" else "#FFFFFF")
+        td.arc((cx-radius-20, cy-radius-20, cx+radius+20, cy+radius+20), 205, 310,
+               fill=icon_ink, width=5)
+        center_text(td, (40, 411, cw-80, 130), cell["label"],
+                    fit_font(td, cell["label"], cw-100, 106), ink)
+        center_text(td, (40, 548, cw-80, 88), caption, font(62), muted)
+        mask = Image.new("L", tile.size)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, cw-1, ch-1), radius=48, fill=255)
+        d.rounded_rectangle((x, y+7, x+cw-1, y+ch+6), radius=48, fill="#D8E2DE")
+        img.paste(tile, (x, y), mask)
     return img
 
 
@@ -284,7 +322,7 @@ def main():
         kb = path.stat().st_size / 1024
         print(f"✔ {path.relative_to(ROOT)}  {img.size[0]}x{img.size[1]}  {kb:.0f} KB")
         if kb > 1024:
-            print("  ⚠ 超過 LINE 的 1MB 上限,需要壓縮")
+            raise SystemExit("圖片超過 1MB，請先壓縮再上傳")
 
 
 if __name__ == "__main__":
