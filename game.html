@@ -62,7 +62,6 @@
   .lg{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0}
   .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
   .nm{color:var(--deep);font-weight:700}
-  .pc{margin-left:auto;color:var(--soft);font-variant-numeric:tabular-nums}
 
   /* 獎品保留區 */
   .vault{width:100%;max-width:300px;margin-top:22px;text-align:left}
@@ -115,10 +114,22 @@ const LIFF_ID   = '2011132698-6J9iB9YG';           // pagegame（Tall）
 const SB_URL    = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
 const SB_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
 const ANGEL_URL = 'https://line.me/ti/p/ZC-w2BuPoi';
-const COLORS    = ['#0D5C63','#22C1C3','#4DA3E5','#0A7C7C','#5FD3D4','#2E86AB'];
+// 顏色綁在品項上,不是綁在順序上 —— 獎品抽完會從清單消失,
+// 靠 index 配色會讓剩下的獎品每次都換顏色。
+const PRIZE_COLORS = {
+  '紅橙飲':               '#EF6C2A',
+  'XS 提神能量飲':        '#22C1C3',
+  '個人健康全面高級諮詢': '#0D5C63',
+  '優質蛋白素':           '#4CAF50',
+};
+const FALLBACK = ['#4DA3E5','#0A7C7C','#5FD3D4','#2E86AB'];
+const colorOf = (name, i) => PRIZE_COLORS[name] ?? FALLBACK[i % FALLBACK.length];
 
 const sb = window.supabase.createClient(SB_URL, SB_ANON);
 let prizes = [], angle = 0, busy = false;
+// cells[i] = 第 i 格是哪一種獎品(存 prizes 的 index)。洗過牌,
+// 不然 148 罐能量飲會連成一大塊,看起來就不像在抽。
+let cells = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -134,38 +145,45 @@ function say(msg, cls) {
   el.className = 'result' + (cls ? ' ' + cls : '');
 }
 
-function totalUnits() {
-  return prizes.reduce((sum, p) => sum + (p.stock || 0), 0);
+// 把每一份獎品攤成一格,然後洗牌。
+// 只調整獎品的排列順序沒有用 —— 148 罐能量飲還是會連成一大塊,
+// 看起來就不像在抽。要打散就得打散到「份」這一層。
+function buildCells() {
+  cells = [];
+  prizes.forEach((p, i) => {
+    for (let k = 0; k < (p.stock || 0); k++) cells.push(i);
+  });
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cells[i], cells[j]] = [cells[j], cells[i]];
+  }
 }
 
-// 一份獎品 = 一格。200 罐能量飲就是 200 格,格數就是機率 ——
-// 伺服器改成照剩餘數量抽(rpc_draw_lottery),兩邊講的是同一件事。
-// 格數與機率不一致的轉盤等於在說謊,那比不畫格子更糟。
+// 一格就是一份獎品,格數就是中獎機率 —— 伺服器也是照剩餘數量抽的
+// (rpc_draw_lottery),所以看到的比例就是真的比例。
 function drawWheel() {
   const cv = $('wheel'), ctx = cv.getContext('2d');
-  const total = totalUnits();
+  const total = cells.length;
   if (!total) return;
 
   const cx = cv.width / 2, cy = cv.height / 2, r = cx - 8;
   const unit = (Math.PI * 2) / total;
   ctx.clearRect(0, 0, cv.width, cv.height);
 
-  // ① 每種獎品先塗成一段連續的弧
-  let start = -Math.PI / 2;
-  prizes.forEach((p, i) => {
-    const span = (p.stock || 0) * unit;
+  // 逐格畫。相鄰同色會自然連成一片,不同色就自己形成分界,
+  // 不必再另外畫分隔線。
+  for (let k = 0; k < total; k++) {
+    const a0 = -Math.PI / 2 + k * unit;
     ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, start, start + span);
-    ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
-    p._from = start; p._span = span;
-    start += span;
-  });
+    ctx.arc(cx, cy, r, a0, a0 + unit + 0.002);   // 多 0.002 蓋掉相鄰縫隙
+    ctx.fillStyle = colorOf(prizes[cells[k]].name, cells[k]);
+    ctx.fill();
+  }
 
-  // ② 每一格畫一條細線。格子太密時線會糊成一片,
-  //    所以只在單格在外圈至少有 3px 寬的時候畫。
+  // 格線只在單格於外圈至少 3px 寬時才畫,不然會糊成一片深色
   const rimPerCell = (2 * Math.PI * r) / total;
   if (rimPerCell >= 3) {
-    ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1;
     for (let k = 0; k < total; k++) {
       const a = -Math.PI / 2 + k * unit;
       ctx.beginPath();
@@ -175,27 +193,8 @@ function drawWheel() {
     }
   }
 
-  // ③ 獎品之間的分界線畫粗一點,才看得出哪一段是哪一種
-  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3;
-  prizes.forEach((p) => {
-    ctx.beginPath();
-    ctx.moveTo(cx + Math.cos(p._from) * 42, cy + Math.sin(p._from) * 42);
-    ctx.lineTo(cx + Math.cos(p._from) * r, cy + Math.sin(p._from) * r);
-    ctx.stroke();
-  });
-
-  // ④ 名稱一段只標一次。段太窄就不標,留給下面的圖例。
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 24px "Noto Sans TC",sans-serif';
-  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  prizes.forEach((p) => {
-    if (p._span < 0.42) return;
-    ctx.save();
-    ctx.translate(cx, cy); ctx.rotate(p._from + p._span / 2);
-    ctx.fillText(p.name.length > 7 ? p.name.slice(0, 6) + '…' : p.name, r - 16, 0);
-    ctx.restore();
-  });
-
+  // 轉盤上不寫字 —— 格子洗開之後名稱會散在各處、還會上下顛倒。
+  // 名稱交給下面的圖例。
   ctx.beginPath(); ctx.arc(cx, cy, 42, 0, Math.PI * 2);
   ctx.fillStyle = '#fff'; ctx.fill();
   ctx.strokeStyle = '#0D5C63'; ctx.lineWidth = 4; ctx.stroke();
@@ -204,17 +203,16 @@ function drawWheel() {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('抽', cx, cy);
 
-  drawLegend(total);
+  drawLegend();
 }
 
-// 圖例:窄到標不上字的獎品在這裡才看得到。既然格數已經等於數量,
-// 份數與機率就不再是秘密 —— 藏一半反而奇怪。
-function drawLegend(total) {
+// 圖例只認顏色與名稱。不寫機率也不寫份數 —— 那是營運資訊,
+// 使用者要知道的是「有哪些獎品」。
+function drawLegend() {
   $('legend').innerHTML = prizes.map((p, i) => `
     <div class="lg">
-      <span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
+      <span class="dot" style="background:${colorOf(p.name, i)}"></span>
       <span class="nm">${p.name}</span>
-      <span class="pc">${p.stock} 份 · ${(p.stock / total * 100).toFixed(1)}%</span>
     </div>`).join('');
 }
 
@@ -233,6 +231,7 @@ async function load(opts = {}) {
   if (error || !data) { say('資料載入失敗，請關閉重開。', 'err'); return; }
   prizes = data.prizes ?? [];
   if (!prizes.length) { $('status').textContent = '獎品補貨中，晚點再來'; return; }
+  buildCells();
   drawWheel();
   paintStatus(data.free_tickets ?? 0, data.cost ?? 100, data.points ?? 0);
 }
@@ -255,16 +254,18 @@ async function spin() {
 
   const idx = prizes.findIndex((p) => p.name === data.prize_name);
   const cv  = $('wheel');
-  const total = totalUnits();
+  const total = cells.length;
   if (idx >= 0 && total > 0) {
-    // 轉到中獎的那「一份」上,不是那一種獎品的正中央 ——
-    // 扇形已經從 12 點鐘開始畫,所以格子中心角度就是目標角度。
-    let before = 0;
-    for (let i = 0; i < idx; i++) before += prizes[i].stock || 0;
-    const cell   = before + Math.floor(Math.random() * (prizes[idx].stock || 1));
-    const center = (cell + 0.5) * (360 / total);
-    angle += 360 * 5 + ((((360 - center) - (angle % 360)) % 360) + 360) % 360;
-    cv.style.transform = `rotate(${angle}deg)`;
+    // 格子洗過牌,同一種獎品散在各處 —— 從屬於它的那些格子裡隨機挑一格轉過去。
+    // 扇形從 12 點鐘開始畫,所以格子中心角度就是目標角度。
+    const mine = [];
+    for (let k = 0; k < total; k++) if (cells[k] === idx) mine.push(k);
+    if (mine.length) {
+      const cell   = mine[Math.floor(Math.random() * mine.length)];
+      const center = (cell + 0.5) * (360 / total);
+      angle += 360 * 5 + ((((360 - center) - (angle % 360)) % 360) + 360) % 360;
+      cv.style.transform = `rotate(${angle}deg)`;
+    }
   }
 
   setTimeout(() => {
