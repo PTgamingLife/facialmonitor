@@ -56,6 +56,33 @@
   .btn-ghost{background:none;color:var(--soft);font-weight:400;font-size:13px}
   .hidden{display:none}
   .note{font-size:11px;color:var(--soft);line-height:1.7;margin-top:6px}
+
+  /* 圖例:窄到標不上字的獎品在這裡才看得到 */
+  #legend{width:100%;max-width:300px;margin:0 0 14px}
+  .lg{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0}
+  .dot{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  .nm{color:var(--deep);font-weight:700}
+  .pc{margin-left:auto;color:var(--soft);font-variant-numeric:tabular-nums}
+
+  /* 獎品保留區 */
+  .vault{width:100%;max-width:300px;margin-top:22px;text-align:left}
+  .vault h2{
+    font-size:13px;letter-spacing:.12em;color:var(--deep);
+    margin:0 0 10px;font-weight:700;text-align:center;
+  }
+  .prize{
+    display:flex;align-items:center;gap:10px;padding:11px 12px;
+    background:var(--pale);border-radius:10px;margin-bottom:8px;
+  }
+  .prize-name{font-size:14px;font-weight:700;color:var(--deep);line-height:1.4}
+  .prize-date{font-size:11px;color:var(--soft)}
+  .pill{
+    margin-left:auto;font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:100px;white-space:nowrap;flex:0 0 auto;
+  }
+  .pill.wait{background:#FFF3DC;color:#8A5A00}
+  .pill.done{background:#E4F3EA;color:#1B7F4D}
+  .vault-empty{font-size:12.5px;color:var(--soft);text-align:center;padding:6px 0}
 </style>
 </head>
 <body>
@@ -68,13 +95,20 @@
   <div class="pin"></div>
 </div>
 
+<div id="legend"></div>
+
 <div class="result" id="result"></div>
 
 <button class="btn btn-main" id="spin" disabled>準備中…</button>
 <a class="btn btn-sub hidden" id="angel" target="_blank" rel="noopener">聯絡大天使兌獎</a>
 <button class="btn btn-ghost" onclick="closeGame()">關閉</button>
 
-<div class="note">獎品依機率隨機抽出，結果由伺服器決定。<br>兌獎方式將由專人與你聯繫。</div>
+<div class="note">轉盤上一格就是一份獎品，格數就是中獎機率。<br>結果由伺服器決定，兌獎方式將由專人與你聯繫。</div>
+
+<div class="vault" id="vault" hidden>
+  <h2>🎁 我的獎品</h2>
+  <div id="vault-list"></div>
+</div>
 
 <script>
 const LIFF_ID   = '2011132698-6J9iB9YG';           // pagegame（Tall）
@@ -100,25 +134,65 @@ function say(msg, cls) {
   el.className = 'result' + (cls ? ' ' + cls : '');
 }
 
+function totalUnits() {
+  return prizes.reduce((sum, p) => sum + (p.stock || 0), 0);
+}
+
+// 一份獎品 = 一格。200 罐能量飲就是 200 格,格數就是機率 ——
+// 伺服器改成照剩餘數量抽(rpc_draw_lottery),兩邊講的是同一件事。
+// 格數與機率不一致的轉盤等於在說謊,那比不畫格子更糟。
 function drawWheel() {
   const cv = $('wheel'), ctx = cv.getContext('2d');
-  const n = prizes.length, seg = (Math.PI * 2) / n;
+  const total = totalUnits();
+  if (!total) return;
+
   const cx = cv.width / 2, cy = cv.height / 2, r = cx - 8;
-
+  const unit = (Math.PI * 2) / total;
   ctx.clearRect(0, 0, cv.width, cv.height);
-  prizes.forEach((p, i) => {
-    ctx.beginPath(); ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, i * seg, (i + 1) * seg);
-    ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.stroke();
 
+  // ① 每種獎品先塗成一段連續的弧
+  let start = -Math.PI / 2;
+  prizes.forEach((p, i) => {
+    const span = (p.stock || 0) * unit;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, start + span);
+    ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+    p._from = start; p._span = span;
+    start += span;
+  });
+
+  // ② 每一格畫一條細線。格子太密時線會糊成一片,
+  //    所以只在單格在外圈至少有 3px 寬的時候畫。
+  const rimPerCell = (2 * Math.PI * r) / total;
+  if (rimPerCell >= 3) {
+    ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 1;
+    for (let k = 0; k < total; k++) {
+      const a = -Math.PI / 2 + k * unit;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 44, cy + Math.sin(a) * 44);
+      ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+      ctx.stroke();
+    }
+  }
+
+  // ③ 獎品之間的分界線畫粗一點,才看得出哪一段是哪一種
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 3;
+  prizes.forEach((p) => {
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(p._from) * 42, cy + Math.sin(p._from) * 42);
+    ctx.lineTo(cx + Math.cos(p._from) * r, cy + Math.sin(p._from) * r);
+    ctx.stroke();
+  });
+
+  // ④ 名稱一段只標一次。段太窄就不標,留給下面的圖例。
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 24px "Noto Sans TC",sans-serif';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  prizes.forEach((p) => {
+    if (p._span < 0.42) return;
     ctx.save();
-    ctx.translate(cx, cy); ctx.rotate(i * seg + seg / 2);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 26px "Noto Sans TC",sans-serif';
-    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    // 名稱太長會疊到圓心，切掉比縮到看不清好
-    ctx.fillText(p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name, r - 18, 0);
+    ctx.translate(cx, cy); ctx.rotate(p._from + p._span / 2);
+    ctx.fillText(p.name.length > 7 ? p.name.slice(0, 6) + '…' : p.name, r - 16, 0);
     ctx.restore();
   });
 
@@ -129,6 +203,19 @@ function drawWheel() {
   ctx.font = 'bold 30px "Noto Serif TC",serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText('抽', cx, cy);
+
+  drawLegend(total);
+}
+
+// 圖例:窄到標不上字的獎品在這裡才看得到。既然格數已經等於數量,
+// 份數與機率就不再是秘密 —— 藏一半反而奇怪。
+function drawLegend(total) {
+  $('legend').innerHTML = prizes.map((p, i) => `
+    <div class="lg">
+      <span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
+      <span class="nm">${p.name}</span>
+      <span class="pc">${p.stock} 份 · ${(p.stock / total * 100).toFixed(1)}%</span>
+    </div>`).join('');
 }
 
 function paintStatus(free, cost, points) {
@@ -141,7 +228,7 @@ function paintStatus(free, cost, points) {
   btn.textContent = free > 0 ? '免費抽一次' : (can ? `抽一次（${cost} 點）` : `積點不足（差 ${cost - points} 點）`);
 }
 
-async function load() {
+async function load(opts = {}) {
   const { data, error } = await sb.rpc('rpc_my_lottery_status');
   if (error || !data) { say('資料載入失敗，請關閉重開。', 'err'); return; }
   prizes = data.prizes ?? [];
@@ -168,12 +255,15 @@ async function spin() {
 
   const idx = prizes.findIndex((p) => p.name === data.prize_name);
   const cv  = $('wheel');
-  if (idx >= 0) {
-    const segDeg = 360 / prizes.length;
-    // 指針在正上方；canvas 0 度在三點鐘方向，所以目標是 270 度。
-    // 落點在扇形內隨機偏移，避免每次都停正中央、看起來像假的。
-    const center = (idx + 0.5) * segDeg + (Math.random() - 0.5) * segDeg * 0.6;
-    angle += 360 * 5 + ((((270 - center) - (angle % 360)) % 360) + 360) % 360;
+  const total = totalUnits();
+  if (idx >= 0 && total > 0) {
+    // 轉到中獎的那「一份」上,不是那一種獎品的正中央 ——
+    // 扇形已經從 12 點鐘開始畫,所以格子中心角度就是目標角度。
+    let before = 0;
+    for (let i = 0; i < idx; i++) before += prizes[i].stock || 0;
+    const cell   = before + Math.floor(Math.random() * (prizes[idx].stock || 1));
+    const center = (cell + 0.5) * (360 / total);
+    angle += 360 * 5 + ((((360 - center) - (angle % 360)) % 360) + 360) % 360;
     cv.style.transform = `rotate(${angle}deg)`;
   }
 
@@ -185,6 +275,9 @@ async function spin() {
     const left = data.free_tickets ?? 0;
     paintStatus(left, data.points_spent || 100, data.balance ?? 0);
     if (!$('spin').disabled) $('spin').textContent = left > 0 ? '免費再抽' : '再抽一次';
+    // 庫存少了一份,格數要跟著少一格,不然下一轉的落點會對不上。
+    load({ keepAngle: true });
+    loadMyPrizes();
   }, idx >= 0 ? 4300 : 0);      // 對齊 CSS transition 的 4.2s
 }
 
@@ -203,6 +296,31 @@ function reauth() {
   url.searchParams.set('r', '1');
   try { liff.logout(); } catch (_) { /* 不在 LINE 裡就沒得登出 */ }
   liff.login({ redirectUri: url.toString() });
+}
+
+// 獎品保留區:抽中的都留在這裡,由專人確認領取後轉成「已領取」。
+// 沒有這一頁的話,使用者關掉視窗就再也看不到自己抽到什麼。
+async function loadMyPrizes() {
+  const { data, error } = await sb.rpc('rpc_my_prizes');
+  if (error || !data?.ok) return;
+
+  const list = data.prizes ?? [];
+  const box = $('vault');
+  if (!list.length) { box.hidden = true; return; }
+  box.hidden = false;
+
+  $('vault-list').innerHTML = list.map((w) => {
+    const done = w.status === 'claimed';
+    const when = new Date(w.drawn_at).toLocaleDateString('zh-TW',
+      { month: 'numeric', day: 'numeric' });
+    return `<div class="prize">
+      <div>
+        <div class="prize-name">${w.name}</div>
+        <div class="prize-date">${when} 抽中</div>
+      </div>
+      <span class="pill ${done ? 'done' : 'wait'}">${done ? '已領取' : '待領取'}</span>
+    </div>`;
+  }).join('');
 }
 
 async function boot() {
@@ -227,6 +345,7 @@ async function boot() {
     if (error) throw new Error('登入失敗：' + error.message);
 
     await load();
+    await loadMyPrizes();
   } catch (e) {
     console.error(e);
     $('status').textContent = '';
