@@ -719,3 +719,13 @@ input[type="file"] { display:none; }
 .admin-tip-card ol { padding-left:20px; color:var(--text-soft); font-size:12px; line-height:1.8; }
 .admin-tip-sources,.admin-tip-review-note { font-size:11px; color:var(--text-hint); line-height:1.7; overflow-wrap:anywhere; }
 .admin-tip-actions { display:flex; gap:8px; margin-top:12px; }
+
+
+/* 領獎管理的一列:左邊獎品與領獎人,右邊動作 */
+.admin-row{
+  display:flex; align-items:center; gap:12px;
+  padding:12px 0; border-bottom:1px solid var(--line-color, rgba(0,0,0,.08));
+}
+.admin-row:last-child{border-bottom:none}
+.admin-row > div:first-child{min-width:0; flex:1}
+.admin-row button{flex:0 0 auto; white-space:nowrap}

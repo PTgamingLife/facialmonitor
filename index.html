@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="img/icon-192.png">
 <meta name="theme-color" content="#22C1C3">
-<link rel="stylesheet" href="css/style.css?v=15">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <div id="webview-banner" class="webview-banner">
@@ -385,6 +385,16 @@
       <div id="admin-tip-list"><div class="empty-state">載入中…</div></div>
     </div>
 
+    <div class="rcard" id="admin-prize-card">
+      <div class="section-title">🎁 領獎管理</div>
+      <div class="admin-tip-filter-row">
+        <button class="btn-update-code" onclick="loadPrizeClaims('pending')">待領取</button>
+        <button class="btn-outline" onclick="loadPrizeClaims('claimed')">已領取</button>
+        <button class="btn-outline" onclick="loadPrizeClaims(null)">全部</button>
+      </div>
+      <div id="admin-prize-list"><div class="empty-state">載入中…</div></div>
+    </div>
+
     <div class="rcard">
       <div class="section-title">🔑 密碼設定</div>
       <div class="code-setting-box">
@@ -513,14 +523,14 @@
 </div><!-- .app -->
 
 <!-- ════════════════════ SCRIPTS ════════════════════ -->
-<script src="js/config.js?v=13"></script>
-<script src="js/utils.js?v=13"></script>
-<script src="js/report.js?v=15"></script>
-<script src="js/analyze.js?v=13"></script>
-<script src="js/features.js?v=13"></script>
-<script src="js/reward.js?v=13"></script>
-<script src="js/admin.js?v=13"></script>
-<script src="js/auth.js?v=13"></script>
+<script src="js/config.js?v=14"></script>
+<script src="js/utils.js?v=14"></script>
+<script src="js/report.js?v=16"></script>
+<script src="js/analyze.js?v=14"></script>
+<script src="js/features.js?v=14"></script>
+<script src="js/reward.js?v=14"></script>
+<script src="js/admin.js?v=14"></script>
+<script src="js/auth.js?v=14"></script>
 <script>
 // 上傳區初始化（DOM 就緒後）
 document.addEventListener('DOMContentLoaded', () => {
