@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="img/icon-192.png">
 <meta name="theme-color" content="#22C1C3">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=16">
 </head>
 <body>
 <div id="webview-banner" class="webview-banner">
@@ -264,24 +264,12 @@
   <div class="report-content-wrap">
     <div id="report-content"></div>
 
-    <a href="https://line.me/ti/p/ZC-w2BuPoi" target="_blank" rel="noopener" style="display:block;text-decoration:none;margin-bottom:10px">
-      <div style="width:100%;padding:14px;background:rgba(6,199,85,.1);border:1px solid rgba(6,199,85,.35);border-radius:var(--radius-md);text-align:center;font-size:15px;color:#06C755;letter-spacing:2px;font-weight:700">
-        💬 LINE 聯絡超艋健康團隊
-      </div>
-    </a>
-
     <div class="action-row">
       <button class="btn-share" onclick="downloadReport()">📸 下載報告</button>
       <button class="btn-restart" onclick="restartDiagnosis()">🔄 重新診斷</button>
     </div>
   </div>
 
-  <nav class="bottom-nav">
-    <button class="nav-tab" data-page="page-main" onclick="showPage('page-main')"><img class="nav-tab-icon-img" src="img/tab-1.png" alt="">首頁</button>
-    <button class="nav-tab active" data-page="page-challenge"><img class="nav-tab-icon-img" src="img/tab-2.png" alt="">檢測</button>
-    <button class="nav-tab" data-page="page-achievement" onclick="showPage('page-achievement')"><img class="nav-tab-icon-img" src="img/tab-4.png" alt="">成就</button>
-    <button class="nav-tab" data-page="page-history" onclick="showPage('page-history')"><img class="nav-tab-icon-img" src="img/tab-5.png" alt="">記錄</button>
-  </nav>
 </div>
 
 <!-- ═══════════════════════════════════════ PAGE: HISTORY ═══ -->
@@ -537,7 +525,7 @@
 <!-- ════════════════════ SCRIPTS ════════════════════ -->
 <script src="js/config.js?v=14"></script>
 <script src="js/utils.js?v=14"></script>
-<script src="js/report.js?v=14"></script>
+<script src="js/report.js?v=16"></script>
 <script src="js/analyze.js?v=14"></script>
 <script src="js/features.js?v=14"></script>
 <script src="js/reward.js?v=14"></script>
