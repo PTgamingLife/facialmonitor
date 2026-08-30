@@ -75,6 +75,7 @@ function renderReport(r) {
     ${acupointSection(r.acupoints)}
     ${lifestyleSection(r.lifestyle)}
     ${westernSection(r)}
+    ${itemScoresSection(r.scores)}
     <div class="report-footer-disc">⚠️ 本分析為中醫養生參考，不構成醫療診斷。<br>如有身體不適，請即時就醫。</div>
   `;
 
@@ -98,6 +99,43 @@ function scoreSection(score, name, date) {
       <span class="score-emoji">${emoji}</span>
     </div>
   </div>`;
+}
+
+/* 每項原始觀察分數；只呈現報告已有資料，不以總分推算缺項。 */
+function itemScoresSection(scores) {
+  const groups = [
+    { key: 'faceZone', title: '面部', tone: 'face', labels: ['額頭', '鼻部', '左頰', '右頰', '眼周', '下巴'] },
+    { key: 'tongue', title: '舌部', tone: 'tongue', labels: ['舌色', '苔色', '苔厚薄', '舌形', '濕潤度'] },
+    { key: 'eye', title: '眼部', tone: 'eye', labels: ['白睛', '黑睛', '眼瞼眼周', '乾潤度'] },
+  ];
+  const ceiling = 10;
+  return `<section class="sec-card item-scores" aria-label="15 項觀察分數">
+    <div class="sec-title">15 項觀察分數</div>
+    <p class="item-scores-intro">各項柱高代表本次得分，虛線標示上限。此處為分項原始分數，非加權後的總分。</p>
+    ${groups.map(group => {
+      const values = Array.isArray(scores?.[group.key]) ? scores[group.key] : [];
+      return `<div class="item-score-group item-score-${group.tone}" role="group" aria-label="${group.title} ${group.labels.length} 項">
+        <div class="item-score-heading"><h3>${group.title}<span>${group.labels.length} 項</span></h3><span class="item-score-limit">上限</span></div>
+        <div class="item-score-bars" style="--item-count:${group.labels.length}">
+          ${group.labels.map((label, index) => {
+            const raw = values[index];
+            const value = typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '') ? Number(raw) : NaN;
+            const valid = Number.isFinite(value) && value >= 1 && value <= ceiling;
+            const display = valid ? String(Number(value.toFixed(2))) : '—';
+            const height = valid ? value / ceiling * 100 : 0;
+            return `<div class="item-score-column" role="img" aria-label="${group.title}，${label}：${valid ? `${display} 分` : '未提供分數'}">
+              <div class="item-score-track" style="--item-height:${height}%" aria-hidden="true">
+                ${valid ? '' : '<span class="item-score-value">—</span>'}
+                ${valid ? '<span class="item-score-fill"></span>' : ''}
+              </div>
+              <span class="item-score-label" aria-hidden="true">${label}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('')}
+    <p class="item-scores-note">「—」表示該項未提供有效分數，不代表零分；舊報告可能缺少部分項目。面部眼周與眼部眼瞼眼周為原報告的不同評分欄位。</p>
+  </section>`;
 }
 
 function animateScore(target) {

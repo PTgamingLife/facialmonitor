@@ -434,6 +434,7 @@ body.font-lg .nav-tab { font-size:12px; }
 
 /* ── Report Page ── */
 .report-content-wrap { padding:0 16px; }
+#page-report, #page-history { padding-bottom:24px; } /* 報告與紀錄不顯示底部分頁。 */
 .report-header { text-align:center; padding:16px 0 20px; }
 .report-user { font-size:14px; color:var(--text-soft); letter-spacing:1px; margin-bottom:4px; }
 .report-title { font-family:'Noto Serif TC',serif; font-size:22px; color:var(--gold-main); font-weight:700; letter-spacing:3px; }
@@ -521,6 +522,23 @@ body.font-lg .nav-tab { font-size:12px; }
 .western-text { font-size:14px; color:var(--text-soft); line-height:1.7; flex:1; }
 
 .report-footer-disc { background:var(--bg-secondary); border-radius:var(--radius-sm); padding:12px 14px; text-align:center; font-size:12px; color:var(--text-hint); line-height:1.9; margin-bottom:14px; }
+
+/* Report detail chart: shared scale, no numeric maximum tick. */
+.item-scores-intro, .item-scores-note { font-size:12px; line-height:1.8; color:var(--text-mid); margin:0; }
+.item-scores-note { margin-top:20px; }
+.item-score-group { --bar-color:#286D73; --bar-light:#64A5A4; margin-top:24px; }
+.item-score-tongue { --bar-color:#96713C; --bar-light:#CCAA70; }
+.item-score-eye { --bar-color:#356B97; --bar-light:#79A5C4; }
+.item-score-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.item-score-heading h3 { margin:0; font-size:14px; color:var(--text-dark); }
+.item-score-heading h3 span { margin-left:8px; font-size:11px; font-weight:400; color:var(--text-mid); }
+.item-score-limit { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-mid); }
+.item-score-limit::before { content:''; width:20px; border-top:1px dashed #8B9795; }
+.item-score-bars { display:grid; grid-template-columns:repeat(var(--item-count),minmax(0,1fr)); margin-top:32px; }
+.item-score-track { height:120px; position:relative; border-top:1px dashed #8B9795; border-bottom:1px solid #D8E1DE; background:repeating-linear-gradient(to top,transparent 0,transparent 29px,#EDF1EE 29px,#EDF1EE 30px); }
+.item-score-fill { position:absolute; bottom:0; left:23%; width:54%; height:var(--item-height); border-radius:5px 5px 0 0; background:linear-gradient(to top,var(--bar-color),var(--bar-light)); }
+.item-score-value { position:absolute; bottom:calc(var(--item-height) + 5px); left:0; right:0; text-align:center; font-size:12px; font-weight:700; line-height:18px; color:var(--text-dark); font-variant-numeric:tabular-nums; }
+.item-score-label { display:block; min-height:36px; padding:8px 2px 0; text-align:center; font-size:11px; line-height:1.5; overflow-wrap:anywhere; color:var(--text-mid); }
 
 /* Action Buttons */
 .action-row { display:flex; gap:10px; margin-bottom:12px; }
