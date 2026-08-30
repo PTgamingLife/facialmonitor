@@ -125,7 +125,7 @@ function itemScoresSection(scores) {
             const height = valid ? value / ceiling * 100 : 0;
             return `<div class="item-score-column" role="img" aria-label="${group.title}，${label}：${valid ? `${display} 分` : '未提供分數'}">
               <div class="item-score-track" style="--item-height:${height}%" aria-hidden="true">
-                <span class="item-score-value">${display}</span>
+                ${valid ? '' : '<span class="item-score-value">—</span>'}
                 ${valid ? '<span class="item-score-fill"></span>' : ''}
               </div>
               <span class="item-score-label" aria-hidden="true">${label}</span>
