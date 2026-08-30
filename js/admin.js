@@ -4,6 +4,7 @@ async function loadAdminUsers() {
   const list = document.getElementById('admin-user-list');
   if (!list) return;
   loadAdminTips('draft');
+  loadPrizeClaims('pending');
 
   // 用戶列表
   const { data: users } = await supabase
@@ -159,4 +160,83 @@ async function updateCode(type) {
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ── 領獎管理 ───────────────────────────────────────────────
+   名單裡有其他會員的姓名與電話,查詢與確認都走擋了 is_admin_caller()
+   的 RPC —— 前端這一層只是畫面,不是權限。 */
+let _prizeFilter = 'pending';
+
+async function loadPrizeClaims(status = 'pending') {
+  _prizeFilter = status;
+  const box = document.getElementById('admin-prize-list');
+  if (!box) return;
+  box.innerHTML = '<div class="empty-state">載入中…</div>';
+
+  const { data, error } = await supabase.rpc('rpc_admin_prize_claims', { p_status: status });
+  if (error || !data?.ok) {
+    box.innerHTML = `<div class="empty-state">${escapeHtml(data?.message ?? '讀取失敗')}</div>`;
+    return;
+  }
+
+  const rows = data.rows ?? [];
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty-state">${status === 'pending' ? '目前沒有待領取的獎品' : '沒有紀錄'}</div>`;
+    return;
+  }
+
+  box.innerHTML = rows.map(r => {
+    const when = new Date(r.drawn_at).toLocaleString('zh-TW',
+      { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const pending = r.status === 'pending';
+    return `
+      <div class="admin-row" data-draw="${r.draw_id}">
+        <div>
+          <div style="font-weight:700">${escapeHtml(r.prize_name)}</div>
+          <div style="font-size:12px;color:var(--text-soft)">
+            ${escapeHtml(r.user_name || '（未填姓名）')}
+            ${r.member_code ? '· ' + escapeHtml(r.member_code) : ''}
+            ${r.phone ? '· ' + escapeHtml(r.phone) : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text-soft)">
+            ${when} 抽中${r.has_line ? '' : '　⚠️ 未綁定 LINE，無法通知'}
+          </div>
+        </div>
+        ${pending
+          ? `<button class="btn-update-code" onclick="confirmClaim('${r.draw_id}', this)">確認領取</button>`
+          : '<span style="font-size:12px;color:var(--ok-color)">✓ 已領取</span>'}
+      </div>`;
+  }).join('');
+}
+
+/* 確認領取 = 標記 + 推 LINE 通知。兩件事一起做才不會出現
+   「後台顯示已領、當事人完全不知道」。走 Edge Function 是因為推播需要
+   channel token,那把鑰匙不能放進瀏覽器。 */
+async function confirmClaim(drawId, btn) {
+  if (!confirm('確認這份獎品已經交給對方？\n確認後會發送一則 LINE 訊息通知本人。')) return;
+
+  btn.disabled = true;
+  btn.textContent = '處理中…';
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(window.SUPABASE_URL + '/functions/v1/prize-claim', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        'apikey': window.SUPABASE_ANON,
+      },
+      body: JSON.stringify({ draw_id: drawId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '確認失敗');
+
+    showToast('✅ ' + body.message);
+    loadPrizeClaims(_prizeFilter);
+  } catch (e) {
+    showToast('⚠️ ' + (e.message || '確認失敗'));
+    btn.disabled = false;
+    btn.textContent = '確認領取';
+  }
 }
