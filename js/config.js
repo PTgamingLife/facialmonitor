@@ -14,6 +14,13 @@ window.LIFF_ID = '2011132698-FNcAIg39';
    檢測要拍兩張照片又要看完整報告,Tall 彈窗會太擠,所以用 Full。 */
 window.SCAN_LIFF_ID = '2011132698-JSOBcdBA';
 
+/* 每日挑戰與身邊的祝福的獨立 LIFF app（兩支都是 Size = Tall 的半頁式彈窗）。
+   ⚠️ 在 LINE Developers Console 建好之後把 ID 填進來，兩支都要勾 openid。
+   留空的話會退回主 LIFF ID，登入還是會過，但開起來是主 App 不是這兩頁，
+   所以圖文選單在填好之前不要重建。 */
+window.CHALLENGE_LIFF_ID = '';   // → challenge.html
+window.BLESSING_LIFF_ID  = '';   // → blessing.html
+
 /* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
    在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
    長得像 https://lin.ee/xxxxxxx */
