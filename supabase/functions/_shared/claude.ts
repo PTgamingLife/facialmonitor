@@ -20,7 +20,7 @@ export type MemberContext = {
   constitution?: string;
   lastScore?: number;
   lastScanAt?: string;
-  challengeDay?: number;
+  weekDone?: number;
 };
 
 const SYSTEM_BASE = [
@@ -57,7 +57,7 @@ function memberBlock(ctx: MemberContext): string {
   if (ctx.constitution) lines.push(`- 最近一次面舌診體質:${ctx.constitution}`);
   if (typeof ctx.lastScore === "number") lines.push(`- 最近一次健康分數:${ctx.lastScore}`);
   if (ctx.lastScanAt) lines.push(`- 上次檢測時間:${ctx.lastScanAt}`);
-  if (typeof ctx.challengeDay === "number") lines.push(`- 14 天養生挑戰進行到第 ${ctx.challengeDay} 天`);
+  if (typeof ctx.weekDone === "number") lines.push(`- 本週已完成 ${ctx.weekDone} 天每日挑戰(做滿 5 天算完成)`);
   if (typeof ctx.credits === "number") lines.push(`- 剩餘檢測次數:${ctx.credits}`);
   if (typeof ctx.points === "number") lines.push(`- 積點餘額:${ctx.points}`);
   lines.push("回答時可以自然帶到他的體質或進度,讓建議貼身,但不要每句都提。");

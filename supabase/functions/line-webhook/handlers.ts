@@ -5,8 +5,7 @@ import {
   postbackAction, textMsg, toBubble, uriAction,
 } from "../_shared/line.ts";
 import { rpc, select, selectOne } from "../_shared/db.ts";
-import { CATEGORY_ICON, taskOfDay } from "../_shared/tasks.ts";
-import { bindMember, challengeDay, firstScanAt, LineUser } from "./member.ts";
+import { LineUser } from "./member.ts";
 import { scanUrl } from "../_shared/welcome.ts";
 
 // 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
@@ -21,6 +20,12 @@ const ANGEL_URL      = Deno.env.get("HEALTHBOT_ANGEL_URL") ?? CONSULTANT_URL;
 // 主 App 那個是 Full,點下去會蓋掉整個畫面,玩個抽獎不該有那種份量。
 const GAME_LIFF_URL  = Deno.env.get("HEALTHBOT_GAME_LIFF_URL")
   ?? "https://liff.line.me/2011132698-6J9iB9YG";
+// 每日挑戰與身邊的祝福各自一支 Tall LIFF(challenge.html / blessing.html)。
+// 沒設就退回主 App —— 使用者至少進得去,不會點到一個死連結。
+const CHALLENGE_LIFF_URL = Deno.env.get("HEALTHBOT_CHALLENGE_LIFF_URL")
+  ?? `https://liff.line.me/${LIFF_ID}`;
+const BLESSING_LIFF_URL  = Deno.env.get("HEALTHBOT_BLESSING_LIFF_URL")
+  ?? `https://liff.line.me/${LIFF_ID}`;
 // 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
 const PLAN_PRICE     = 1680;
@@ -205,46 +210,6 @@ async function credits(u: LineUser): Promise<LineMessage> {
   });
 }
 
-async function taskToday(u: LineUser): Promise<LineMessage> {
-  if (u.sb_user_id) {
-    const c = await selectOne<{ health_focus:string; starts_on:string; plan:Record<string,unknown>[] }>(
-      "sb_health_challenges", `user_id=eq.${u.sb_user_id}&status=eq.active&select=health_focus,starts_on,plan`);
-    if (c) {
-      const today = new Date().toLocaleDateString("sv-SE", { timeZone:"Asia/Taipei" });
-      const day = Math.floor((Date.parse(today)-Date.parse(c.starts_on))/86400000)+1;
-      if (day < 1) return infoCard({title:"✅ 14 天挑戰申請完成",subtitle:`挑戰將於 ${c.starts_on} 開始，每天 08:20 提醒。`,altText:"14 天挑戰已排定"});
-      const t = c.plan[Math.min(day,14)-1] ?? {};
-      return infoCard({title:`🌿 Day ${Math.min(day,14)}｜${String(t.title??"今日任務")}`,subtitle:String(t.task??"完成今天的小任務。"),rows:[{label:"健康重點",value:c.health_focus},{label:"為什麼",value:String(t.why??"建立健康習慣")}],altText:"今日個人健康挑戰"});
-    }
-  }
-  let day = 1;
-  if (u.sb_user_id) {
-    const first = await firstScanAt(u.sb_user_id);
-    if (first) day = challengeDay(first);
-  }
-
-  const t = taskOfDay(day);
-  const icon = CATEGORY_ICON[t.category] ?? "🌿";
-
-  return infoCard({
-    title: `${icon} Day ${t.day}｜${t.title}`,
-    subtitle: t.desc,
-    rows: [{ label: "類別", value: t.category }, { label: "完成可得", value: `${t.xp} XP`, accent: true }],
-    buttons: [
-      { label: "去 App 打卡", action: uriAction("去 App 打卡", appUrl("page-main")), primary: true },
-      { label: "問 AI 這樣做對嗎", action: postbackAction("問 AI", `action=ask_task&day=${t.day}`) },
-    ],
-    altText: `今日任務 Day ${t.day}`,
-  });
-}
-
-/**
- * 面舌診檢測的入口。
- *
- * 次數是 0 的時候不要把人丟去 App —— 到了那邊也是被擋下來,
- * 使用者只會覺得「這什麼爛東西」然後關掉。在這裡就先講清楚
- * 怎麼拿到次數,而且三條路都給一個按得下去的按鈕。
- */
 async function startScan(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
 
@@ -344,231 +309,63 @@ async function shareInvite(u: LineUser): Promise<LineMessage> {
 }
 
 /** 每日打卡:一天一次,+3 點,順便跳出當天的健康資訊 */
-async function dailyCheckin(u: LineUser): Promise<LineMessage> {
-  if (!u.sb_user_id) return NEED_BIND;
-
-  const r = await rpc<{
-    ok: boolean; message?: string; first_time: boolean; points_added: number;
-    balance: number; streak: number;
-    tip: { title: string; body: string; image_url: string | null; date: string } | null;
-  }>("rpc_daily_checkin", { p_user_id: u.sb_user_id });
-
-  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "打卡失敗,請稍後再試。"}`);
-
-  const rows = [
-    { label: "連續打卡", value: `${r.streak} 天`, accent: r.streak > 1 },
-    { label: "積點餘額", value: `${r.balance} 點`, accent: true },
-  ];
-  if (r.first_time) rows.unshift({ label: "今日打卡", value: `+${r.points_added} 點`, accent: true });
-
-  return infoCard({
-    title: r.first_time ? "✅ 今日打卡完成" : "今天已經打過卡了",
-    subtitle: r.tip ? r.tip.body : "今天的健康資訊還在準備中,明天再來看看。",
-    hero: r.tip?.image_url || undefined,
-    rows,
-    note: r.tip ? `📌 ${r.tip.title}` : undefined,
-    buttons: [
-      { label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), primary: true },
-    ],
-    altText: r.first_time ? "打卡完成" : "今天已打卡",
-  });
-}
-
-type DailyQuiz = {
-  id: string;
-  title: string;
-  quiz_question: string | null;
-  quiz_options: string[] | null;
-  quiz_answer: number | null;
-  quiz_explain: string | null;
-};
-
-function taipeiToday(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" });
-}
-
-async function todayQuiz(): Promise<DailyQuiz | null> {
-  return await selectOne<DailyQuiz>(
-    "sb_daily_tips",
-    `tip_date=eq.${taipeiToday()}&status=eq.approved`
-      + `&select=id,title,quiz_question,quiz_options,quiz_answer,quiz_explain`,
-  );
-}
-
 /**
- * 每日挑戰:當天健康資訊的一題選擇題。答對才算完成,給分沿用打卡那支 RPC。
+ * 每日挑戰 —— 只負責把人送進半頁式網頁。
  *
- * 沒有題目就退回原本的打卡 —— 內容有人工審核,總有排不到或被退稿的日子,
- * 那些天不能讓選單上的按鈕變成死的。
+ * 題目、解析、計分全部在 challenge.html 裡。這裡不再出題:
+ * 內容跟遊戲都在網頁上,bot 再做一套只會變成兩份會漂移的邏輯。
  */
-async function dailyChallenge(u: LineUser): Promise<LineMessage> {
-  if (!u.sb_user_id) return NEED_BIND;
-
-  const tip = await todayQuiz();
-  if (!tip?.quiz_question || !tip.quiz_options?.length) return await dailyCheckin(u);
-
+function dailyChallenge(): LineMessage {
   return infoCard({
-    title: "🎯 今日挑戰",
-    subtitle: tip.quiz_question,
-    note: `📌 出自今天的健康資訊:${tip.title}`,
-    buttons: tip.quiz_options.slice(0, 4).map((opt, i) => ({
-      label: `${"ABCD"[i]}. ${opt}`,
-      // 只帶「選了第幾個」。正確答案留在資料庫,不會出現在 postback 裡 ——
-      // postback 是使用者端送回來的,把答案寫進去等於公開答案。
-      action: postbackAction(`選 ${"ABCD"[i]}`, `action=challenge_answer&tip=${tip.id}&c=${i}`),
-      tone: "soft" as const,
-    })),
+    title: "🌿 今日挑戰",
+    subtitle: "先看今天的主題,滑到下面答一題,一分鐘就好。",
+    buttons: [
+      { label: "開始今日挑戰", action: uriAction("開始今日挑戰", CHALLENGE_LIFF_URL), primary: true },
+    ],
     altText: "今日挑戰",
   });
 }
 
-async function answerChallenge(u: LineUser, tipId: string, choice: number): Promise<LineMessage> {
-  if (!u.sb_user_id) return NEED_BIND;
-
-  const tip = await selectOne<DailyQuiz>(
-    "sb_daily_tips",
-    `id=eq.${tipId}&tip_date=eq.${taipeiToday()}&status=eq.approved`
-      + `&select=id,title,quiz_question,quiz_options,quiz_answer,quiz_explain`,
-  );
-  // 比對當天那一題。舊卡片翻回去按也沒用,tip_date 已經對不上今天。
-  if (!tip || tip.quiz_answer === null) {
-    return textMsg("這題已經過期了,回選單看今天的挑戰吧。");
-  }
-
-  if (choice !== tip.quiz_answer) {
-    return infoCard({
-      title: "再想一下 🤔",
-      subtitle: "這個不是最合適的答案。回今天的健康資訊看一下,再選一次。",
-      buttons: [
-        { label: "再試一次", action: postbackAction("再試一次", "action=daily_challenge"), tone: "deep" },
-        { label: "看今天的健康資訊", action: postbackAction("看健康資訊", `action=tip_detail&tip=${tip.id}`), tone: "mid" },
-      ],
-      altText: "答錯了",
-    });
-  }
-
-  // 答對才給分。rpc_daily_checkin 本身就是一天一次,答對兩次不會給兩次。
-  const r = await rpc<{
-    ok: boolean; message?: string; first_time: boolean;
-    points_added: number; balance: number; streak: number;
-  }>("rpc_daily_checkin", { p_user_id: u.sb_user_id });
-
-  if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "計分失敗,請稍後再試。"}`);
-
-  const rows = [
-    { label: "連續挑戰", value: `${r.streak} 天`, accent: r.streak > 1 },
-    { label: "積點餘額", value: `${r.balance} 點`, accent: true },
-  ];
-  if (r.first_time) rows.unshift({ label: "今日挑戰", value: `+${r.points_added} 點`, accent: true });
-
+/** 身邊的祝福 —— 同樣只是入口。 */
+function blessings(): LineMessage {
   return infoCard({
-    title: r.first_time ? "✅ 答對了" : "答對了,不過今天已經拿過分了",
-    subtitle: tip.quiz_explain ?? undefined,
-    rows,
-    note: `📌 ${tip.title}`,
+    title: "💚 身邊的祝福",
+    subtitle: "看看大家寫給彼此的話。祝福別人健康,自己也會更健康。",
     buttons: [
-      { label: "去做面舌診", action: uriAction("去做面舌診", scanUrl()), tone: "deep" },
+      { label: "看看祝福牆", action: uriAction("看看祝福牆", BLESSING_LIFF_URL), primary: true },
     ],
-    altText: r.first_time ? "挑戰完成" : "今天已完成挑戰",
+    altText: "身邊的祝福",
   });
 }
 
-type TipReadResult = {
-  ok: boolean;
-  error?: string;
-  message?: string;
-  bound?: boolean;
-  needs_disclaimer?: boolean;
-  disclaimer_version?: string;
-  disclaimer_body?: string;
-  tip_id?: string;
-  first_time?: boolean;
-  points_added?: number;
-  balance?: number;
-  is_today?: boolean;
-  tip?: {
-    id: string; date: string; title: string; body: string;
-    detail_points: string[]; image_url: string | null; source_urls: string[];
-  };
-};
-
-function tipReadCard(r: TipReadResult): LineMessage {
-  if (!r.ok || !r.tip) return textMsg(`⚠️ ${r.message ?? "這則健康資訊目前無法閱讀。"}`);
-  const rows = (r.tip.detail_points ?? []).slice(0, 3).map((point, i) => ({
-    label: `${i + 1}`, value: point, accent: i === 0,
-  }));
-  if ((r.points_added ?? 0) > 0) {
-    rows.push({ label: "今日閱讀", value: `+${r.points_added} 點`, accent: true });
-    rows.push({ label: "積點餘額", value: `${r.balance ?? 0} 點`, accent: true });
-  }
-  const oldNote = r.is_today === false
-    ? `這是 ${r.tip.date} 的健康資訊，積點只給當天閱讀喔 🌿`
-    : r.first_time === false && r.bound
-      ? "今天已經閱讀並領過積點囉。"
-      : !r.bound ? r.message : undefined;
-  const sourceButtons = (r.tip.source_urls ?? []).flatMap((value, index) => {
-    try {
-      const url = new URL(value);
-      if (url.protocol !== "https:") return [];
-      return [{ label: `官方來源${index + 1}`, action: uriAction(`官方來源${index + 1}`, url.href) }];
-    } catch { return []; }
-  }).slice(0, 2);
+/** 語氣人格 —— 只影響開場白與引導語,題目與解析三種一律相同。 */
+function toneMenu(): LineMessage {
   return infoCard({
-    title: `🌿 ${r.tip.title}`,
-    subtitle: r.tip.body,
-    hero: r.tip.image_url || undefined,
-    rows,
-    note: oldNote,
-    buttons: sourceButtons,
-    altText: r.tip.title,
+    title: "🎙 換一個說話的人",
+    subtitle: "每天早上那句開場白由誰來說。題目與解析不會因此改變。",
+    rows: [
+      { label: "周小輪", value: "話少,有畫面感(預設)" },
+      { label: "康小泳", value: "溫柔細膩,先接住感受" },
+      { label: "小XS",  value: "直率明快,愛吐槽" },
+    ],
+    buttons: [
+      { label: "周小輪", action: postbackAction("周小輪", "action=set_tone&t=zhou"), tone: "deep" },
+      { label: "康小泳", action: postbackAction("康小泳", "action=set_tone&t=kang"), tone: "mid" },
+      { label: "小XS",  action: postbackAction("小XS",  "action=set_tone&t=xs"),   tone: "soft" },
+    ],
+    altText: "選擇語氣",
   });
 }
 
-async function previewTip(tipId: string): Promise<LineMessage> {
-  if (!/^[0-9a-f-]{36}$/i.test(tipId)) return textMsg("⚠️ 這則健康資訊連結已失效。");
-  const tip = await selectOne<{
-    id: string; tip_date: string; title: string; body: string; detail_points: string[];
-    image_url: string | null; source_urls: string[];
-  }>("sb_daily_tips",
-    `id=eq.${tipId}&active=eq.true&status=eq.approved&approved_at=not.is.null&select=id,tip_date,title,body,detail_points,image_url,source_urls`);
-  if (!tip) return textMsg("⚠️ 這則健康資訊目前無法閱讀。");
-  return tipReadCard({
-    ok: true, bound: false, is_today: false, points_added: 0,
-    message: "這是測試預覽，不提供閱讀積點。",
-    tip: { ...tip, date: tip.tip_date },
-  });
+async function setTone(u: LineUser, tone: string): Promise<LineMessage> {
+  if (!u.sb_user_id) return NEED_BIND;
+  const names: Record<string, string> = { zhou: "周小輪", kang: "康小泳", xs: "小XS" };
+  if (!names[tone]) return textMsg("沒有這個語氣。");
+  const r = await rpc<{ ok: boolean }>("rpc_set_tone", { p_tone: tone });
+  if (!r?.ok) return textMsg("設定失敗,請稍後再試。");
+  return textMsg(`好,明天早上換 ${names[tone]} 跟你說話 🌿`);
 }
 
-async function readTip(u: LineUser, tipId: string): Promise<LineMessage> {
-  if (!/^[0-9a-f-]{36}$/i.test(tipId)) return textMsg("⚠️ 這則健康資訊連結已失效。");
-  const r = await rpc<TipReadResult>("rpc_read_tip", {
-    p_line_user_id: u.line_user_id, p_tip_id: tipId,
-  });
-  if (r?.needs_disclaimer && r.disclaimer_version && r.disclaimer_body) {
-    return infoCard({
-      title: "閱讀前請先確認",
-      subtitle: r.disclaimer_body,
-      buttons: [{
-        label: "同意並繼續",
-        action: postbackAction("同意並繼續",
-          `action=tip_disclaimer_agree&tip=${tipId}&version=${encodeURIComponent(r.disclaimer_version)}`),
-        primary: true,
-      }],
-      altText: "健康資訊免責聲明",
-    });
-  }
-  return tipReadCard(r ?? { ok: false, message: "讀取失敗，請稍後再試。" });
-}
-
-async function agreeTipDisclaimer(u: LineUser, tipId: string, version: string): Promise<LineMessage> {
-  if (!/^[0-9a-f-]{36}$/i.test(tipId) || !version) return textMsg("⚠️ 這則健康資訊連結已失效。");
-  const r = await rpc<TipReadResult>("rpc_agree_tip_disclaimer", {
-    p_line_user_id: u.line_user_id, p_version: version, p_tip_id: tipId,
-  });
-  return tipReadCard(r ?? { ok: false, message: "確認失敗，請稍後再試。" });
-}
-
-/** 最新健康分數 + 與上一次的差額(只有一次檢測就只報最新的) */
 async function latestScore(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
 
@@ -961,19 +758,23 @@ export async function handlePostback(
       return await latestScore(u);
     case "my_points":
       return await myPoints(u);
+    // 每日挑戰的四個舊 action:內容與作答都搬進半頁式網頁了,
+    // 一律導向同一個入口。已經發出去的舊卡片還帶著這些 data,不能拿掉。
     case "daily_checkin":
-      return await dailyCheckin(u);
     case "daily_challenge":
-      return await dailyChallenge(u);
     case "challenge_answer":
-      return await answerChallenge(
-        u, params.get("tip") ?? "", Number(params.get("c") ?? -1));
     case "tip_detail":
-      return await readTip(u, params.get("tip") ?? "");
     case "tip_preview_detail":
-      return await previewTip(params.get("tip") ?? "");
     case "tip_disclaimer_agree":
-      return await agreeTipDisclaimer(u, params.get("tip") ?? "", params.get("version") ?? "");
+      return dailyChallenge();
+
+    case "blessings":
+      return blessings();
+    case "tone_menu":
+      return toneMenu();
+    case "set_tone":
+      return await setTone(u, params.get("t") ?? "");
+
     case "ask_consultant":
       return askConsultant();
     case "buy_credits":
@@ -985,8 +786,11 @@ export async function handlePostback(
       return await scoreTrend(u);
     case "credits":
       return await credits(u);
+    // task_today 與 challenge_apply 是 14 天挑戰的,功能已移除。
+    // 舊卡片上的按鈕改成導向今日挑戰,而不是按了沒反應。
     case "task_today":
-      return await taskToday(u);
+    case "challenge_apply":
+      return dailyChallenge();
 
     case "bind_start":
       return infoCard({
@@ -1001,15 +805,9 @@ export async function handlePostback(
     case "my_invitees":
       return await myInvitees(u);
 
+    // 推薦人現在只走專屬網址自動綁定,不再手動輸入推薦碼
     case "set_angel":
-    case "challenge_apply": {
-      if (!u.sb_user_id) return NEED_BIND;
-      const r = await rpc<{ok:boolean;already_active?:boolean;error?:string;focus?:string;starts_on?:string}>(
-        "rpc_apply_health_challenge", {p_user_id:u.sb_user_id});
-      if (r?.error === "no_report") return infoCard({title:"先完成一次健康檢測",subtitle:"需要最近一次健康報告，才能安排適合你的 14 天挑戰。",buttons:[{label:"去做面舌診",action:uriAction("去檢測",scanUrl()),primary:true}],altText:"請先完成健康檢測"});
-      if (r?.already_active) return await taskToday(u);
-      return infoCard({title:"✅ 14 天健康挑戰申請完成",subtitle:`健康重點：${r?.focus??"日常體質調養"}\n從 ${r?.starts_on??"明天"} 開始，每天 08:20 提醒。`,note:"14 天內容已一次排定並寫入後台，不會每天重新計算。",altText:"14 天挑戰申請完成"});
-    }
+      return await shareInvite(u);
 
     case "share_code": {
       if (!u.sb_user_id) return NEED_BIND;
@@ -1069,17 +867,18 @@ export function helpCard(): LineMessage {
   return infoCard({
     title: "❓ 這個帳號可以做什麼",
     rows: [
-      { label: "綁定 1234567", value: "綁定會員" },
-      { label: "申請挑戰", value: "安排 14 天健康挑戰" },
+      { label: "挑戰", value: "打開今天的健康挑戰" },
+      { label: "祝福", value: "看看身邊的祝福" },
+      { label: "語氣", value: "換一個說話的人" },
       { label: "兌換 1234567", value: "用兌換碼加次數" },
-      { label: "積點 / 次數 / 推薦碼", value: "查自己的資料" },
+      { label: "積點 / 次數 / 分數 / 推薦碼", value: "查自己的資料" },
       { label: "真人", value: "轉真人客服" },
       { label: "其他任何訊息", value: "AI 健康問答" },
     ],
-    note: "下方選單分兩頁:左邊是健康功能,右邊是推薦與積點。",
+    note: "下方選單分兩頁:左邊是健康功能,右邊是連結與積點。",
     altText: "使用說明",
   });
 }
 
-export { bindMember, NEED_BIND };
+export { NEED_BIND };
 
