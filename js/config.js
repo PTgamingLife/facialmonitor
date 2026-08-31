@@ -15,11 +15,9 @@ window.LIFF_ID = '2011132698-FNcAIg39';
 window.SCAN_LIFF_ID = '2011132698-JSOBcdBA';
 
 /* 每日挑戰與身邊的祝福的獨立 LIFF app（兩支都是 Size = Tall 的半頁式彈窗）。
-   ⚠️ 在 LINE Developers Console 建好之後把 ID 填進來，兩支都要勾 openid。
-   留空的話會退回主 LIFF ID，登入還是會過，但開起來是主 App 不是這兩頁，
-   所以圖文選單在填好之前不要重建。 */
-window.CHALLENGE_LIFF_ID = '';   // → challenge.html
-window.BLESSING_LIFF_ID  = '';   // → blessing.html
+   彈窗開啟不會離開聊天室 —— 早上順手做一題,做完關掉就回到對話。 */
+window.CHALLENGE_LIFF_ID = '2011132698-J7q2DbwV';   // 看健-今日挑戰   → challenge.html
+window.BLESSING_LIFF_ID  = '2011132698-qg4VNDZs';   // 看健-身邊的祝福 → blessing.html
 
 /* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
    在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
