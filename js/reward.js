@@ -45,12 +45,6 @@ async function loadReward() {
   </div>
 
   <div class="card">
-    <div class="card-title">14 天個人健康挑戰</div>
-    <div class="hint-text">依最近一次健康檢測，一次排定 14 天內容並寫入後台；每天 08:20 由 LINE 提醒。</div>
-    <button class="btn-main" onclick="applyHealthChallenge()">申請挑戰</button>
-  </div>
-
-  <div class="card">
     <div class="card-title">我推薦的人（${stats.confirmed} / ${stats.total}）</div>
     ${(s.invitees ?? []).length === 0
       ? '<div class="hint-text">還沒有人填你當小天使</div>'
@@ -104,12 +98,6 @@ async function loadReward() {
           </strong>
         </div>`).join('')}
   </div>`;
-}
-
-async function applyHealthChallenge() {
-  const { data, error } = await supabase.rpc('rpc_apply_health_challenge', { p_user_id: currentUser.id });
-  if (error || !data?.ok) { showToast(data?.error === 'no_report' ? '請先完成一次健康檢測' : '申請失敗，請稍後再試'); return; }
-  showToast(data.already_active ? '你已有進行中的挑戰' : `✅ 已排定，${data.starts_on} 開始`);
 }
 
 async function doRedeem(n) {

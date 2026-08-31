@@ -239,3 +239,56 @@ grant execute on function public.rpc_submit_blessing(text, uuid, boolean) to aut
 grant execute on function public.rpc_random_blessings(integer)            to authenticated, service_role;
 grant execute on function public.rpc_withdraw_blessing(uuid)              to authenticated, service_role;
 grant execute on function public.rpc_admin_block_blessing(uuid, text)     to authenticated, service_role;
+
+-- ── 後台:內容行事曆用的兩支 ─────────────────────────────────
+-- 管理者不再逐則審核,但仍要能「把某一天撤下來」與「看祝福並下架」。
+-- sb_daily_tips 的寫入權限只在 service_role,所以要走 RPC。
+create or replace function public.rpc_admin_withdraw_tip(p_id uuid)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_me uuid := current_sb_user_id();
+begin
+  if not coalesce((select is_admin from sb_users where id = v_me), false) then
+    raise exception 'unauthorized';
+  end if;
+
+  -- 用 active = false 而不是刪除:被撤下的那天要留著,
+  -- 存量提醒才講得出「這天為什麼沒有內容」。
+  update sb_daily_tips
+     set active = false, review_note = '管理者手動撤下', approved_by = v_me
+   where id = p_id and active;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'message', '找不到這一天,或它已經撤下了。');
+  end if;
+  return jsonb_build_object('ok', true);
+end $$;
+
+create or replace function public.rpc_admin_list_blessings(
+  p_status text default 'visible', p_limit integer default 50
+) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_me uuid := current_sb_user_id();
+begin
+  if not coalesce((select is_admin from sb_users where id = v_me), false) then
+    raise exception 'unauthorized';
+  end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', b.id, 'text', b.text, 'status', b.status,
+             'is_public', b.is_public, 'blessed_date', b.blessed_date,
+             'created_at', b.created_at,
+             'author_name', coalesce(nullif(trim(u.name), ''), '(無名字)'))
+             order by b.created_at desc)
+      from sb_blessings b
+      join sb_users u on u.id = b.author_id
+     where b.status = coalesce(p_status, 'visible')
+     limit least(greatest(coalesce(p_limit, 50), 1), 200)
+  ), '[]'::jsonb);
+end $$;
+
+revoke execute on function public.rpc_admin_withdraw_tip(uuid)              from public, anon;
+revoke execute on function public.rpc_admin_list_blessings(text, integer)   from public, anon;
+grant  execute on function public.rpc_admin_withdraw_tip(uuid)            to authenticated, service_role;
+grant  execute on function public.rpc_admin_list_blessings(text, integer) to authenticated, service_role;

@@ -119,11 +119,32 @@ end $$;
 create or replace function public.tg_tip_auto_check()
 returns trigger
 language plpgsql set search_path = public as $$
-declare v_res jsonb;
+declare
+  v_res jsonb;
+  v_changed boolean;
 begin
-  -- 只在內容真的變動時重跑,避免 tip-push 更新推播狀態時把已發的稿退回
-  if tg_op = 'UPDATE' and new.status = 'approved' and old.status = 'approved'
-     and new.content_hash is not distinct from old.content_hash then
+  -- 內容有沒有真的變。沒變就什麼都不做 ——
+  -- tip-push 更新推播狀態時也會 UPDATE 這張表,不能因此把已發的稿退回。
+  v_changed := tg_op = 'INSERT' or (
+       new.title         is distinct from old.title
+    or new.summary       is distinct from old.summary
+    or new.body          is distinct from old.body
+    or new.detail_points is distinct from old.detail_points
+    or new.image_url     is distinct from old.image_url
+    or new.source_urls   is distinct from old.source_urls
+    or new.source_name   is distinct from old.source_name
+    or new.intros        is distinct from old.intros
+    or new.game_titles   is distinct from old.game_titles
+    or new.action_today  is distinct from old.action_today
+    or new.kind          is distinct from old.kind
+    or new.quiz_question is distinct from old.quiz_question
+    or new.quiz_options  is distinct from old.quiz_options
+    or new.quiz_answer   is distinct from old.quiz_answer
+    or new.quiz_explain  is distinct from old.quiz_explain
+  );
+
+  if not v_changed then
+    new.updated_at := now();
     return new;
   end if;
 
@@ -141,12 +162,17 @@ begin
     new.approved_at := null;
   end if;
 
-  if tg_op = 'UPDATE' and new.content_hash is distinct from old.content_hash then
+  if tg_op = 'UPDATE' then
     new.content_version := coalesce(old.content_version, 1) + 1;
   end if;
   new.updated_at := now();
   return new;
 end $$;
+
+-- 舊的 trg_daily_tip_reapproval 做的是同一件事的前半段(內容變動就退回 draft)。
+-- 兩個 BEFORE UPDATE trigger 疊在同一張表上,只會讓「為什麼狀態變成這樣」
+-- 變得沒人講得清楚。狀態的決定權從現在起只有 tip_auto_check 一個。
+drop trigger if exists trg_daily_tip_reapproval on public.sb_daily_tips;
 
 drop trigger if exists trg_tip_auto_check on public.sb_daily_tips;
 create trigger trg_tip_auto_check

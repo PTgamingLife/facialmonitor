@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="img/icon-192.png">
 <meta name="theme-color" content="#22C1C3">
-<link rel="stylesheet" href="css/style.css?v=17">
+<link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
 <div id="webview-banner" class="webview-banner">
@@ -107,7 +107,7 @@
       <button class="btn-outline" onclick="showPage('page-reward')">👼 推薦積點</button>
     </div>
 
-    <!-- 14天任務 -->
+    <!-- 賺積分任務(14 天挑戰已於 v2 移除) -->
     <div class="task-card">
       <div class="task-header">
         <span class="task-header-emoji">⚡</span>
@@ -369,14 +369,26 @@
       <div id="admin-stats"></div>
     </div>
 
+    <!-- v2:沒有待審佇列了。這裡是未來 14 天的內容行事曆 ——
+         預設什麼都不用做,被自動檢查擋下來的那幾天才需要進來看。 -->
     <div class="rcard" id="admin-tip-review-card">
-      <div class="section-title">📝 健康資訊審核</div>
+      <div class="section-title">🗓 每日挑戰行事曆</div>
+      <div id="admin-tip-stock" class="admin-tip-warning" style="display:none"></div>
       <div class="admin-tip-filter-row">
-        <button class="btn-update-code" onclick="loadAdminTips('draft')">待審</button>
-        <button class="btn-outline" onclick="loadAdminTips('approved')">已通過</button>
-        <button class="btn-outline" onclick="loadAdminTips('rejected')">已退回</button>
+        <button class="btn-update-code" onclick="loadAdminTips('scheduled')">未來 14 天</button>
+        <button class="btn-outline" onclick="loadAdminTips('blocked')">被擋下</button>
       </div>
       <div id="admin-tip-list"><div class="empty-state">載入中…</div></div>
+    </div>
+
+    <div class="rcard" id="admin-blessing-card">
+      <div class="section-title">💚 祝福管理</div>
+      <div class="admin-tip-filter-row">
+        <button class="btn-update-code" onclick="loadAdminBlessings('visible')">牆上</button>
+        <button class="btn-outline" onclick="loadAdminBlessings('withdrawn')">作者收回</button>
+        <button class="btn-outline" onclick="loadAdminBlessings('blocked')">已下架</button>
+      </div>
+      <div id="admin-blessing-list"><div class="empty-state">載入中…</div></div>
     </div>
 
     <div class="rcard" id="admin-prize-card">
@@ -422,20 +434,6 @@
 </div>
 
 <!-- ════════════════════ MODALS ════════════════════ -->
-
-<!-- 任務詳情 Modal -->
-<div class="modal-overlay" id="task-detail-modal" onclick="closeTaskModal()">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <span id="task-modal-cat" class="task-cat-chip" style="font-size:12px;padding:3px 10px;"></span>
-      <button class="modal-close-btn" onclick="closeTaskModal()">✕</button>
-    </div>
-    <div id="task-modal-day" style="font-size:12px;color:var(--text-hint);margin-bottom:4px;"></div>
-    <div id="task-modal-title" style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--gold-deep);margin-bottom:16px;line-height:1.4;"></div>
-    <div id="task-modal-desc" style="font-size:13px;color:var(--text-soft);line-height:1.8;white-space:pre-line;margin-bottom:20px;"></div>
-    <div id="task-modal-actions"></div>
-  </div>
-</div>
 
 <!-- 增加次數 Modal -->
 <div class="modal-overlay" id="code-modal">
@@ -517,14 +515,14 @@
 </div><!-- .app -->
 
 <!-- ════════════════════ SCRIPTS ════════════════════ -->
-<script src="js/config.js?v=14"></script>
-<script src="js/utils.js?v=14"></script>
-<script src="js/report.js?v=16"></script>
-<script src="js/analyze.js?v=14"></script>
-<script src="js/features.js?v=14"></script>
-<script src="js/reward.js?v=14"></script>
-<script src="js/admin.js?v=14"></script>
-<script src="js/auth.js?v=14"></script>
+<script src="js/config.js?v=18"></script>
+<script src="js/utils.js?v=18"></script>
+<script src="js/report.js?v=18"></script>
+<script src="js/analyze.js?v=18"></script>
+<script src="js/features.js?v=18"></script>
+<script src="js/reward.js?v=18"></script>
+<script src="js/admin.js?v=18"></script>
+<script src="js/auth.js?v=18"></script>
 <script>
 // 上傳區初始化（DOM 就緒後）
 document.addEventListener('DOMContentLoaded', () => {
