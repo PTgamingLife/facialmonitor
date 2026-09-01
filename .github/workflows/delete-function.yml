@@ -1,0 +1,46 @@
+name: 🗑 刪除 Edge Function
+
+# 手動觸發,而且要打字確認 —— 這支會真的把正式環境的函式刪掉。
+#
+# 存在的理由:「⚡ 部署 Supabase Edge Functions」只會部署 repo 裡有的目錄,
+# 從 repo 刪掉一支函式,正式環境那支會留在原地繼續接受請求。
+# challenge-push 就是這樣變成孤兒的(14 天挑戰移除後排程停了,端點還在)。
+#
+# 為什麼不做成「自動清掉 repo 裡沒有的函式」:
+# 這個專案有幾支函式本來就不在 repo 裡(analyze、ai-analyze、cofounder-line),
+# 自動清理會把它們一起刪掉。寧可每次手動打一次名字。
+
+on:
+  workflow_dispatch:
+    inputs:
+      slug:
+        description: "要刪除的函式名稱"
+        required: true
+      confirm:
+        description: "再打一次同樣的名稱以確認"
+        required: true
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: wcemkmwrlvijxxwybrgs
+    steps:
+      - name: 🔒 兩次名稱要一致
+        run: |
+          if [ "${{ inputs.slug }}" != "${{ inputs.confirm }}" ]; then
+            echo "::error::兩次輸入不一致,沒有刪除任何東西。"
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🗑 刪除
+        run: |
+          supabase functions delete "${{ inputs.slug }}" --project-ref "$PROJECT_REF"
+          echo "✔ 已刪除 ${{ inputs.slug }}"

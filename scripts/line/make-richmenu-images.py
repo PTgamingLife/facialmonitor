@@ -83,7 +83,7 @@ TABS = [
         "tab_labels": ["健康", "推薦"],
         "active": 1,
         "cells": [
-            ("剩餘次數",   "ticket"),
+            ("身邊的祝福", "heart"),
             ("詢問顧問",   "doctor"),
             ("我推薦的人", "people"),
             ("分享推薦",   "share"),
@@ -234,14 +234,25 @@ def draw_icon(d, cx, cy, r, kind, ink=ICON_COL, plate=ICON_BG):
         d.line([rx, top, cx, bot], fill=c, width=lw)          # 右斜面
         d.line([lx + (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)   # 刻面
         d.line([rx - (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)
+    elif kind == "heart":         # 心:兩個上弧 + 兩條斜邊收到底尖
+        # 不用 polygon 填實 —— 這一排 icon 全是線條稿,填實的心會比旁邊重一個級距。
+        # 兩個弧的圓心左右各偏 0.5s,交會處剛好落在中線上方,不會出現凹口。
+        r = s * 0.52
+        d.arc([cx - s, cy - s * 0.72, cx, cy + s * 0.32], 160, 355, fill=c, width=lw)
+        d.arc([cx, cy - s * 0.72, cx + s, cy + s * 0.32], 185, 20, fill=c, width=lw)
+        d.line([cx - s * 0.97, cy - s * 0.12, cx, cy + s * 0.9], fill=c, width=lw, joint="curve")
+        d.line([cx + s * 0.97, cy - s * 0.12, cx, cy + s * 0.9], fill=c, width=lw, joint="curve")
 
 
 # Presentation only: labels and hit geometry are read from the live config.
 DETAILS = {
     "scan": ("拍攝臉部與舌頭", "deep"),
     "chart": ("查看最新檢測結果", "blue"),
-    "check": ("完成任務・累積健康", "mint"),
+    "check": ("先讀主題・再答一題", "mint"),
     "gift": ("積點換好禮", "sand"),
+    "heart": ("看看大家寫給彼此的話", "mint"),
+    # ticket 目前沒有格子在用（剩餘次數已改由檢測卡與「次數」指令呈現），
+    # 留著是因為它畫得出來，之後要加回一格不必重寫。
     "ticket": ("查看可用檢測次數", "mint"),
     "doctor": ("健康問題・專人協助", "deep"),
     "people": ("查看好友推薦紀錄", "blue"),
