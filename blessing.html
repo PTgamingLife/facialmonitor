@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>身邊的祝福｜看·健</title>
+
+<!--
+  身邊的祝福 —— 半頁式 LIFF(Size = Tall)。取代圖文選單原本的「剩餘次數」那一格。
+
+  主旨在最上面,不是裝飾:祝福別人健康,自己會更健康。
+  沒有那段說明,下面的卡片就只是留言板。
+
+  牆上顯示的是發送者的名字與內容,收件者不顯示 ——
+  顯示收件者會變成人氣比較,收到少的人反而受傷。
+
+  祝福是使用者寫的內容,一律當資料處理:全部經過 esc() 才進 DOM。
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+:root{
+  --deep:#0D5C63; --primary:#22C1C3; --blue:#4DA3E5;
+  --pale:#E6F7F8; --line:#C4E6E8;
+  --dark:#0A2B2D; --mid:#1A5C64; --soft:#4A9098; --hint:#82BFC4;
+  --bg:#EEF7F8; --card:#FFFFFF; --alert:#C46A5A;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--dark);
+  font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:480px;margin:0 auto;padding:16px 18px calc(28px + env(safe-area-inset-bottom))}
+h1{font-family:'Noto Serif TC',serif}
+
+.bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.bar .brand{font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--primary);letter-spacing:2px}
+.bar .x{background:none;border:none;font-size:13px;color:var(--soft);cursor:pointer;padding:4px 6px}
+
+/* ── 頂部：為什麼 ── */
+.hero{
+  background:linear-gradient(150deg,#FFFFFF,var(--pale));
+  border:1px solid var(--line);border-radius:var(--r-lg);padding:20px 18px;
+  box-shadow:0 4px 20px rgba(34,193,195,.10)
+}
+.hero h1{font-size:20px;font-weight:700;color:var(--deep);line-height:1.55;margin-bottom:10px}
+.hero p{font-size:14px;color:var(--mid);line-height:1.9}
+.cite{
+  margin-top:14px;padding-top:11px;border-top:1px dashed var(--line);
+  font-size:11.5px;color:var(--hint);line-height:1.8
+}
+.cite a{color:var(--soft)}
+
+/* ── 祝福牆 ── */
+.wall-head{display:flex;align-items:baseline;justify-content:space-between;margin:22px 2px 10px}
+.wall-head .t{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--deep)}
+.wall-head .re{background:none;border:none;font:inherit;font-size:13px;color:var(--primary);cursor:pointer;padding:4px 6px}
+.wall-head .re:disabled{color:var(--hint);cursor:default}
+
+.wall{display:flex;flex-direction:column;gap:11px}
+.b-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:15px 16px;box-shadow:0 2px 12px rgba(34,193,195,.07);
+  animation:rise .32s ease both
+}
+@keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.b-card{animation:none}}
+.b-text{font-size:15px;color:var(--dark);line-height:1.85;margin-bottom:10px}
+.b-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.b-who{display:flex;align-items:center;gap:8px;min-width:0}
+.b-avatar{
+  flex:none;width:26px;height:26px;border-radius:50%;background:var(--pale);
+  color:var(--deep);font-size:12px;font-weight:700;display:grid;place-items:center
+}
+.b-name{font-size:12.5px;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-time{font-size:11.5px;color:var(--hint);flex:none}
+.b-mine{
+  background:none;border:1px solid var(--line);border-radius:var(--r-sm);
+  font:inherit;font-size:11.5px;color:var(--soft);padding:3px 9px;cursor:pointer;flex:none
+}
+.b-mine:hover{border-color:var(--alert);color:var(--alert)}
+
+.empty{
+  background:var(--card);border:1px dashed var(--line);border-radius:var(--r-md);
+  padding:26px 18px;text-align:center;font-size:14px;color:var(--soft);line-height:1.9
+}
+
+/* ── 按鈕 ── */
+.btn{
+  display:block;width:100%;border:none;border-radius:var(--r-md);padding:14px;
+  font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s;margin-top:18px
+}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-main{background:var(--primary);color:#fff;box-shadow:0 3px 10px rgba(13,92,99,.14)}
+.btn-ghost{background:none;border:1.5px solid var(--line);color:var(--soft);font-weight:500;margin-top:9px}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ── 狀態 ── */
+.boot{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:0 20px}
+.boot .msg{font-size:14px;color:var(--soft);line-height:1.9}
+.boot .msg.err{color:var(--alert)}
+.spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.demo-flag{
+  background:#FFF6E5;border:1px solid #E8CE96;color:#8A6A22;border-radius:var(--r-sm);
+  padding:9px 12px;font-size:12px;line-height:1.7;margin-bottom:12px
+}
+.foot-note{text-align:center;font-size:11.5px;color:var(--hint);line-height:1.8;margin-top:18px}
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);
+  background:var(--deep);color:#fff;font-size:13.5px;padding:10px 18px;border-radius:22px;
+  opacity:0;transition:.28s;pointer-events:none;z-index:99;max-width:88%;text-align:center
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="bar">
+    <span class="brand">身邊的祝福</span>
+    <button class="x" onclick="closeMe()">✕ 關閉</button>
+  </div>
+
+  <div class="boot" id="boot">
+    <div class="spinner" id="spinner"></div>
+    <div class="msg" id="boot-msg">正在登入…</div>
+    <button class="btn btn-ghost" id="boot-close" hidden onclick="closeMe()">關閉</button>
+  </div>
+
+  <div id="main" hidden>
+    <div class="demo-flag" id="demo-flag" hidden>
+      這是示範內容。祝福池還在累積，或後端 RPC 尚未部署。
+    </div>
+
+    <!-- 頂部：為什麼 -->
+    <div class="hero">
+      <h1>當我們去祝福別人健康，<br>自己就會更健康</h1>
+      <p>這不只是好聽話。研究發現，把注意力放在「替別人著想」的人，壓力反應較低、
+         發炎相關指標較好，主觀幸福感也比只想著自己的人高。<br><br>
+         善意是會回頭的——你寫下的每一句，都會出現在某個人的螢幕上。</p>
+      <div class="cite">
+        參考：Poulin et al., <em>American Journal of Public Health</em> (2013)，助人行為與壓力死亡率的關聯；
+        Nelson et al., <em>Emotion</em> (2016)，利他行為與正向情緒。<br>
+        以上為一般性健康知識，不代表醫療建議。
+      </div>
+    </div>
+
+    <!-- 祝福牆 -->
+    <div class="wall-head">
+      <span class="t">最近的祝福</span>
+      <button class="re" id="refresh-btn" onclick="loadWall()">換一批 ↻</button>
+    </div>
+    <div class="wall" id="wall"></div>
+
+    <!-- 出口 -->
+    <button class="btn btn-main" id="write-btn" onclick="goWrite()">我也要寫一句</button>
+
+    <div class="foot-note">
+      牆上只顯示寫的人，不顯示收到的人。<br>
+      你自己的祝福可以隨時下架。
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js?v=18"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   狀態
+   ══════════════════════════════════════════════════════ */
+const BLESSING_LIFF_ID = window.BLESSING_LIFF_ID || window.LIFF_ID;
+const CHALLENGE_LIFF_URL = window.CHALLENGE_LIFF_ID
+  ? `https://liff.line.me/${window.CHALLENGE_LIFF_ID}`
+  : null;
+const WALL_SIZE = 6;
+let demoMode = false;
+
+const DEMO_WALL = [
+  { id:null, text:'希望你這個換季別再咳了，記得多喝溫水，早點睡。', author_name:'怡君', created_at:new Date(Date.now()-36e5).toISOString(), mine:false },
+  { id:null, text:'祝你今年體檢每一項都漂漂亮亮，家人都平安健康。', author_name:'志明', created_at:new Date(Date.now()-9e6).toISOString(), mine:false },
+  { id:null, text:'工作再忙也記得站起來走一走，你的腰會謝謝你。', author_name:'小柔', created_at:new Date(Date.now()-2e7).toISOString(), mine:false },
+  { id:null, text:'願你今天睡得好，明天醒來覺得世界沒那麼難。', author_name:'家豪', created_at:new Date(Date.now()-4e7).toISOString(), mine:false },
+  { id:null, text:'天氣轉涼了，出門記得帶件外套，別又感冒了。', author_name:'淑芬', created_at:new Date(Date.now()-6e7).toISOString(), mine:false },
+  { id:null, text:'祝你三餐正常，胃不再痛，笑起來很有力氣。', author_name:'俊宏', created_at:new Date(Date.now()-8e7).toISOString(), mine:false },
+];
+
+/* ══════════════════════════════════════════════════════
+   小工具
+   ══════════════════════════════════════════════════════ */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function showToast(msg, ms = 2400){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function closeMe(){
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else if (history.length > 1) history.back();
+  else window.close();
+}
+
+function bootMsg(msg, isErr){
+  $('spinner').hidden = !!isErr;
+  const el = $('boot-msg');
+  el.textContent = msg;
+  el.className = 'msg' + (isErr ? ' err' : '');
+  $('boot-close').hidden = !isErr;
+}
+
+function relTime(iso){
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return '剛剛';
+  if (m < 60) return `${m} 分鐘前`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} 小時前`;
+  const d = Math.floor(h / 24);
+  return d < 30 ? `${d} 天前` : new Date(iso).toLocaleDateString('sv-SE');
+}
+
+/* ══════════════════════════════════════════════════════
+   祝福牆
+   ══════════════════════════════════════════════════════ */
+function renderWall(rows){
+  const wall = $('wall');
+  wall.innerHTML = '';
+
+  if (!rows.length){
+    wall.innerHTML = '<div class="empty">還沒有人留下祝福。<br>你可以當第一個。</div>';
+    return;
+  }
+
+  rows.forEach(b => {
+    const card = document.createElement('div');
+    card.className = 'b-card';
+    const name = b.author_name || '匿名夥伴';
+    card.innerHTML = `
+      <div class="b-text">${esc(b.text)}</div>
+      <div class="b-foot">
+        <div class="b-who">
+          <span class="b-avatar">${esc(name.slice(0, 1))}</span>
+          <span class="b-name">${esc(name)}</span>
+        </div>
+        <span class="b-time">${esc(relTime(b.created_at))}</span>
+      </div>`;
+
+    // 自己寫的才給下架按鈕
+    if (b.mine && b.id){
+      const btn = document.createElement('button');
+      btn.className = 'b-mine';
+      btn.textContent = '下架';
+      btn.onclick = () => withdraw(b.id, card);
+      card.querySelector('.b-foot').appendChild(btn);
+    }
+    wall.appendChild(card);
+  });
+}
+
+async function loadWall(){
+  const btn = $('refresh-btn');
+  btn.disabled = true;
+
+  if (demoMode){
+    // 示範模式:洗牌一下,至少「換一批」是有反應的
+    renderWall([...DEMO_WALL].sort(() => Math.random() - 0.5));
+    btn.disabled = false;
+    return;
+  }
+
+  const { data, error } = await supabase.rpc('rpc_random_blessings', { p_limit: WALL_SIZE });
+  btn.disabled = false;
+
+  if (error){ showToast('讀取失敗，請再試一次'); return; }
+  renderWall(Array.isArray(data) ? data : (data?.rows ?? []));
+}
+
+async function withdraw(id, card){
+  if (!confirm('把這句祝福從牆上拿下來？拿下之後就不會再被別人看到。')) return;
+  const { data, error } = await supabase.rpc('rpc_withdraw_blessing', { p_id: id });
+  if (error || !data?.ok){ showToast('下架失敗，請稍後再試'); return; }
+  card.remove();
+  showToast('已經下架了');
+  if (!$('wall').children.length) loadWall();
+}
+
+/* ══════════════════════════════════════════════════════
+   出口：去寫一句
+   ══════════════════════════════════════════════════════ */
+function goWrite(){
+  // 祝福是每日挑戰的一種關卡,寫入口一律回到那支,不在這裡各做一份表單
+  const url = CHALLENGE_LIFF_URL || './challenge.html';
+  if (window.liff?.isInClient?.() && CHALLENGE_LIFF_URL) liff.openWindow({ url, external: false });
+  else location.href = url;
+}
+
+/* ══════════════════════════════════════════════════════
+   啟動
+   ══════════════════════════════════════════════════════ */
+function reauth(){
+  const url = new URL(location.href);
+  if (url.searchParams.get('r') === '1'){
+    bootMsg('拿不到 LINE 身分 —— 這個 LIFF app 要勾選 openid 權限。', true);
+    return;
+  }
+  url.searchParams.set('r', '1');
+  try { liff.logout(); } catch (_) { /* 不在 LINE 裡就沒得登出 */ }
+  liff.login({ redirectUri: url.toString() });
+}
+
+function fallbackToDemo(){
+  demoMode = true;
+  $('demo-flag').hidden = false;
+  renderWall(DEMO_WALL);
+  $('boot').hidden = true;
+  $('main').hidden = false;
+}
+
+async function boot(){
+  // ?demo=1:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
+  if (new URLSearchParams(location.search).get('demo') === '1'){ fallbackToDemo(); return; }
+  try {
+    await liff.init({ liffId: BLESSING_LIFF_ID });
+    if (!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
+
+    const idToken = liff.getIDToken();
+    if (!idToken){ reauth(); return; }
+
+    bootMsg('正在讀取祝福…');
+
+    const res = await fetch(window.LIFF_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗');
+
+    const { error: authErr } = await supabase.auth.verifyOtp({ token_hash: body.token_hash, type: 'magiclink' });
+    if (authErr) throw new Error('登入失敗：' + authErr.message);
+
+    const { data, error } = await supabase.rpc('rpc_random_blessings', { p_limit: WALL_SIZE });
+    // RPC 還沒部署 —— 用示範內容撐住版面,並且標示清楚
+    if (error){ fallbackToDemo(); return; }
+
+    renderWall(Array.isArray(data) ? data : (data?.rows ?? []));
+    $('boot').hidden = true;
+    $('main').hidden = false;
+  } catch (e){
+    console.error(e);
+    bootMsg(e.message || '初始化失敗，請關閉重開。', true);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

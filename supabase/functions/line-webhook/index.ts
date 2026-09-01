@@ -13,13 +13,12 @@
 //   HEALTHBOT_ANTHROPIC_KEY(可退回專案既有的 ANTHROPIC_API_KEY)
 
 import {
-  appUrl, getProfile, infoCard, LineMessage, postbackAction, reply, textMsg,
-  uriAction, verifySignature,
+  getProfile, LineMessage, reply, textMsg, verifySignature,
 } from "../_shared/line.ts";
 import { chat, summarize } from "../_shared/claude.ts";
-import { insert, patch, rpc, selectOne } from "../_shared/db.ts";
+import { insert, patch, rpc } from "../_shared/db.ts";
 import {
-  bindMember, getConversation, getOrCreateLineUser, isAiPaused, LIMITS,
+  getConversation, getOrCreateLineUser, isAiPaused, LIMITS,
   loadHistory, loadMemberContext, LineUser, messageCount, saveMessage,
 } from "./member.ts";
 import { handlePostback, helpCard } from "./handlers.ts";
@@ -32,44 +31,12 @@ import { liffUrl, welcomeCard, welcomeVideo } from "../_shared/welcome.ts";
 async function handleCommand(u: LineUser, text: string): Promise<LineMessage | LineMessage[] | null> {
   const t = text.trim();
 
-  // 綁定 1234567
-  const bind = t.match(/^綁定\s*(\d{7})$/);
-  if (bind) {
-    const r = await bindMember(u.line_user_id, bind[1]);
-    if (!r.ok) return textMsg(`⚠️ ${r.message}`);
-
-    // 綁定後 u 手上的 sb_user_id 還是舊的,重讀一次再產獎勵卡
-    const bound: LineUser = { ...u, sb_user_id: await resolveSbUserId(u.line_user_id), bind_status: "bound" };
-    const card = await handlePostback(bound, "my_reward", new URLSearchParams());
-    const msgs: LineMessage[] = [
-      textMsg(`✅ ${r.message}!接下來可以用下方選單查報告、每日打卡。`),
-    ];
-    if (card) msgs.push(...(Array.isArray(card) ? card : [card]));
-    return msgs;
-  }
-  if (/^綁定/.test(t)) {
-    return textMsg("格式是「綁定」加上 7 位會員碼,例如:綁定 1234567");
-  }
-
-  // 小天使 1234567
-  const angel = t.match(/^小天使\s*(\d{7})$/);
-  if (angel) {
-    if (!u.sb_user_id) return await handlePostback(u, "bind_start", new URLSearchParams());
-    const r = await rpc<{ ok: boolean; message: string; angel_name?: string; balance?: number }>(
-      "rpc_bind_angel", { p_code: angel[1], p_user_id: u.sb_user_id, p_source: "line" });
-    if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "設定失敗,請稍後再試。"}`);
-    return infoCard({
-      title: "👼 小天使認定完成",
-      rows: [
-        { label: "你的小天使", value: r.angel_name ?? "—" },
-        { label: "積點餘額", value: `${r.balance ?? 0} 點`, accent: true },
-      ],
-      note: "完成第一次面舌診之後,你的小天使也會拿到積點。",
-      altText: "小天使認定完成",
-    });
-  }
-  if (/^小天使/.test(t)) {
-    return textMsg("格式是「小天使」加上對方的 7 位推薦碼,例如:小天使 1234567");
+  // v2:綁定與小天使都不再手動輸入。
+  // 帳號在加好友當下就建好(見 _shared/account.ts),推薦人走專屬網址自動綁定。
+  // 舊訊息裡的格式還有人會照著打,給一句話導向正確做法,而不是沒反應。
+  if (/^(綁定|小天使)/.test(t)) {
+    return await handlePostback(u, /^綁定/.test(t) ? "bind_start" : "share_invite",
+                                new URLSearchParams());
   }
 
   // 兌換 1234567
@@ -85,15 +52,19 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
     return textMsg("把兌換碼接在後面就行,例如:兌換 1234567");
   }
 
+  if (/^(挑戰|今日挑戰|打卡|每日打卡|任務|今日任務)$/.test(t))
+    return await handlePostback(u, "daily_challenge", new URLSearchParams());
+  if (/^(祝福|身邊的祝福|祝福牆)$/.test(t))
+    return await handlePostback(u, "blessings", new URLSearchParams());
+  if (/^(語氣|換語氣|說話的人)$/.test(t))
+    return await handlePostback(u, "tone_menu", new URLSearchParams());
   if (/^(積分|我的積分)$/.test(t)) return await handlePostback(u, "my_points", new URLSearchParams());
   if (/^(積點|點數)$/.test(t)) return await handlePostback(u, "my_reward", new URLSearchParams());
   if (/^(次數|剩餘次數)$/.test(t)) return await handlePostback(u, "credits", new URLSearchParams());
   if (/^(購買次數|購買檢測次數)$/.test(t)) return await handlePostback(u, "buy_credits", new URLSearchParams());
   if (/^(檢測|面舌診|面舌診檢測)$/.test(t)) return await handlePostback(u, "start_scan", new URLSearchParams());
-  if (/^(打卡|每日打卡)$/.test(t)) return await handlePostback(u, "daily_checkin", new URLSearchParams());
   if (/^(分數|我的分數)$/.test(t)) return await handlePostback(u, "score_latest", new URLSearchParams());
   if (/^(推薦碼|我的推薦碼|分享)$/.test(t)) return await handlePostback(u, "share_invite", new URLSearchParams());
-  if (/^(任務|今日任務)$/.test(t)) return await handlePostback(u, "task_today", new URLSearchParams());
   if (/^(說明|使用說明|help)$/i.test(t)) return helpCard();
 
   if (/^(真人|客服|轉專員)$/.test(t)) {
@@ -112,12 +83,6 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
   }
 
   return null;
-}
-
-async function resolveSbUserId(lineUserId: string): Promise<string | null> {
-  const row = await selectOne<{ sb_user_id: string | null }>(
-    "line_users", `line_user_id=eq.${encodeURIComponent(lineUserId)}&select=sb_user_id`);
-  return row?.sb_user_id ?? null;
 }
 
 // ── AI 對話 ───────────────────────────────────────────────

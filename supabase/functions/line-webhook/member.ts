@@ -1,6 +1,7 @@
 // 會員綁定、對話記憶、AI 上下文組裝
 
 import { selectOne, select, insert, upsert, patch } from "../_shared/db.ts";
+import { ensureAccount } from "../_shared/account.ts";
 import type { MemberContext, Turn } from "../_shared/claude.ts";
 
 export type LineUser = {
@@ -29,6 +30,13 @@ export async function getOrCreateLineUser(
       last_active_at: new Date().toISOString(),
       ...(profile?.displayName ? { display_name: profile.displayName } : {}),
     });
+
+    // 舊用戶(v2 之前加的好友)或 follow 當下建失敗的,在這裡靜默補建。
+    // 補不起來不擋 —— 使用者下次開網頁時 liff-auth 還會再試一次。
+    if (!existing.sb_user_id) {
+      const acc = await ensureAccount(lineUserId, existing.display_name ?? profile?.displayName);
+      if (acc) return { ...existing, sb_user_id: acc.id, bind_status: "bound" };
+    }
     return existing;
   }
 
@@ -40,48 +48,21 @@ export async function getOrCreateLineUser(
     last_active_at: new Date().toISOString(),
   }, { onConflict: "line_user_id" });
 
+  // 加好友的當下就把帳號開好。webhook 的 userId 來自驗過簽章的 LINE 請求,
+  // 跟 ID token 一樣可信,沒有理由再讓使用者「去綁一次」。
+  const acc = await ensureAccount(lineUserId, profile?.displayName);
+
   return {
     line_user_id: lineUserId,
-    sb_user_id: null,
+    sb_user_id: acc?.id ?? null,
     display_name: profile?.displayName ?? null,
-    bind_status: "unbound",
+    bind_status: acc ? "bound" : "unbound",
     ai_paused_until: null,
   };
 }
 
 export function isAiPaused(u: LineUser): boolean {
   return !!u.ai_paused_until && new Date(u.ai_paused_until) > new Date();
-}
-
-/** 綁定 App 會員(輸入自己的 7 位會員碼) */
-export async function bindMember(
-  lineUserId: string,
-  code: string,
-): Promise<{ ok: boolean; message: string; name?: string }> {
-  if (!/^\d{7}$/.test(code)) {
-    return { ok: false, message: "會員碼是 7 位數字,請重新輸入。" };
-  }
-
-  const user = await selectOne<{ id: string; name: string }>(
-    "sb_users",
-    `member_code=eq.${code}&select=id,name`,
-  );
-  if (!user) return { ok: false, message: "找不到這組會員碼,請到 App 首頁確認。" };
-
-  const taken = await selectOne<{ line_user_id: string }>(
-    "line_users",
-    `sb_user_id=eq.${user.id}&select=line_user_id`,
-  );
-  if (taken && taken.line_user_id !== lineUserId) {
-    return { ok: false, message: "這組會員碼已經綁在另一個 LINE 帳號上了。" };
-  }
-
-  await patch("line_users", `line_user_id=eq.${encodeURIComponent(lineUserId)}`, {
-    sb_user_id: user.id,
-    bind_status: "bound",
-    pending_code: null,
-  });
-  return { ok: true, message: `綁定成功,${user.name}`, name: user.name };
 }
 
 // ── 會員摘要:給 AI 的上下文 ────────────────────────────────
@@ -112,24 +93,23 @@ export async function loadMemberContext(u: LineUser): Promise<MemberContext> {
     ctx.lastScore = r.scores?.total ?? r.score;
     ctx.constitution = r.constitution?.type;
     ctx.lastScanAt = record.created_at.slice(0, 10);
-    ctx.challengeDay = challengeDay(record.created_at);
   }
 
-  return ctx;
-}
-
-/** 第幾天:以第一次檢測為 Day 1(與前端 features.js 同一套算法) */
-export function challengeDay(firstScanAt: string): number {
-  const diff = Math.floor((Date.now() - new Date(firstScanAt).getTime()) / 86400000);
-  return Math.min(Math.max(diff + 1, 1), 14);
-}
-
-export async function firstScanAt(sbUserId: string): Promise<string | null> {
-  const row = await selectOne<{ created_at: string }>(
-    "sb_analysis_records",
-    `user_id=eq.${sbUserId}&select=created_at&order=created_at.asc`,
+  // 本週完成幾天挑戰。AI 講得出「這週做了三天」比講「第幾天」貼身,
+  // 而且 14 天挑戰已經移除,那個天數也不存在了。
+  // 先換成台北日期再算週一 —— 直接用 UTC 的話,台北時間週一凌晨會被
+  // 算成上一週(UTC 還停在週日),使用者早上打開會看到「本週 0 天」。
+  const taipei = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Taipei" });
+  const d = new Date(`${taipei}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));   // 回到本週一
+  const checkins = await select<{ checkin_date: string }>(
+    "sb_checkins",
+    `user_id=eq.${u.sb_user_id}&checkin_date=gte.${d.toISOString().slice(0, 10)}`
+      + `&select=checkin_date`,
   );
-  return row?.created_at ?? null;
+  ctx.weekDone = checkins.length;
+
+  return ctx;
 }
 
 // ── 對話 session 與記憶 ────────────────────────────────────

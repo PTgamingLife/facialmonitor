@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>今日挑戰｜看·健</title>
+
+<!--
+  每日挑戰 —— 半頁式 LIFF(Size = Tall)。
+
+  版面順序是刻意的:先讀今天的主題,滑到下面才是題目。
+  題目直接放在最上面的話,人會先猜再回頭看,主題就變成裝飾。
+
+  跟 game.html 一樣自帶樣式,不載 css/style.css(45 KB)。
+  彈窗要秒開,慢一秒就沒有「早上順手做一題」的體感。
+
+  正確答案永遠不進到這個檔案裡 —— 由 rpc_answer_challenge 判定。
+  寫進前端等於把答案公開在原始碼。
+-->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+:root{
+  --deep:#0D5C63; --primary:#22C1C3; --blue:#4DA3E5;
+  --pale:#E6F7F8; --line:#C4E6E8;
+  --dark:#0A2B2D; --mid:#1A5C64; --soft:#4A9098; --hint:#82BFC4;
+  --bg:#EEF7F8; --card:#FFFFFF; --alert:#C46A5A;
+  --r-lg:20px; --r-md:14px; --r-sm:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--dark);
+  font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  font-size:15px; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:480px;margin:0 auto;padding:16px 18px calc(28px + env(safe-area-inset-bottom))}
+h1,h2{font-family:'Noto Serif TC',serif}
+
+/* ── 頂列 ── */
+.bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.bar .brand{font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--primary);letter-spacing:2px}
+.bar .x{background:none;border:none;font-size:13px;color:var(--soft);cursor:pointer;padding:4px 6px}
+
+/* ── 通用卡片 ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;box-shadow:0 4px 20px rgba(34,193,195,.10)}
+.card + .card{margin-top:14px}
+
+/* ── ① 今日主題 ── */
+.greet{font-size:14px;color:var(--mid);line-height:1.8;margin-bottom:12px}
+.date-chip{
+  display:inline-block;font-size:11px;letter-spacing:1px;color:var(--primary);
+  background:var(--pale);border-radius:var(--r-sm);padding:3px 10px;margin-bottom:10px
+}
+.topic-title{font-size:19px;font-weight:700;color:var(--deep);line-height:1.5;margin-bottom:10px}
+.topic-hero{width:100%;border-radius:var(--r-md);margin-bottom:12px;display:block}
+.topic-body{font-size:14.5px;color:var(--mid);line-height:1.9;white-space:pre-wrap}
+.source{
+  margin-top:14px;padding-top:11px;border-top:1px dashed var(--line);
+  font-size:11.5px;color:var(--hint);line-height:1.7
+}
+.source a{color:var(--soft)}
+
+/* ── ② 下滑分隔 ── */
+.divider{text-align:center;padding:22px 0 8px;color:var(--soft);font-size:13px}
+.divider::before{content:'';display:block;width:1px;height:26px;margin:0 auto 8px;background:linear-gradient(var(--line),transparent)}
+.divider .arrow{display:block;font-size:16px;color:var(--primary);animation:bob 1.8s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(4px)}}
+@media (prefers-reduced-motion:reduce){.divider .arrow{animation:none}}
+
+/* ── ③ 遊戲 ── */
+.kicker{font-size:11px;letter-spacing:2px;color:var(--soft);margin-bottom:8px}
+.q{font-size:17px;font-weight:700;color:var(--deep);line-height:1.65;margin-bottom:16px}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opt{
+  display:flex;gap:10px;align-items:flex-start;text-align:left;width:100%;
+  background:var(--bg);border:1.5px solid var(--line);border-radius:var(--r-md);
+  padding:13px 14px;font:inherit;font-size:14.5px;color:var(--dark);cursor:pointer;
+  transition:border-color .18s,background .18s,transform .12s
+}
+.opt:hover:not(:disabled){border-color:var(--primary);background:#fff}
+.opt:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.opt:disabled{cursor:default;opacity:.55}
+.opt .k{
+  flex:none;width:22px;height:22px;border-radius:50%;background:var(--pale);
+  color:var(--deep);font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:1px
+}
+.opt.wrong{border-color:var(--alert);background:#FBEEEB;opacity:1;animation:shake .3s}
+.opt.wrong .k{background:var(--alert);color:#fff}
+.opt.right{border-color:var(--primary);background:var(--pale);opacity:1}
+.opt.right .k{background:var(--primary);color:#fff}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@media (prefers-reduced-motion:reduce){.opt.wrong{animation:none}}
+
+/* ── 祝福關卡 ── */
+.bless-intro{font-size:14px;color:var(--mid);line-height:1.9;margin-bottom:14px}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:12.5px;color:var(--soft);margin-bottom:6px}
+select,textarea{
+  width:100%;font:inherit;font-size:14.5px;color:var(--dark);background:var(--bg);
+  border:1.5px solid var(--line);border-radius:var(--r-md);padding:11px 13px;resize:vertical
+}
+select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+.count{text-align:right;font-size:11.5px;color:var(--hint);margin-top:4px}
+.count.over{color:var(--alert)}
+.consent{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--mid);line-height:1.7}
+.consent input{margin-top:4px;flex:none;width:17px;height:17px;accent-color:var(--primary)}
+
+/* ── ④ 揭曉 ── */
+.reveal-head{font-size:18px;font-weight:700;color:var(--deep);margin-bottom:10px}
+.reveal-head.no{color:var(--alert)}
+.why{font-size:14.5px;color:var(--mid);line-height:1.9}
+.action{
+  margin-top:14px;background:var(--pale);border-radius:var(--r-md);padding:13px 14px;
+  font-size:14px;color:var(--deep);line-height:1.8
+}
+.action b{display:block;font-size:11.5px;letter-spacing:1.5px;color:var(--primary);margin-bottom:3px;font-weight:700}
+
+/* ── ⑤ 進度 ── */
+.gain{display:flex;align-items:baseline;gap:8px;margin-bottom:12px}
+.gain .n{font-size:30px;font-weight:700;color:var(--primary);line-height:1}
+.gain .l{font-size:13px;color:var(--soft)}
+.prog-row{display:flex;justify-content:space-between;font-size:12.5px;color:var(--soft);margin-bottom:7px}
+.prog-row b{color:var(--deep);font-weight:700}
+.dots{display:flex;gap:6px}
+.dots i{flex:1;height:6px;border-radius:3px;background:var(--line)}
+.dots i.on{background:var(--primary)}
+.note{font-size:12px;color:var(--hint);line-height:1.7;margin-top:10px}
+
+/* ── 按鈕 ── */
+.btn{
+  display:block;width:100%;border:none;border-radius:var(--r-md);padding:14px;
+  font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s
+}
+.btn:disabled{opacity:.45;cursor:default}
+.btn-main{background:var(--primary);color:#fff;box-shadow:0 3px 10px rgba(13,92,99,.14)}
+.btn-line{background:#06C755;color:#fff;margin-top:16px}
+.btn-ghost{background:none;border:1.5px solid var(--line);color:var(--soft);margin-top:9px;font-weight:500}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ── 狀態 ── */
+.boot{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:0 20px}
+.boot .msg{font-size:14px;color:var(--soft);line-height:1.9}
+.boot .msg.err{color:var(--alert)}
+.spinner{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.disclaimer{text-align:center;font-size:11.5px;color:var(--hint);line-height:1.8;margin-top:18px}
+.demo-flag{
+  background:#FFF6E5;border:1px solid #E8CE96;color:#8A6A22;border-radius:var(--r-sm);
+  padding:9px 12px;font-size:12px;line-height:1.7;margin-bottom:12px
+}
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);
+  background:var(--deep);color:#fff;font-size:13.5px;padding:10px 18px;border-radius:22px;
+  opacity:0;transition:.28s;pointer-events:none;z-index:99;max-width:88%;text-align:center
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="bar">
+    <span class="brand">今日挑戰</span>
+    <button class="x" onclick="closeMe()">✕ 關閉</button>
+  </div>
+
+  <!-- 載入 / 錯誤 -->
+  <div class="boot" id="boot">
+    <div class="spinner" id="spinner"></div>
+    <div class="msg" id="boot-msg">正在登入…</div>
+    <button class="btn btn-ghost" id="boot-close" hidden onclick="closeMe()">關閉</button>
+  </div>
+
+  <!-- 主內容 -->
+  <div id="main" hidden>
+    <div class="demo-flag" id="demo-flag" hidden>
+      這是示範內容。今天的題目還沒排定，或後端 RPC 尚未部署。
+    </div>
+
+    <!-- ① 今日主題 -->
+    <div class="card">
+      <div class="greet" id="greet"></div>
+      <span class="date-chip" id="date-chip"></span>
+      <h1 class="topic-title" id="topic-title"></h1>
+      <img class="topic-hero" id="topic-hero" alt="" hidden>
+      <div class="topic-body" id="topic-body"></div>
+      <div class="source" id="source" hidden></div>
+    </div>
+
+    <!-- ② 下滑分隔 -->
+    <div class="divider" id="divider">
+      <span id="divider-text">看完了？來一題。</span>
+      <span class="arrow">↓</span>
+    </div>
+
+    <!-- ③ 遊戲：知識題 -->
+    <div class="card" id="quiz" hidden>
+      <div class="kicker">今日挑戰</div>
+      <div class="q" id="quiz-q"></div>
+      <div class="opts" id="quiz-opts"></div>
+    </div>
+
+    <!-- ③ 遊戲：祝福關卡 -->
+    <div class="card" id="bless" hidden>
+      <div class="kicker">今日挑戰・祝福</div>
+      <div class="q">寫一句祝福給別人</div>
+      <div class="bless-intro" id="bless-intro"></div>
+      <div class="field">
+        <label for="bless-target">想送給誰</label>
+        <select id="bless-target"></select>
+      </div>
+      <div class="field">
+        <label for="bless-text">你的祝福（20–60 字）</label>
+        <textarea id="bless-text" rows="3" maxlength="60" placeholder="例如：希望你這個換季別再咳了，記得多喝溫水。"></textarea>
+        <div class="count" id="bless-count">0 / 60</div>
+      </div>
+      <label class="consent">
+        <input type="checkbox" id="bless-consent">
+        <span>同意把這句祝福<b>以我的名字</b>顯示在「身邊的祝福」。不同意也可以送出，但不會出現在祝福牆上。</span>
+      </label>
+      <button class="btn btn-main" id="bless-send" style="margin-top:16px" disabled onclick="submitBlessing()">送出祝福</button>
+    </div>
+
+    <!-- ④ 揭曉 -->
+    <div class="card" id="reveal" hidden>
+      <div class="reveal-head" id="reveal-head"></div>
+      <div class="why" id="reveal-why"></div>
+      <div class="action" id="reveal-action" hidden><b>今天可以做的一件事</b><span id="reveal-action-text"></span></div>
+      <button class="btn btn-ghost" id="retry-btn" hidden onclick="backToTopic()">回上面再看一次</button>
+    </div>
+
+    <!-- ⑤ 進度 -->
+    <div class="card" id="progress" hidden>
+      <div class="gain" id="gain" hidden>
+        <span class="n" id="gain-n"></span>
+        <span class="l">點入帳 · 目前共 <b id="gain-balance"></b> 點</span>
+      </div>
+      <div class="prog-row"><span>本週完成</span><span><b id="week-done">0</b> / 5 天</span></div>
+      <div class="dots" id="week-dots"></div>
+      <div class="note" id="week-note"></div>
+    </div>
+
+    <!-- ⑥ 唯一出口：分享 -->
+    <button class="btn btn-line" id="share-btn" hidden onclick="shareResult()">分享我的結果</button>
+
+    <div class="disclaimer">這是自我覺察工具，不代表醫療診斷。<br>若有不適或急性症狀，請儘速就醫。</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js?v=18"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   狀態
+   ══════════════════════════════════════════════════════ */
+const CHALLENGE_LIFF_ID = window.CHALLENGE_LIFF_ID || window.LIFF_ID;
+const WEEK_TARGET = 5;              // 7 天完成 5 天,不是不能中斷的連續簽到
+let today = null;                   // 當日內容
+let answered = false;               // 擋連點重複送出
+let demoMode = false;
+
+/* 後端還沒好的時候用的示範內容。
+   有它才看得到版面,但一定要標示清楚 —— 使用者不該把示範當成今天的真內容。 */
+const DEMO = {
+  kind: 'quiz',
+  tip_id: null,
+  tip_date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }),
+  intro: '早上有點涼。今天的題目跟換季的流感有關，一分鐘就好，答完再出門。',
+  title: '換季流感，最容易被誤會的一件事',
+  body: '天氣一轉涼，門診就開始塞。多數人把「感冒」和「流感」當成同一件事，'
+      + '但兩者的病程、併發症風險與處理方式都不同。\n\n'
+      + '流感通常來得又快又猛：突然發高燒、全身痠痛、極度疲倦；'
+      + '一般感冒則多半從喉嚨癢、流鼻水開始，慢慢來、慢慢好。',
+  image_url: null,
+  source_name: '疾管署 流感疫報',
+  source_url: 'https://www.cdc.gov.tw/',
+  source_date: '2026/8',
+  quiz_question: '下列哪一個說法，最接近流感與一般感冒的真正差別？',
+  quiz_options: [
+    '流感就是比較嚴重的感冒，病毒是同一種',
+    '兩者由不同病毒引起，流感起病急、全身症狀明顯',
+    '只要有發燒就是流感，沒發燒就是感冒'
+  ],
+  completed_today: false,
+  streak: 0,
+  week_done: 2,
+  balance: 0,
+};
+
+/* ══════════════════════════════════════════════════════
+   小工具
+   ══════════════════════════════════════════════════════ */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function showToast(msg, ms = 2400){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function closeMe(){
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else if (history.length > 1) history.back();
+  else window.close();
+}
+
+function bootMsg(msg, isErr){
+  $('spinner').hidden = !!isErr;
+  const el = $('boot-msg');
+  el.textContent = msg;
+  el.className = 'msg' + (isErr ? ' err' : '');
+  $('boot-close').hidden = !isErr;
+}
+
+function backToTopic(){
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* 只帶 http(s),擋掉 javascript: 這類來源網址 */
+function safeUrl(u){
+  try { const p = new URL(u); return /^https?:$/.test(p.protocol) ? p.href : null; }
+  catch { return null; }
+}
+
+/* ══════════════════════════════════════════════════════
+   渲染
+   ══════════════════════════════════════════════════════ */
+function renderTopic(){
+  $('greet').textContent = today.intro || '';
+  $('date-chip').textContent = today.tip_date || '';
+  $('topic-title').textContent = today.title || '';
+  $('topic-body').textContent = today.body || '';
+
+  const hero = safeUrl(today.image_url);
+  if (hero) { $('topic-hero').src = hero; $('topic-hero').hidden = false; }
+
+  if (today.source_name){
+    const link = safeUrl(today.source_url);
+    $('source').innerHTML = '資料來源：'
+      + (link ? `<a href="${esc(link)}" target="_blank" rel="noopener">${esc(today.source_name)}</a>` : esc(today.source_name))
+      + (today.source_date ? `　${esc(today.source_date)}` : '');
+    $('source').hidden = false;
+  }
+}
+
+function renderQuiz(){
+  $('divider-text').textContent = '看完了？來一題。';
+  $('quiz-q').textContent = today.quiz_question || '';
+  const box = $('quiz-opts');
+  box.innerHTML = '';
+  (today.quiz_options || []).slice(0, 4).forEach((opt, i) => {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.type = 'button';
+    b.innerHTML = `<span class="k">${'ABCD'[i]}</span><span>${esc(opt)}</span>`;
+    b.onclick = () => answerQuiz(i, b);
+    box.appendChild(b);
+  });
+  $('quiz').hidden = false;
+}
+
+function renderBlessing(){
+  $('divider-text').textContent = '看完了？換你寫一句。';
+  $('bless-intro').textContent = today.body_prompt
+    || '今天不考你知識。研究發現，替別人著想、主動表達善意的人，'
+     + '自己的壓力反應與發炎指標也比較低。祝福別人健康，自己會更健康。';
+
+  const sel = $('bless-target');
+  sel.innerHTML = '';
+  const targets = today.targets?.length ? today.targets : [{ id:'', name:'隨機投遞給一位夥伴' }];
+  if (!today.targets?.length) sel.appendChild(new Option('隨機投遞給一位夥伴', ''));
+  else targets.forEach(t => sel.appendChild(new Option(t.name, t.id)));
+
+  const ta = $('bless-text');
+  const send = $('bless-send');
+  const cnt = $('bless-count');
+  const sync = () => {
+    const n = ta.value.trim().length;
+    cnt.textContent = `${n} / 60`;
+    cnt.classList.toggle('over', n > 60);
+    send.disabled = n < 20 || n > 60;
+  };
+  ta.addEventListener('input', sync);
+  sync();
+
+  $('bless').hidden = false;
+}
+
+function renderProgress(r){
+  if ((r.points_added ?? 0) > 0){
+    $('gain-n').textContent = '+' + r.points_added;
+    $('gain-balance').textContent = r.balance ?? 0;
+    $('gain').hidden = false;
+  }
+  const done = Math.min(r.week_done ?? today.week_done ?? 0, 7);
+  $('week-done').textContent = done;
+  const dots = $('week-dots');
+  dots.innerHTML = '';
+  for (let i = 0; i < 7; i++){
+    const d = document.createElement('i');
+    if (i < done) d.className = 'on';
+    dots.appendChild(d);
+  }
+  $('week-note').textContent = done >= WEEK_TARGET
+    ? '本週已經達標了。剩下的天數就當作額外的，漏掉一天也沒關係。'
+    : `一週做滿 ${WEEK_TARGET} 天就算完成，還差 ${WEEK_TARGET - done} 天。中間斷掉不會歸零。`;
+  $('progress').hidden = false;
+  $('share-btn').hidden = false;
+}
+
+/* ══════════════════════════════════════════════════════
+   作答
+   ══════════════════════════════════════════════════════ */
+async function answerQuiz(choice, btn){
+  if (answered) return;
+  answered = true;
+  document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+
+  let r;
+  if (demoMode){
+    // 示範模式:第二個選項是對的,只為了讓版面走得完
+    r = choice === 1
+      ? { ok:true, correct:true, explain:'流感由流感病毒引起，一般感冒則有上百種病毒。流感起病急、全身痠痛明顯，併發肺炎的風險也高得多。',
+          action_today:'今天先確認家裡長輩今年的流感疫苗打了沒。', points_added:3, balance:0, week_done:3, first_time:true }
+      : { ok:true, correct:false };
+  } else {
+    const { data, error } = await supabase.rpc('rpc_answer_challenge', {
+      p_tip_id: today.tip_id, p_choice: choice,
+    });
+    if (error){ answered = false; document.querySelectorAll('.opt').forEach(b => b.disabled = false);
+      showToast('送出失敗，請再試一次'); return; }
+    r = data || {};
+  }
+
+  if (!r.ok && r.message){ answered = false;
+    document.querySelectorAll('.opt').forEach(b => b.disabled = false);
+    showToast(r.message); return; }
+
+  if (!r.correct){
+    btn.classList.add('wrong');
+    btn.disabled = false;
+    $('reveal-head').textContent = '再想一下 🤔';
+    $('reveal-head').className = 'reveal-head no';
+    $('reveal-why').textContent = '這個不是最合適的答案。回上面把今天的主題再看一次，然後再選一次——答錯不扣分，也不會中斷你的紀錄。';
+    $('reveal-action').hidden = true;
+    $('retry-btn').hidden = false;
+    $('reveal').hidden = false;
+    // 只鎖住選錯的那顆,其他可以再點
+    setTimeout(() => { answered = false; document.querySelectorAll('.opt').forEach(b => { if (b !== btn) b.disabled = false; }); }, 400);
+    return;
+  }
+
+  btn.classList.add('right');
+  $('reveal-head').textContent = r.first_time ? '✅ 答對了' : '答對了，不過今天已經拿過分了';
+  $('reveal-head').className = 'reveal-head';
+  $('reveal-why').textContent = r.explain || '';
+  if (r.action_today){
+    $('reveal-action-text').textContent = r.action_today;
+    $('reveal-action').hidden = false;
+  }
+  $('retry-btn').hidden = true;
+  $('reveal').hidden = false;
+  renderProgress(r);
+  $('reveal').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function submitBlessing(){
+  if (answered) return;
+  const text = $('bless-text').value.trim();
+  if (text.length < 20 || text.length > 60){ showToast('祝福請寫 20–60 字'); return; }
+  answered = true;
+  $('bless-send').disabled = true;
+  $('bless-send').textContent = '送出中…';
+
+  let r;
+  if (demoMode){
+    r = { ok:true, points_added:3, balance:0, week_done:3, first_time:true };
+  } else {
+    const { data, error } = await supabase.rpc('rpc_submit_blessing', {
+      p_text: text,
+      p_target_id: $('bless-target').value || null,
+      p_public: $('bless-consent').checked,
+    });
+    if (error){ answered = false; $('bless-send').disabled = false; $('bless-send').textContent = '送出祝福';
+      showToast('送出失敗，請再試一次'); return; }
+    r = data || {};
+  }
+
+  if (!r.ok){
+    // 被自動檢查退回:可以改了再送,今天的完成不受影響
+    answered = false;
+    $('bless-send').disabled = false;
+    $('bless-send').textContent = '送出祝福';
+    $('reveal-head').textContent = '這句需要調整一下';
+    $('reveal-head').className = 'reveal-head no';
+    $('reveal-why').textContent = r.message || '祝福裡不要提到療效或治療效果，換個說法再送一次就好。';
+    $('reveal-action').hidden = true;
+    $('retry-btn').hidden = true;
+    $('reveal').hidden = false;
+    return;
+  }
+
+  $('bless').hidden = true;
+  $('reveal-head').textContent = '💚 祝福送出了';
+  $('reveal-head').className = 'reveal-head';
+  $('reveal-why').textContent = $('bless-consent').checked
+    ? '它會出現在「身邊的祝福」，署你的名字。隨時可以在那裡把它下架。'
+    : '已經送出，但依你的選擇不會顯示在祝福牆上。';
+  $('reveal-action').hidden = true;
+  $('retry-btn').hidden = true;
+  $('reveal').hidden = false;
+  renderProgress(r);
+  $('reveal').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+/* ══════════════════════════════════════════════════════
+   分享 —— 唯一出口。只帶結果,不帶題目與答案。
+   ══════════════════════════════════════════════════════ */
+function shareResult(){
+  const done = $('week-done').textContent;
+  const text = `我今天完成了「看·健」的每日健康挑戰 🌿\n`
+             + `本週已完成 ${done}/5 天。\n\n`
+             + `每天早上一題，一分鐘就好：\n`
+             + (window.OA_URL || 'https://liff.line.me/' + CHALLENGE_LIFF_ID);
+  const url = 'https://line.me/R/share?text=' + encodeURIComponent(text);
+  if (window.liff?.isInClient?.()) liff.openWindow({ url, external: false });
+  else window.open(url, '_blank', 'noopener');
+}
+
+/* ══════════════════════════════════════════════════════
+   啟動
+   ══════════════════════════════════════════════════════ */
+function reauth(){
+  const url = new URL(location.href);
+  if (url.searchParams.get('r') === '1'){
+    bootMsg('拿不到 LINE 身分 —— 這個 LIFF app 要勾選 openid 權限。', true);
+    return;
+  }
+  url.searchParams.set('r', '1');
+  try { liff.logout(); } catch (_) { /* 不在 LINE 裡就沒得登出 */ }
+  liff.login({ redirectUri: url.toString() });
+}
+
+function start(){
+  renderTopic();
+  if (today.completed_today && today.kind === 'quiz'){
+    // 已完成的那天:題目照樣呈現,但直接顯示結果,不再給分
+    renderQuiz();
+    document.querySelectorAll('.opt').forEach(b => b.disabled = true);
+    $('reveal-head').textContent = '今天已經完成了';
+    $('reveal-why').textContent = today.explain || '明天早上會有新的一題。';
+    $('reveal').hidden = false;
+    answered = true;
+    renderProgress({ points_added: 0, week_done: today.week_done });
+  } else if (today.kind === 'blessing'){
+    if (today.completed_today){
+      $('divider-text').textContent = '今天的祝福已經送出了。';
+      $('reveal-head').textContent = '今天已經完成了';
+      $('reveal-why').textContent = '明天早上會有新的一題。';
+      $('reveal').hidden = false;
+      answered = true;
+      renderProgress({ points_added: 0, week_done: today.week_done });
+    } else {
+      renderBlessing();
+    }
+  } else {
+    renderQuiz();
+  }
+  $('boot').hidden = true;
+  $('main').hidden = false;
+}
+
+function fallbackToDemo(){
+  demoMode = true;
+  today = DEMO;
+  $('demo-flag').hidden = false;
+  start();
+}
+
+async function boot(){
+  // ?demo=1:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
+  if (new URLSearchParams(location.search).get('demo') === '1'){ fallbackToDemo(); return; }
+  try {
+    await liff.init({ liffId: CHALLENGE_LIFF_ID });
+    if (!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
+
+    const idToken = liff.getIDToken();
+    if (!idToken){ reauth(); return; }
+
+    bootMsg('正在準備今天的題目…');
+
+    const res = await fetch(window.LIFF_AUTH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗');
+
+    const { error: authErr } = await supabase.auth.verifyOtp({ token_hash: body.token_hash, type: 'magiclink' });
+    if (authErr) throw new Error('登入失敗：' + authErr.message);
+
+    const { data, error } = await supabase.rpc('rpc_today_challenge');
+    // RPC 還沒部署,或今天缺稿 —— 都不該讓使用者看到白畫面
+    if (error || !data?.ok){ fallbackToDemo(); return; }
+
+    today = data;
+    start();
+  } catch (e){
+    console.error(e);
+    bootMsg(e.message || '初始化失敗，請關閉重開。', true);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>

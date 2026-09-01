@@ -33,9 +33,10 @@
           "action": "score_latest"
         },
         {
-          "label": "每日挑戰",
-          "type": "postback",
-          "action": "daily_challenge"
+          "label": "今日挑戰",
+          "type": "uri",
+          "liffId": "2011132698-J7q2DbwV",
+          "_note": "看健-今日挑戰(Tall)。challenge.html —— 半頁式彈窗,先讀主題再下滑作答。"
         },
         {
           "label": "兌換 / 抽獎",
@@ -53,9 +54,10 @@
       "default": false,
       "cells": [
         {
-          "label": "剩餘次數",
-          "type": "postback",
-          "action": "credits"
+          "label": "身邊的祝福",
+          "type": "uri",
+          "liffId": "2011132698-qg4VNDZs",
+          "_note": "看健-身邊的祝福(Tall)。blessing.html —— 剩餘次數改由檢測卡、我的積分卡與文字指令「次數」呈現。"
         },
         {
           "label": "詢問顧問",

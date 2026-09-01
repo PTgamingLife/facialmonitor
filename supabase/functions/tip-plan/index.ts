@@ -28,7 +28,23 @@ type TipDraft = {
   quiz_options: [string, string, string];
   quiz_answer: number;
   quiz_explain: string;
+  action_today: string;
+  source_name: string;
+  intros: { zhou: string; kang: string; xs: string };
+  game_titles: { zhou: string; kang: string; xs: string };
 };
+
+/**
+ * 一週節奏:週三、週六是祝福關卡,其餘五天是知識題。
+ * 「7 天完成 5 天」而不是不能中斷的連續簽到 —— 兩天祝福正好給喘息空間。
+ */
+function kindOf(isoDay: string): "quiz" | "blessing" {
+  // 用 Z 而不是 +08:00 —— 加了時區偏移之後 getUTCDay() 拿到的是
+  // 「台北午夜換算成 UTC」那一刻的星期,會整整差一天(祝福會排到週四與週日)。
+  // 日期字串本身已經是台北日期,直接當 UTC 午夜解析才對得上。
+  const dow = new Date(`${isoDay}T00:00:00Z`).getUTCDay();  // 0=日
+  return (dow === 3 || dow === 6) ? "blessing" : "quiz";
+}
 
 function taipeiDate(offsetDays = 0): Date {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }));
@@ -99,6 +115,7 @@ function schema(dates: string[]) {
           required: [
             "date", "title", "summary", "body", "detail_points", "source_urls", "category",
             "quiz_question", "quiz_options", "quiz_answer", "quiz_explain",
+            "action_today", "source_name", "intros", "game_titles",
           ],
           properties: {
             date: { type: "string", enum: dates },
@@ -117,6 +134,29 @@ function schema(dates: string[]) {
             },
             quiz_answer: { type: "integer", enum: [0, 1, 2] },
             quiz_explain: { type: "string", minLength: 10, maxLength: 90 },
+            // 揭曉時給的「今天可以做的一件事」。沒有它,答對就只是答對。
+            action_today: { type: "string", minLength: 8, maxLength: 40 },
+            source_name: { type: "string", minLength: 2, maxLength: 24 },
+            // 三種語氣各一版,跟主題「同一次」產出。
+            // 推播時只挑不生成 —— 500 人一批的定時作業不該現場等 LLM。
+            intros: {
+              type: "object", additionalProperties: false,
+              required: ["zhou", "kang", "xs"],
+              properties: {
+                zhou: { type: "string", minLength: 10, maxLength: 60 },
+                kang: { type: "string", minLength: 10, maxLength: 60 },
+                xs:   { type: "string", minLength: 10, maxLength: 60 },
+              },
+            },
+            game_titles: {
+              type: "object", additionalProperties: false,
+              required: ["zhou", "kang", "xs"],
+              properties: {
+                zhou: { type: "string", minLength: 3, maxLength: 14 },
+                kang: { type: "string", minLength: 3, maxLength: 14 },
+                xs:   { type: "string", minLength: 3, maxLength: 14 },
+              },
+            },
           },
         },
       },
@@ -161,6 +201,16 @@ async function generate(dates: string[], sources: string[], taken: string[]): Pr
           "需要提到專業概念時，換成讀者身體上感覺得到的說法。",
         "主題要分散:飲食、運動、睡眠、壓力、預防保健、季節養生六類都要用到，" +
           "同一類不可連續兩天出現，一批裡同一類最多三篇。",
+        // 語氣只影響開場白與遊戲標題。事實層(題目、解析、來源)三種一律相同 ——
+        // 換一個人說話不該換一組事實。
+        "每一則都要寫三版開場白(intros)與三版遊戲標題(game_titles),分別對應三種語氣:",
+        "- zhou 周小輪:話少、有畫面感、淡定略帶慵懶,偶爾一點詩意。短句為主。",
+        "- kang 康小泳:溫柔細膩,先接住對方的感受再帶到今天的主題,成熟的幽默。",
+        "- xs 小XS:直率明快、反應快,會吐槽情境但不針對人。口語、有節奏。",
+        "三版講的是同一件事,只有語氣不同;題目、選項、解析、來源三種完全一樣。",
+        "三種都是原創語氣,不得模仿任何真實人物的口頭禪、經典語句或訪談內容," +
+          "也不得讓讀者以為是某位真實人物親口說的。",
+        "action_today 要寫一個當天就做得到、不必花錢也不必買東西的具體動作。",
       ].join("\n"),
       input: `為以下日期各產生一則健康資訊：${dates.join(", ")}${avoid}\n\n參考素材：\n${material}`,
       text: { format: { type: "json_schema", name: "daily_health_tips", strict: true, schema: schema(dates) } },
@@ -222,15 +272,28 @@ Deno.serve(async (req) => {
         try { return ALLOWED_SOURCE_HOSTS.has(new URL(u).hostname); } catch { return false; }
       });
       if (!safeSources.length) flags.push("來源網址不在白名單");
+      // 這裡算的 flags 只用來統計、寫進 run 紀錄;
+      // 真正擋不擋得住是資料庫那支 tip_auto_check 說了算。
       if (flags.length) warnings++;
+      const kind = kindOf(tip.date);
       const values = {
-        tip_date: tip.date, title: tip.title, summary: tip.summary, body: tip.body,
+        tip_date: tip.date, kind,
+        title: tip.title, summary: tip.summary, body: tip.body,
         detail_points: tip.detail_points, source_urls: safeSources,
-        quiz_question: tip.quiz_question, quiz_options: tip.quiz_options,
-        quiz_answer: tip.quiz_answer, quiz_explain: tip.quiz_explain,
-        risk_flags: flags, status: "draft", active: true,
+        source_name: tip.source_name, source_date: tip.date.slice(0, 7).replace("-", "/"),
+        intros: tip.intros, game_titles: tip.game_titles,
+        action_today: tip.action_today,
+        // 祝福關卡那天不出選擇題:挑戰是「寫一句祝福」。
+        // 硬塞一題進去,網頁會同時顯示題目與輸入框。
+        quiz_question: kind === "blessing" ? null : tip.quiz_question,
+        quiz_options:  kind === "blessing" ? null : tip.quiz_options,
+        quiz_answer:   kind === "blessing" ? null : tip.quiz_answer,
+        quiz_explain:  kind === "blessing" ? null : tip.quiz_explain,
+        active: true,
         generated_batch_id: runId || null, image_url: assetUrl("bg.png"),
-        approved_at: null, approved_by: null, rejected_at: null, rejected_by: null, review_note: null,
+        // status / risk_flags / approved_at 由 trg_tip_auto_check 決定 ——
+        // 這裡寫死 draft 的話,通過檢查的稿也會停在草稿。
+        rejected_at: null, rejected_by: null, review_note: null,
       };
       const rejected = byExistingDate.get(tip.date);
       const saved = rejected?.status === "rejected"
@@ -247,14 +310,26 @@ Deno.serve(async (req) => {
 
     let notified = false;
     if (ADMIN_LINE_ID) {
+      // v2 沒有待審佇列了。這則只是回報結果:通過自動檢查的已經直接排程,
+      // 被擋下來的才需要人進去看。
+      const blocked = await select<{ tip_date: string }>(
+        "sb_daily_tips",
+        `select=tip_date&status=eq.draft&tip_date=gte.${dates[0]}&tip_date=lte.${dates.at(-1)}&limit=20`,
+      );
       notified = await push(ADMIN_LINE_ID, infoCard({
-        title: `📝 本期 ${tips.length} 則健康資訊待審`,
+        title: `📝 本期排了 ${created} 則每日挑戰`,
         rows: [
           { label: "日期", value: `${dates[0]} ～ ${dates.at(-1)}` },
-          { label: "風險詞警示", value: `${warnings} 則`, accent: warnings > 0 },
+          { label: "已排定", value: `${created - blocked.length} 則` },
+          { label: "被檢查擋下", value: `${blocked.length} 則`, accent: blocked.length > 0 },
         ],
-        buttons: [{ label: "開始審核", action: uriAction("開始審核", `${APP_BASE_URL}/index.html?p=page-admin&adminTab=tips`), primary: true }],
-        altText: `本期 ${tips.length} 則健康資訊待審`,
+        note: blocked.length
+          ? `擋下的日期:${blocked.map((b) => b.tip_date).join("、")}。這幾天目前沒有內容。`
+          : "全部通過自動檢查,不需要你做任何事。",
+        buttons: blocked.length
+          ? [{ label: "去看被擋下的", action: uriAction("去看", `${APP_BASE_URL}/index.html?p=page-admin&adminTab=tips`), primary: true }]
+          : [],
+        altText: `本期排了 ${created} 則每日挑戰`,
       }));
     }
     if (runId) await patch("sb_tip_plan_runs", `id=eq.${runId}`, { notification_status: notified ? "sent" : "failed" });

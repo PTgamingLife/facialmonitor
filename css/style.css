@@ -717,6 +717,14 @@ input[type="file"] { display:none; }
 .admin-tip-card details { margin-top:8px; }
 .admin-tip-card summary { color:var(--gold-main); cursor:pointer; font-size:12px; }
 .admin-tip-card ol { padding-left:20px; color:var(--text-soft); font-size:12px; line-height:1.8; }
+/* 行事曆:三版開場白並列,一眼看得出哪一版缺了 */
+.admin-tip-intros { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:6px; }
+.admin-tip-intros li { font-size:12.5px; color:var(--text-soft); line-height:1.7; }
+.admin-tip-intros b { color:var(--gold-deep); margin-right:4px; }
+.admin-tip-gametitle { display:inline-block; margin-left:6px; padding:1px 7px; border-radius:var(--radius-sm);
+  background:var(--gold-pale); color:var(--gold-deep); font-size:11px; }
+/* 正確答案在後台要看得出來 —— 這裡是唯一該顯示答案的地方 */
+.admin-tip-answer { color:var(--ok-color); font-weight:700; }
 .admin-tip-sources,.admin-tip-review-note { font-size:11px; color:var(--text-hint); line-height:1.7; overflow-wrap:anywhere; }
 .admin-tip-actions { display:flex; gap:8px; margin-top:12px; }
 
