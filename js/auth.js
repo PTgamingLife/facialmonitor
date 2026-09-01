@@ -162,8 +162,7 @@ function showBoundPanel() {
  * 新使用者完成 LINE / Supabase 身分確認與推薦綁定後，直接前往 LINE 官方帳號。
  * 必須在 processReferralLink() 之後呼叫，否則離開頁面時推薦碼可能還沒寫入。
  */
-function redirectNewUserToOfficialAccount() {
-  if (!window._justBoundNew) return false;
+function redirectToOfficialAccount() {
   window._justBoundNew = false;
 
   if (!window.OA_URL) {
@@ -412,10 +411,15 @@ async function handleSessionUser(session) {
                || (existing.phone === window.ADMIN_PHONE && existing.name === window.ADMIN_NAME);
   enterApp(isAdmin);
 
+  // 推薦網址無論新、舊使用者，完成身分確認與推薦處理後都回到 LINE OA。
+  // 先記住 ref，因為 processReferralLink() 完成後會從網址移除它。
+  const referralCode = new URLSearchParams(location.search).get('ref')?.trim() ?? '';
+  const shouldReturnToOA = window._justBoundNew || /^\\d{7}$/.test(referralCode);
+
   // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
-  // 新使用者須等推薦綁定完成後才離開，避免跳到 OA 時中斷贈送流程。
+  // 必須等推薦綁定完成後才離開，避免跳到 OA 時中斷贈送流程。
   await processReferralLink();
-  if (redirectNewUserToOfficialAccount()) return;
+  if (shouldReturnToOA && redirectToOfficialAccount()) return;
 
   // 轉移卡片只對「LINE 帳號、而且還沒轉移過」的人顯示。
   // 登在舊 Google 帳號時給他看這張卡沒有意義 —— 按下去只會得到
