@@ -57,9 +57,6 @@ function enterApp(isAdmin) {
   if (isAdmin) showPage('page-admin');
   else         showPage('page-main');
 
-  // 頁面先開好再蓋面板 —— 使用者按「留在這裡逛逛」時底下已經是首頁，
-  // 不會看到空白再閃一下。
-  showBoundPanel();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -158,6 +155,25 @@ function showBoundPanel() {
       </button>
     </div>`;
   box.classList.add('show');
+  return true;
+}
+
+/**
+ * 新使用者完成 LINE / Supabase 身分確認與推薦綁定後，直接前往 LINE 官方帳號。
+ * 必須在 processReferralLink() 之後呼叫，否則離開頁面時推薦碼可能還沒寫入。
+ */
+function redirectNewUserToOfficialAccount() {
+  if (!window._justBoundNew) return false;
+  window._justBoundNew = false;
+
+  if (!window.OA_URL) {
+    console.error('OA_URL is not configured');
+    return false;
+  }
+
+  // lin.ee 是 LINE 官方的加好友短網址。在 LINE 內會交回 LINE App，
+  // 在外部瀏覽器完成 LINE Login 時也能透過 Universal Link 開啟 LINE OA。
+  window.location.replace(window.OA_URL);
   return true;
 }
 
@@ -397,7 +413,9 @@ async function handleSessionUser(session) {
   enterApp(isAdmin);
 
   // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
+  // 新使用者須等推薦綁定完成後才離開，避免跳到 OA 時中斷贈送流程。
   await processReferralLink();
+  if (redirectNewUserToOfficialAccount()) return;
 
   // 轉移卡片只對「LINE 帳號、而且還沒轉移過」的人顯示。
   // 登在舊 Google 帳號時給他看這張卡沒有意義 —— 按下去只會得到
