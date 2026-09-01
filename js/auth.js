@@ -414,7 +414,7 @@ async function handleSessionUser(session) {
   // 推薦網址無論新、舊使用者，完成身分確認與推薦處理後都回到 LINE OA。
   // 先記住 ref，因為 processReferralLink() 完成後會從網址移除它。
   const referralCode = new URLSearchParams(location.search).get('ref')?.trim() ?? '';
-  const shouldReturnToOA = window._justBoundNew || /^\\d{7}$/.test(referralCode);
+  const shouldReturnToOA = window._justBoundNew || /^\d{7}$/.test(referralCode);
 
   // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
   // 必須等推薦綁定完成後才離開，避免跳到 OA 時中斷贈送流程。
