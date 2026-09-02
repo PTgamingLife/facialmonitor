@@ -242,7 +242,7 @@ select:focus,textarea:focus{outline:none;border-color:var(--primary)}
         <span class="n" id="gain-n"></span>
         <span class="l">點入帳 · 目前共 <b id="gain-balance"></b> 點</span>
       </div>
-      <div class="prog-row"><span>本週完成</span><span><b id="week-done">0</b> / 5 天</span></div>
+      <div class="prog-row"><span>本週完成</span><span><b id="week-done">0</b> / <b id="week-target">3</b> 次</span></div>
       <div class="dots" id="week-dots"></div>
       <div class="note" id="week-note"></div>
     </div>
@@ -262,7 +262,9 @@ select:focus,textarea:focus{outline:none;border-color:var(--primary)}
    狀態
    ══════════════════════════════════════════════════════ */
 const CHALLENGE_LIFF_ID = window.CHALLENGE_LIFF_ID || window.LIFF_ID;
-const WEEK_TARGET = 5;              // 7 天完成 5 天,不是不能中斷的連續簽到
+// 兩天發一次之後,一週只有 3~4 個發送日(奇偶輪流),
+// 原本的「7 天做滿 5 天」變成做不到的目標。改成 3 次 —— 少的那一週也達得到。
+const WEEK_TARGET = 3;
 let today = null;                   // 當日內容
 let answered = false;               // 擋連點重複送出
 let demoMode = false;
@@ -324,6 +326,20 @@ function bootMsg(msg, isErr){
 
 function backToTopic(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* 2026-09-05 → 9/5（六）。休息日與揭曉都要講得出「下一次是哪天」。 */
+function fmtDay(iso){
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(iso ?? ''))) return '';
+  const [y, m, d] = iso.split('-').map(Number);
+  const wd = '日一二三四五六'[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${m}/${d}（${wd}）`;
+}
+
+/* 下一題是哪天。後端沒給就退回不指定日期的說法,不要自己猜。 */
+function nextLine(){
+  const d = fmtDay(today.next_date);
+  return d ? `下一題在 ${d} 早上。` : '下一題會在下次發送日的早上。';
 }
 
 /* 只帶 http(s),擋掉 javascript: 這類來源網址 */
@@ -396,24 +412,40 @@ function renderBlessing(){
   $('bless').hidden = false;
 }
 
+/* 休息日。
+   圖文選單的「今日挑戰」天天按得到,但只有一半的日子有題目。
+   這裡要明講今天沒有,並給出下一次 —— 退回示範內容的話,
+   使用者會把示範題當成今天的真題目做完,然後發現沒拿到點數。 */
+function renderRest(){
+  $('greet').textContent = '今天沒有新的挑戰。';
+  $('date-chip').textContent = today.tip_date
+    || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  $('topic-title').textContent = '今天休息一下';
+  $('topic-body').textContent = `現在是兩天一題。${nextLine()}\n\n`
+    + '這中間可以去看看「身邊的祝福」，或把上一題那件事再做一次。';
+  $('divider').hidden = true;
+  renderProgress({ points_added: 0, week_done: today.week_done });
+}
+
 function renderProgress(r){
   if ((r.points_added ?? 0) > 0){
     $('gain-n').textContent = '+' + r.points_added;
     $('gain-balance').textContent = r.balance ?? 0;
     $('gain').hidden = false;
   }
-  const done = Math.min(r.week_done ?? today.week_done ?? 0, 7);
+  const done = Math.min(r.week_done ?? today.week_done ?? 0, WEEK_TARGET);
   $('week-done').textContent = done;
+  $('week-target').textContent = WEEK_TARGET;
   const dots = $('week-dots');
   dots.innerHTML = '';
-  for (let i = 0; i < 7; i++){
+  for (let i = 0; i < WEEK_TARGET; i++){
     const d = document.createElement('i');
     if (i < done) d.className = 'on';
     dots.appendChild(d);
   }
   $('week-note').textContent = done >= WEEK_TARGET
-    ? '本週已經達標了。剩下的天數就當作額外的，漏掉一天也沒關係。'
-    : `一週做滿 ${WEEK_TARGET} 天就算完成，還差 ${WEEK_TARGET - done} 天。中間斷掉不會歸零。`;
+    ? '本週已經達標了。多做的就當作額外的，漏掉一次也沒關係。'
+    : `一週做滿 ${WEEK_TARGET} 次就算完成，還差 ${WEEK_TARGET - done} 次。中間斷掉不會歸零。`;
   $('progress').hidden = false;
   $('share-btn').hidden = false;
 }
@@ -529,8 +561,8 @@ async function submitBlessing(){
 function shareResult(){
   const done = $('week-done').textContent;
   const text = `我今天完成了「看·健」的每日健康挑戰 🌿\n`
-             + `本週已完成 ${done}/5 天。\n\n`
-             + `每天早上一題，一分鐘就好：\n`
+             + `本週已完成 ${done}/${WEEK_TARGET} 次。\n\n`
+             + `每兩天早上一題，一分鐘就好：\n`
              + (window.OA_URL || 'https://liff.line.me/' + CHALLENGE_LIFF_ID);
   const url = 'https://line.me/R/share?text=' + encodeURIComponent(text);
   if (window.liff?.isInClient?.()) liff.openWindow({ url, external: false });
@@ -552,13 +584,19 @@ function reauth(){
 }
 
 function start(){
+  if (today.kind === 'rest'){
+    renderRest();
+    $('boot').hidden = true;
+    $('main').hidden = false;
+    return;
+  }
   renderTopic();
   if (today.completed_today && today.kind === 'quiz'){
     // 已完成的那天:題目照樣呈現,但直接顯示結果,不再給分
     renderQuiz();
     document.querySelectorAll('.opt').forEach(b => b.disabled = true);
     $('reveal-head').textContent = '今天已經完成了';
-    $('reveal-why').textContent = today.explain || '明天早上會有新的一題。';
+    $('reveal-why').textContent = today.explain || nextLine();
     $('reveal').hidden = false;
     answered = true;
     renderProgress({ points_added: 0, week_done: today.week_done });
@@ -566,7 +604,7 @@ function start(){
     if (today.completed_today){
       $('divider-text').textContent = '今天的祝福已經送出了。';
       $('reveal-head').textContent = '今天已經完成了';
-      $('reveal-why').textContent = '明天早上會有新的一題。';
+      $('reveal-why').textContent = nextLine();
       $('reveal').hidden = false;
       answered = true;
       renderProgress({ points_added: 0, week_done: today.week_done });
@@ -580,16 +618,28 @@ function start(){
   $('main').hidden = false;
 }
 
-function fallbackToDemo(){
+/* 休息日的示範版。休息日的版面沒有主題與題目,
+   只有 ?demo=1 的話永遠看不到它長什麼樣。 */
+const DEMO_REST = {
+  kind: 'rest',
+  tip_date: new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' }),
+  next_date: null,
+  week_done: 1,
+  balance: 0,
+};
+
+function fallbackToDemo(kind){
   demoMode = true;
-  today = DEMO;
+  today = kind === 'rest' ? DEMO_REST : DEMO;
   $('demo-flag').hidden = false;
   start();
 }
 
 async function boot(){
-  // ?demo=1:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
-  if (new URLSearchParams(location.search).get('demo') === '1'){ fallbackToDemo(); return; }
+  // ?demo=1 / ?demo=rest:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
+  // ?demo=1 是一般的題目版面,?demo=rest 是休息日版面。
+  const demo = new URLSearchParams(location.search).get('demo');
+  if (demo === '1' || demo === 'rest'){ fallbackToDemo(demo); return; }
   try {
     await liff.init({ liffId: CHALLENGE_LIFF_ID });
     if (!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }

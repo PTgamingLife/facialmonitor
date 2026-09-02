@@ -342,7 +342,7 @@ function blessings(): LineMessage {
 function toneMenu(): LineMessage {
   return infoCard({
     title: "🎙 換一個說話的人",
-    subtitle: "每天早上那句開場白由誰來說。題目與解析不會因此改變。",
+    subtitle: "發送日早上那句開場白由誰來說。題目與解析不會因此改變。",
     rows: [
       { label: "周小輪", value: "話少,有畫面感(預設)" },
       { label: "康小泳", value: "溫柔細膩,先接住感受" },
@@ -363,7 +363,7 @@ async function setTone(u: LineUser, tone: string): Promise<LineMessage> {
   if (!names[tone]) return textMsg("沒有這個語氣。");
   const r = await rpc<{ ok: boolean }>("rpc_set_tone", { p_tone: tone });
   if (!r?.ok) return textMsg("設定失敗,請稍後再試。");
-  return textMsg(`好,明天早上換 ${names[tone]} 跟你說話 🌿`);
+  return textMsg(`好,下一次挑戰的早上換 ${names[tone]} 跟你說話 🌿`);
 }
 
 async function latestScore(u: LineUser): Promise<LineMessage> {
