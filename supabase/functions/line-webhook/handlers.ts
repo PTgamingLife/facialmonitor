@@ -622,6 +622,48 @@ async function myInvitees(u: LineUser): Promise<LineMessage> {
   });
 }
 
+type MyPrize = {
+  id: string; name: string; image: string | null;
+  status: string; drawn_at: string;
+};
+
+/**
+ * 兌換/抽獎的第一張:自己抽中的獎品。
+ *
+ * 沒中過就回 null —— 一張寫著「你還沒有獎品」的卡片只是把兌換往右推一格。
+ * 「再接再厲」不算,rpc_my_prizes 已經濾掉(sb_lottery_prizes.is_win)。
+ */
+function myPrizeBubble(prizes: MyPrize[]): LineMessage | null {
+  if (!prizes.length) return null;
+
+  const pending = prizes.filter((p) => p.status !== "claimed");
+  const shown = prizes.slice(0, 4);
+  const rows = shown.map((p) => ({
+    label: p.name,
+    value: p.status === "claimed" ? "已領取" : "待領取",
+    accent: p.status !== "claimed",
+  }));
+  if (prizes.length > shown.length) {
+    rows.push({ label: "其他", value: `還有 ${prizes.length - shown.length} 份`, accent: false });
+  }
+
+  // 待領取的優先當主圖 —— 這張卡是要提醒人去領,不是回顧領過什麼。
+  const hero = (pending[0] ?? prizes[0]).image || undefined;
+
+  return toBubble(infoCard({
+    title: pending.length ? `🎉 你有 ${pending.length} 份獎品待領取` : "🎁 你抽中過的獎品",
+    hero,
+    rows,
+    note: pending.length
+      ? "獎品會一直留著,聯絡大天使確認兌獎方式就好。"
+      : "都領完了。想再抽的話往右滑。",
+    buttons: pending.length
+      ? [{ label: "聯絡大天使兌獎", action: uriAction("聯絡大天使", ANGEL_URL), tone: "deep" as const }]
+      : [{ label: "看全部獎品", action: uriAction("看全部獎品", GAME_LIFF_URL), tone: "mid" as const }],
+    altText: pending.length ? `你有 ${pending.length} 份獎品待領取` : "你抽中過的獎品",
+  }));
+}
+
 async function rewardShop(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
 
@@ -638,6 +680,9 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
 
   // 有沒有免費券會改變整張卡的文案。不查的話卡片會寫「抽一次要 100 點」,
   // 但實際上扣 0 點 —— 使用者看到的跟真正發生的不一樣,那是最糟的一種 bug。
+  const mine = await rpc<{ ok: boolean; pending: number; prizes: MyPrize[] }>(
+    "rpc_my_prizes", { p_user_id: u.sb_user_id });
+
   const lot = await rpc<{ free_tickets: number }>(
     "rpc_my_lottery_status", { p_user_id: u.sb_user_id });
   const freeTickets = lot?.free_tickets ?? 0;
@@ -646,7 +691,11 @@ async function rewardShop(u: LineUser): Promise<LineMessage> {
     : `每抽 ${costDraw} 點,獎品依機率隨機抽出。`;
   const drawLabel = freeTickets > 0 ? "免費抽一次" : `馬上抽（${costDraw} 點）`;
 
+  // 中獎的人一打開就先看到自己的獎品,不必往右滑找。
+  const prizeBubble = myPrizeBubble(mine?.prizes ?? []);
+
   const bubbles: LineMessage[] = [
+    ...(prizeBubble ? [prizeBubble] : []),
     toBubble(infoCard({
       title: "🔄 積點兌換檢測次數",
       bigValue: `${costRedeem}`,
@@ -710,14 +759,14 @@ async function doDraw(u: LineUser): Promise<LineMessage> {
   if (!u.sb_user_id) return NEED_BIND;
   const r = await rpc<{
     ok: boolean; message?: string; prize_name?: string; prize_image?: string;
-    balance?: number; used_free_ticket?: boolean; free_tickets?: number;
+    balance?: number; used_free_ticket?: boolean; free_tickets?: number; won?: boolean;
   }>("rpc_draw_lottery", { p_user_id: u.sb_user_id });
 
   if (!r?.ok) return textMsg(`⚠️ ${r?.message ?? "抽獎失敗,請稍後再試。"}`);
 
-  // 「再接再厲」是沒中的那一格,不能用中獎的文案與兌獎按鈕 ——
-  // 對著沒中的人說「我們會與你聯繫兌獎」只會讓人以為自己中了。
-  const won = r.prize_name !== "再接再厲";
+  // 中沒中由後端說了算(sb_lottery_prizes.is_win)。
+  // 這裡比對名字的話,獎項改個名就會對著沒中的人說「我們會與你聯繫兌獎」。
+  const won = r.won ?? false;
   const rows = [
     ...(r.used_free_ticket ? [{ label: "本次花費", value: "免費券", accent: true }] : []),
     { label: "剩餘積點", value: `${r.balance} 點` },
