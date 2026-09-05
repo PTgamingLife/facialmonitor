@@ -108,8 +108,8 @@ select,textarea{
 select:focus,textarea:focus{outline:none;border-color:var(--primary)}
 .count{text-align:right;font-size:11.5px;color:var(--hint);margin-top:4px}
 .count.over{color:var(--alert)}
-.consent{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--mid);line-height:1.7}
-.consent input{margin-top:4px;flex:none;width:17px;height:17px;accent-color:var(--primary)}
+.consent-note{margin-top:14px;font-size:13px;color:var(--soft);line-height:1.7}
+.consent-note b{color:var(--mid)}
 
 /* ── ④ 揭曉 ── */
 .reveal-head{font-size:18px;font-weight:700;color:var(--deep);margin-bottom:10px}
@@ -213,18 +213,15 @@ select:focus,textarea:focus{outline:none;border-color:var(--primary)}
       <div class="q">寫一句祝福給別人</div>
       <div class="bless-intro" id="bless-intro"></div>
       <div class="field">
-        <label for="bless-target">想送給誰</label>
-        <select id="bless-target"></select>
-      </div>
-      <div class="field">
         <label for="bless-text">你的祝福（20–60 字）</label>
         <textarea id="bless-text" rows="3" maxlength="60" placeholder="例如：希望你這個換季別再咳了，記得多喝溫水。"></textarea>
         <div class="count" id="bless-count">0 / 60</div>
       </div>
-      <label class="consent">
-        <input type="checkbox" id="bless-consent">
-        <span>同意把這句祝福<b>以我的名字</b>顯示在「身邊的祝福」。不同意也可以送出，但不會出現在祝福牆上。</span>
-      </label>
+      <!-- 沒有同意勾選,但也不能默默公開 —— 送出前一定要看得到這句。 -->
+      <div class="consent-note">
+        送出後會<b>以你的名字</b>顯示在「身邊的祝福」，每個人都看得到。
+        隨時可以在那裡把它下架。
+      </div>
       <button class="btn btn-main" id="bless-send" style="margin-top:16px" disabled onclick="submitBlessing()">送出祝福</button>
     </div>
 
@@ -391,12 +388,6 @@ function renderBlessing(){
     || '今天不考你知識。研究發現，替別人著想、主動表達善意的人，'
      + '自己的壓力反應與發炎指標也比較低。祝福別人健康，自己會更健康。';
 
-  const sel = $('bless-target');
-  sel.innerHTML = '';
-  const targets = today.targets?.length ? today.targets : [{ id:'', name:'隨機投遞給一位夥伴' }];
-  if (!today.targets?.length) sel.appendChild(new Option('隨機投遞給一位夥伴', ''));
-  else targets.forEach(t => sel.appendChild(new Option(t.name, t.id)));
-
   const ta = $('bless-text');
   const send = $('bless-send');
   const cnt = $('bless-count');
@@ -518,11 +509,8 @@ async function submitBlessing(){
   if (demoMode){
     r = { ok:true, points_added:3, balance:0, week_done:3, first_time:true };
   } else {
-    const { data, error } = await supabase.rpc('rpc_submit_blessing', {
-      p_text: text,
-      p_target_id: $('bless-target').value || null,
-      p_public: $('bless-consent').checked,
-    });
+    // 不指定對象、一律公開署名 —— 兩個參數後端都不再看了。
+    const { data, error } = await supabase.rpc('rpc_submit_blessing', { p_text: text });
     if (error){ answered = false; $('bless-send').disabled = false; $('bless-send').textContent = '送出祝福';
       showToast('送出失敗，請再試一次'); return; }
     r = data || {};
@@ -545,9 +533,8 @@ async function submitBlessing(){
   $('bless').hidden = true;
   $('reveal-head').textContent = '💚 祝福送出了';
   $('reveal-head').className = 'reveal-head';
-  $('reveal-why').textContent = $('bless-consent').checked
-    ? '它會出現在「身邊的祝福」，署你的名字。隨時可以在那裡把它下架。'
-    : '已經送出，但依你的選擇不會顯示在祝福牆上。';
+  $('reveal-why').textContent =
+    '它會出現在「身邊的祝福」，署你的名字。隨時可以在那裡把它下架。';
   $('reveal-action').hidden = true;
   $('retry-btn').hidden = true;
   $('reveal').hidden = false;
@@ -628,18 +615,27 @@ const DEMO_REST = {
   balance: 0,
 };
 
+/* 祝福關卡的示範版。一週只有一天是祝福,不做這個就得等到那天才看得到版面。 */
+const DEMO_BLESS = {
+  ...DEMO,
+  kind: 'blessing',
+  title: '寫一句祝福給別人',
+  quiz_question: null,
+  quiz_options: null,
+};
+
 function fallbackToDemo(kind){
   demoMode = true;
-  today = kind === 'rest' ? DEMO_REST : DEMO;
+  today = kind === 'rest' ? DEMO_REST : kind === 'bless' ? DEMO_BLESS : DEMO;
   $('demo-flag').hidden = false;
   start();
 }
 
 async function boot(){
-  // ?demo=1 / ?demo=rest:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
+  // ?demo=1 / rest / bless:跳過 LIFF 直接看版面。給設計檢視與桌機預覽用,不會寫入任何資料。
   // ?demo=1 是一般的題目版面,?demo=rest 是休息日版面。
   const demo = new URLSearchParams(location.search).get('demo');
-  if (demo === '1' || demo === 'rest'){ fallbackToDemo(demo); return; }
+  if (demo === '1' || demo === 'rest' || demo === 'bless'){ fallbackToDemo(demo); return; }
   try {
     await liff.init({ liffId: CHALLENGE_LIFF_ID });
     if (!liff.isLoggedIn()){ liff.login({ redirectUri: location.href }); return; }
