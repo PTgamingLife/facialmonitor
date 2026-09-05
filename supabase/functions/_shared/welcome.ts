@@ -56,7 +56,7 @@ export function welcomeVideo(): LineMessage {
 export function boundCard(name?: string): LineMessage {
   return infoCard({
     title: `${name ? name + "，綁定完成了 ✅" : "綁定完成了 ✅"}`,
-    subtitle: "接下來可以直接用下方選單:做面舌診、看健康分數、每天答一題賺積點。",
+    subtitle: "接下來可以直接用下方選單:做面舌診、看健康分數、每兩天答一題賺積點。",
     rows: [
       { label: "第一次檢測", value: "完成就送一次抽獎", accent: true },
       { label: "開放期優惠", value: "每月自動送 1 次檢測" },

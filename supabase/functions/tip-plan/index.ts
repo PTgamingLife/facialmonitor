@@ -1,6 +1,6 @@
 import { authorizeCronHash } from "../_shared/cron-auth.ts";
 import { APP_BASE_URL, assetUrl, infoCard, push, uriAction } from "../_shared/line.ts";
-import { insert, patch, select } from "../_shared/db.ts";
+import { insert, patch, rpc, select } from "../_shared/db.ts";
 
 const PLAN_SECRET_HASH = Deno.env.get("HEALTHBOT_TIP_PLAN_SECRET_SHA256") ?? "";
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("HEALTHBOT_OPENAI_KEY") ?? "";
@@ -35,8 +35,11 @@ type TipDraft = {
 };
 
 /**
- * 一週節奏:週三、週六是祝福關卡,其餘五天是知識題。
- * 「7 天完成 5 天」而不是不能中斷的連續簽到 —— 兩天祝福正好給喘息空間。
+ * 週三、週六是祝福關卡,其餘的發送日是知識題。
+ *
+ * 改成兩天發一次之後,這條規則的實際效果變了:週三與週六相隔三天,
+ * 奇偶必定相反,所以每週只會有一個落在發送日 ——
+ * 祝福從「一週兩次」變成「一週一次,週三與週六輪流」。
  */
 function kindOf(isoDay: string): "quiz" | "blessing" {
   // 用 Z 而不是 +08:00 —— 加了時區偏移之後 getUTCDay() 拿到的是
@@ -229,8 +232,16 @@ Deno.serve(async (req) => {
   if (denied) return denied;
   if (!OPENAI_KEY) return Response.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
 
+  // 要產哪幾天,問資料庫的 is_push_day —— 這裡自己算一次奇偶,
+  // 遲早會跟推播端對不起來,而且錯了只會表現成「那天沒收到」。
+  // 視窗仍是 14 個日曆天(排程兩週跑一次),只是裡面剩下 7 個發送日。
   const start = nextMonday();
-  const dates = Array.from({ length: 14 }, (_, i) => { const d = new Date(start); d.setDate(d.getDate() + i); return isoDate(d); });
+  const dates = await rpc<string[]>("rpc_push_days", {
+    p_start: isoDate(start), p_days: 14,
+  }) ?? [];
+  if (!dates.length) {
+    return Response.json({ ok: false, error: "no_push_days" }, { status: 500 });
+  }
   const recentCutoff = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString();
   const recentRuns = await select<{ id: string }>(
     "sb_tip_plan_runs",
@@ -248,7 +259,7 @@ Deno.serve(async (req) => {
   const byExistingDate = new Map(existing.map((row) => [row.tip_date, row]));
   const have = new Set(existing.filter((row) => row.status !== "rejected").map((row) => row.tip_date));
   const missing = dates.filter((d) => !have.has(d));
-  if (!missing.length) return Response.json({ ok: true, created: 0, message: "future 14 days already covered" });
+  if (!missing.length) return Response.json({ ok: true, created: 0, message: "future push days already covered" });
 
   const run = await insert("sb_tip_plan_runs", {
     period_start: dates[0], period_end: dates.at(-1), requested_dates: missing.length, status: "running",
