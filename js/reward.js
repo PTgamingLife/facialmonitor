@@ -254,7 +254,9 @@ async function spinWheel() {
 
   window.setTimeout(() => {
     _wheelBusy = false;
-    const won = data.prize_name !== '再接再厲';
+    // 中沒中由後端決定（sb_lottery_prizes.is_win），不比對名字 ——
+    // 獎項改個名字，這裡就會對著沒中的人放慶祝文案。
+    const won = data.won === true;
     if (res) {
       res.textContent = won ? `🎉 抽中「${data.prize_name}」` : '再接再厲，下次一定中';
       res.className = won ? 'modal-result ok' : 'modal-result';

@@ -167,7 +167,12 @@ async function ensureBatches(pushId: string): Promise<Batch[]> {
 }
 
 type Stock = {
-  ok: boolean; days_left: number; today_ready: boolean; should_alert: boolean;
+  ok: boolean;
+  pushes_left: number;      // 還有幾則稿
+  days_left: number;        // 還能撐幾個日曆天(兩天發一次,所以約是前者的兩倍)
+  covers_until: string | null;
+  is_push_day: boolean;
+  today_ready: boolean; should_alert: boolean;
   blocked: { date: string; title: string; flags: string[] }[];
 };
 
@@ -175,18 +180,25 @@ type Stock = {
  * 每天 07:30 的預檢。
  *
  * v2 拿掉人工審核之後,管理者不再每天登入巡邏,靠這則提醒進來:
- * 存量 ≤ 4 天就推一次,4/3/2/1 天各提醒一次(愈少愈急,不會提醒一次就安靜)。
+ * 存量 ≤ 4 則就推一次,4/3/2/1 則各提醒一次(愈少愈急,不會提醒一次就安靜)。
+ *
+ * 推播改成兩天一次之後,預檢仍然天天跑 —— 存量要提前知道,不必等到發送日。
+ * 但「今天缺稿」只在發送日才算缺稿,休息日本來就沒有稿。
  */
 async function preflight(): Promise<Response> {
   const stock = await rpc<Stock>("rpc_tip_stock");
+  const left = stock?.pushes_left ?? 0;
   const days = stock?.days_left ?? 0;
   const blocked = stock?.blocked ?? [];
   let notified = false;
 
   if (ADMIN_LINE_ID && (stock?.should_alert || !stock?.today_ready)) {
     const rows = [
-      { label: "還有幾天有稿", value: `${days} 天`, accent: days <= 2 },
-      { label: "今天", value: stock?.today_ready ? "已排定" : "缺稿", accent: !stock?.today_ready },
+      { label: "還有幾則稿", value: `${left} 則`, accent: left <= 2 },
+      { label: "可以撐到", value: stock?.covers_until ?? "已經沒有了", accent: days <= 4 },
+      { label: "今天", value: !stock?.is_push_day ? "休息日"
+              : stock?.today_ready ? "已排定" : "缺稿",
+        accent: !!stock?.is_push_day && !stock?.today_ready },
     ];
     // 被自動檢查擋下來的那幾天要講出來,不然沒人知道存量為什麼在掉
     for (const b of blocked.slice(0, 3)) {
@@ -198,13 +210,14 @@ async function preflight(): Promise<Response> {
         ? "稿快用完了,補一批進去。"
         : `${todayTaipei()} 沒有可發的內容,08:00 會跳過,不會拿草稿或舊文補位。`,
       rows,
-      note: "存量 4 天以內每天都會提醒一次。",
+      note: "現在是兩天發一次。存量 4 則以內每天都會提醒。",
       altText: "每日挑戰存量提醒",
     }));
   }
 
   return Response.json({
-    ok: true, approved: !!stock?.today_ready, days_left: days,
+    ok: true, approved: !!stock?.today_ready,
+    pushes_left: left, days_left: days, is_push_day: !!stock?.is_push_day,
     blocked: blocked.length, notified,
   });
 }
