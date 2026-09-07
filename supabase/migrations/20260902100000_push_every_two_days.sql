@@ -136,8 +136,10 @@ begin
     'today_ready', (not is_push_day(v_today)) or exists(
       select 1 from sb_daily_tips
        where tip_date = v_today and status = 'approved' and active),
-    -- 四則約等於一週。少於這個數就每天提醒一次,直到補進去為止。
-    'should_alert', v_ok <= 4,
+    -- 提醒看的是「還能撐幾天」不是「還有幾則」——
+    -- 兩天發一次之後 4 則等於 8 天,用則數當門檻會提早一週開始每天叫,
+    -- 而警報天天響,人就學會不看了。剩 4/3/2/1 天各提醒一次。
+    'should_alert', greatest(coalesce(v_last - v_today + 1, 0), 0) <= 4,
     'blocked', v_blocked
   );
 end $$;
