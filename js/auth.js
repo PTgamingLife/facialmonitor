@@ -79,8 +79,13 @@ function enterApp(isAdmin) {
     return;
   }
 
-  if (isAdmin) showPage('page-admin');
-  else         showPage('page-main');
+  // 管理員也先進首頁。
+  //
+  // 原本是 isAdmin → page-admin,但那是個會騙人的預設:今天「按什麼都跳後台」
+  // 其實是頁面參數被讀走的 bug,卻因為這行而看起來像 LIFF 設定錯誤,查了兩天。
+  // 而且平常也不合理 —— 按「開啟 App」想看的是自己的健康資料,不是管理後台。
+  // 後台改走上方的 ⚙️ 按鈕與導覽列(兩個入口都只有管理員看得到)。
+  showPage('page-main');
 
 }
 
