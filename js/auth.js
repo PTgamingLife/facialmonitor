@@ -26,6 +26,34 @@ function updateCreditsDisplay() {
   });
 }
 
+/**
+ * 讀一個「從 LIFF 網址帶進來」的參數。
+ *
+ * 為什麼不能只讀 location.search:
+ * 從 https://liff.line.me/<id>?p=page-history 進來時,端點網頁一開始拿到的是
+ * ?liff.state=%3Fp%3Dpage-history —— 要等 liff.init() 跑完,LINE 才會把它
+ * 還原成 ?p=page-history。
+ *
+ * 而 Supabase 一從 localStorage 撿回 session 就立刻觸發 SIGNED_IN,
+ * 那比 liff.init() 早。於是 enterApp() 讀 ?p= 讀到空的,每一顆按鈕都退回預設頁 ——
+ * 管理員的預設頁是後台,症狀就是「按什麼都跳到後台」。
+ * 第一次開沒有 session、走 autoLoginInLiff() 會先 init,所以只有回訪的人中招,
+ * 看起來像時好時壞。
+ *
+ * 這裡自己拆 liff.state,就不必跟 liff.init() 搶先後。
+ */
+function liffParam(name) {
+  const direct = new URLSearchParams(location.search).get(name)?.trim();
+  if (direct) return direct;
+
+  const state = new URLSearchParams(location.search).get('liff.state');
+  if (!state) return '';
+
+  // liff.state 包的是原本的 query string,前面可能還帶一段路徑
+  const q = state.indexOf('?');
+  return new URLSearchParams(q >= 0 ? state.slice(q) : state).get(name)?.trim() || '';
+}
+
 /* ── 進入 App ── */
 function enterApp(isAdmin) {
   const adminTab = document.getElementById('nav-admin');
@@ -33,10 +61,7 @@ function enterApp(isAdmin) {
   const adminBtn = document.getElementById('history-admin-btn');
   if (adminBtn) adminBtn.style.display = isAdmin ? 'inline-flex' : 'none';
 
-  // 圖文選單的格子是用 ?p=page-xxx 指定要開哪一頁
-  // (LIFF 只保證帶 query string 過來,不保證帶 hash)
-  const wanted = new URLSearchParams(location.search).get('p')
-              || location.hash.replace('#', '');
+  const wanted = liffParam('p') || location.hash.replace('#', '');
 
   // ?p=share 不是頁面,是「開啟 LINE 的分享視窗」這個動作
   if (wanted === 'share') { showPage('page-main'); startShareFlow(); return; }
@@ -413,7 +438,7 @@ async function handleSessionUser(session) {
 
   // 推薦網址無論新、舊使用者，完成身分確認與推薦處理後都回到 LINE OA。
   // 先記住 ref，因為 processReferralLink() 完成後會從網址移除它。
-  const referralCode = new URLSearchParams(location.search).get('ref')?.trim() ?? '';
+  const referralCode = liffParam('ref');
   const shouldReturnToOA = window._justBoundNew || /^\d{7}$/.test(referralCode);
 
   // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
