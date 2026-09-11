@@ -35,6 +35,8 @@ const RAW = "https://raw.githubusercontent.com/PTgamingLife/facialmonitor";
 interface Cell {
   label: string;
   type: "uri" | "postback" | "message";
+  /** 這一格自己的 LIFF app。有填就直接開它,不走主 App 的 ?p= 路由。 */
+  liffId?: string;
   target?: string;
   action?: string;
   text?: string;
@@ -103,11 +105,22 @@ function buildAreas(config: Config, tab: Tab) {
     if (cell.type === "uri") {
       // 有 liffId 就走 LIFF:在 LINE 裡開會自動帶身分,使用者不用再登入一次。
       // LIFF 只保證帶過去 query string,不保證帶 hash,所以頁面用 ?p= 指定。
-      if (config.liffId) {
+      if (cell.liffId) {
+        // 這一格有自己的 LIFF app(面舌診 scan.html、今日挑戰 challenge.html、
+        // 身邊的祝福 blessing.html)。那些是獨立頁面,不吃 ?p= 路由,直接開。
+        //
+        // ⚠️ 少了這一段的下場:cell.target 是 undefined,整格會變成
+        //    liff.line.me/<主 App>?p=undefined —— 三個格子全部掉回主 App 首頁,
+        //    而且是 Full 尺寸。這支跟 scripts/line/setup-richmenu.mjs 是同一套
+        //    邏輯的兩份實作,改一邊沒改另一邊就會這樣。兩份要一起改。
+        action = { type: "uri", label: cell.label, uri: `https://liff.line.me/${cell.liffId}` };
+      } else if (config.liffId) {
+        if (!cell.target) throw new Error(`格子「${cell.label}」是 uri,但既沒有 liffId 也沒有 target`);
         action = { type: "uri", label: cell.label,
                    uri: `https://liff.line.me/${config.liffId}?p=${cell.target}` };
       } else {
         if (!APP_BASE_URL) throw new Error("這份設定有 uri 格子,但沒有設 HEALTHBOT_APP_URL 或 liffId");
+        if (!cell.target) throw new Error(`格子「${cell.label}」是 uri,但沒有 target`);
         action = { type: "uri", label: cell.label, uri: `${APP_BASE_URL}/index.html#${cell.target}` };
       }
     } else if (cell.type === "message") {

@@ -7,8 +7,13 @@ const ADMIN_LINE_ID = Deno.env.get("HEALTHBOT_ADMIN_LINE_USER_ID") ?? "";
 const LIFF_ID = Deno.env.get("HEALTHBOT_LIFF_ID") ?? "2011132698-FNcAIg39";
 // 每日挑戰的半頁式 LIFF(challenge.html)。卡片上的按鈕直接開它,
 // 不再走 postback 出題 —— 題目與內容都在網頁裡。
+// 預設值寫死成 challenge.html 那支。退回主 App 的話,推播卡片上的
+// 「開始今日挑戰」會開成 Full 尺寸的 App 首頁 —— 跟 handlers.ts 同一個坑。
 const CHALLENGE_LIFF_URL = Deno.env.get("HEALTHBOT_CHALLENGE_LIFF_URL")
-  ?? `https://liff.line.me/${LIFF_ID}`;
+  ?? "https://liff.line.me/2011132698-J7q2DbwV";
+// 面舌診的獨立 LIFF(scan.html)。同上,不要退回主 App 的 ?p=page-challenge。
+const SCAN_LIFF_URL = Deno.env.get("HEALTHBOT_SCAN_LIFF_URL")
+  ?? "https://liff.line.me/2011132698-JSOBcdBA";
 const TONES = ["zhou", "kang", "xs"] as const;
 type Tone = typeof TONES[number];
 
@@ -129,7 +134,7 @@ function welcomeTestMessages() {
       note: "這是現有會員的開場影片測試訊息。",
       buttons: [
         { label: "開啟 App 並自動綁定", action: uriAction("開啟 App", liffUrl("page-main")), primary: true },
-        { label: "先去做面舌診", action: uriAction("去做面舌診", liffUrl("page-challenge")) },
+        { label: "先去做面舌診", action: uriAction("去做面舌診", SCAN_LIFF_URL) },
       ],
       altText: "歡迎加入健康顧問",
     }),
