@@ -1,7 +1,7 @@
 // 12 格選單與文字指令的行為
 
 import {
-  appUrl, assetUrl, carousel, confirmCard, infoCard, LineMessage,
+  APP_BASE_URL, appUrl, assetUrl, carousel, confirmCard, infoCard, LineMessage,
   postbackAction, textMsg, toBubble, uriAction,
 } from "../_shared/line.ts";
 import { rpc, select, selectOne } from "../_shared/db.ts";
@@ -21,11 +21,15 @@ const ANGEL_URL      = Deno.env.get("HEALTHBOT_ANGEL_URL") ?? CONSULTANT_URL;
 const GAME_LIFF_URL  = Deno.env.get("HEALTHBOT_GAME_LIFF_URL")
   ?? "https://liff.line.me/2011132698-6J9iB9YG";
 // 每日挑戰與身邊的祝福各自一支 Tall LIFF(challenge.html / blessing.html)。
-// 沒設就退回主 App —— 使用者至少進得去,不會點到一個死連結。
+//
+// 預設值寫死成真正的那兩支,跟 GAME_LIFF_URL 一樣 —— 原本退回主 App,
+// 結果是 secret 沒設的時候「今日挑戰」「身邊的祝福」全部開成 Full 尺寸的
+// App 首頁,而且不會報錯,看起來只像是連結接錯。這種預設值比死連結更難查。
+// LIFF ID 不是機密,它本來就印在按鈕上給使用者看。
 const CHALLENGE_LIFF_URL = Deno.env.get("HEALTHBOT_CHALLENGE_LIFF_URL")
-  ?? `https://liff.line.me/${LIFF_ID}`;
+  ?? "https://liff.line.me/2011132698-J7q2DbwV";
 const BLESSING_LIFF_URL  = Deno.env.get("HEALTHBOT_BLESSING_LIFF_URL")
-  ?? `https://liff.line.me/${LIFF_ID}`;
+  ?? "https://liff.line.me/2011132698-qg4VNDZs";
 // 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
 // 真正收多少、給幾次是以資料庫 sb_products 為準,RPC 會再核對一次。
 const PLAN_PRICE     = 1680;
@@ -110,7 +114,9 @@ function liffUrl(page: string): string {
 function referralUrl(code: string): string {
   return LIFF_ID
     ? `https://liff.line.me/${LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`
-    : `${appUrl("page-main")}&ref=${encodeURIComponent(code)}`;
+    // appUrl() 回傳的是 index.html#page-main,後面再接 &ref= 會整段留在 hash 裡,
+    // 前端讀的是 location.search,永遠拿不到。這條路徑要自己組 query string。
+    : `${APP_BASE_URL}/index.html?p=page-main&ref=${encodeURIComponent(code)}`;
 }
 
 /**
