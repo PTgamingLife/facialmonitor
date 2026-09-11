@@ -124,10 +124,12 @@ async function renderPointTasks(summary) {
 
   const tasks = [
     {
-      key: 'health_challenge', icon: '🗓️', title: '申請 14 天健康挑戰',
-      points: 0,
-      desc: '依最近健康檢測一次排定，每天由 LINE 提醒',
-      done: false, once: false, page: 'page-reward',
+      // 每日挑戰在 LINE 裡完成(每天早上一張卡 → 半頁式網頁),
+      // 網頁這邊只列出來讓人知道有這回事,不重做一份。
+      key: 'daily_challenge', icon: '🌿', title: '每天完成一次健康挑戰',
+      points: pts('daily_checkin', 3), unit: '／天',
+      desc: '每天早上 LINE 會發一題，一週做滿 5 天就算完成',
+      done: false, once: false,
     },
     {
       key: 'invite_confirmed', icon: '🤝', title: '推薦朋友完成第一次檢測',
@@ -165,152 +167,10 @@ async function renderPointTasks(summary) {
     </div>`).join('');
 }
 
-/* ── 14 天任務 ──
-   ⚠️ 首頁下方已改成「賺積分任務」,這一段目前沒有入口。
-   程式碼保留是因為 LINE bot 的「今日任務」卡片還在發同一份 TASK_PLAN,
-   之後若要把打卡放回網頁(獨立分頁或折疊區塊),接上 renderChallenge() 就能用。 */
-async function renderChallenge() {
-  const container = document.getElementById('task-list');
-  if (!container || !currentUser) return;
+/* 14 天挑戰已於 v2 移除。每日挑戰改成 LINE 每天早上發一張卡、
+   在半頁式 LIFF(challenge.html)裡完成,網頁這邊不再有任務清單。
+   首頁下方的 #task-list 現在只給 renderPointTasks()「賺積分任務」用。 */
 
-  let completedDays = new Set();
-  let todayDay = 1;
-
-  if (window._demoMode) {
-    // Demo 模式：用全域 Set 追蹤已完成任務
-    window._demoCompletedDays = window._demoCompletedDays ?? new Set();
-    completedDays = window._demoCompletedDays;
-    todayDay = 1; // demo 固定顯示第一天可執行
-  } else {
-    try {
-      await Promise.race([
-        (async () => {
-          const { data: completedRows } = await supabase
-            .from('sb_challenge_progress').select('task_index').eq('user_id', currentUser.id);
-          completedDays = new Set((completedRows ?? []).map(r => r.task_index + 1));
-
-          const { data: firstScan } = await supabase
-            .from('sb_analysis_records').select('created_at').eq('user_id', currentUser.id)
-            .order('created_at', { ascending: true }).limit(1).single();
-          if (firstScan) {
-            const diff = Math.floor((Date.now() - new Date(firstScan.created_at)) / 86400000);
-            todayDay = Math.min(diff + 1, 14);
-          }
-        })(),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('db_timeout')), 2000))
-      ]);
-    } catch { }
-  }
-
-  const catIcon = { '食補':'🌿','飲食':'🥗','運動':'🏃','睡眠':'🌙','呼吸':'🌬️','穴位':'👐','心理':'🧘','水分':'💧','總結':'🏅' };
-
-  container.innerHTML = TASK_PLAN.map(task => {
-    const done   = completedDays.has(task.day);
-    const today  = task.day === todayDay;
-    const locked = task.day > todayDay;
-    let cls = 'task-row';
-    if (done)   cls += ' task-done';
-    if (today)  cls += ' task-today';
-    if (locked) cls += ' task-locked';
-
-    const icon = done ? '✓' : locked ? '🔒' : (today ? '▶' : '○');
-    return `
-    <div class="${cls}" onclick="openTaskModal(${task.day})">
-      <span class="task-day-icon">${icon}</span>
-      <div class="task-body">
-        <div class="task-title">Day ${task.day}｜${task.title}</div>
-        <span class="task-cat-chip">${catIcon[task.category] ?? ''}${task.category}</span>
-        ${today && !done ? '<div class="task-badge-today">今日任務</div>' : ''}
-      </div>
-      ${!done && !locked ? `<div class="task-xp">+${task.xp} XP</div>` : ''}
-    </div>`;
-  }).join('');
-
-  window._taskRenderState = { completedDays, todayDay, catIcon };
-}
-
-async function completeTask(day) {
-  if (!currentUser) return;
-  try {
-    if (window._demoMode) {
-      // Demo：已完成就擋住
-      window._demoCompletedDays = window._demoCompletedDays ?? new Set();
-      if (window._demoCompletedDays.has(day)) {
-        showToast('✅ 此任務已完成');
-        return;
-      }
-      window._demoCompletedDays.add(day);
-    } else {
-      // 真實模式：先確認是否已完成，避免重複加幣
-      const { data: existing } = await dbQuery(
-        supabase.from('sb_challenge_progress').select('task_index').eq('user_id', currentUser.id).eq('task_index', day - 1).single()
-      );
-      if (existing) { showToast('✅ 此任務已完成'); return; }
-
-      const { error } = await dbQuery(
-        supabase.from('sb_challenge_progress').insert({ user_id: currentUser.id, task_index: day - 1, done: true })
-      );
-      if (error) throw error;
-    }
-
-    const task = TASK_PLAN.find(t => t.day === day);
-    const newCoins = Math.min((currentUser.coins ?? 0) + 1, 100);
-
-    if (!window._demoMode) {
-      await dbQuery(supabase.from('sb_users').update({ coins: newCoins }).eq('id', currentUser.id));
-    }
-
-    currentUser.coins = newCoins;
-    sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-
-    showToast(`✅ 任務完成！+${task?.xp ?? 10} XP，+1 健康幣`);
-    renderChallenge();
-    await checkAchievements();
-  } catch { showToast('紀錄失敗，請再試一次'); }
-}
-
-/* ── 任務詳情 Modal ── */
-function openTaskModal(day) {
-  const task = TASK_PLAN.find(t => t.day === day);
-  if (!task) return;
-
-  const state = window._taskRenderState ?? {};
-  const completedDays = state.completedDays ?? new Set();
-  const todayDay      = state.todayDay ?? 1;
-  const catIcon       = state.catIcon  ?? {};
-
-  const done   = completedDays.has(day);
-  const locked = day > todayDay;
-
-  document.getElementById('task-modal-cat').textContent   = (catIcon[task.category] ?? '') + task.category;
-  document.getElementById('task-modal-day').textContent   = `Day ${task.day}`;
-  document.getElementById('task-modal-title').textContent = task.title;
-  document.getElementById('task-modal-desc').textContent  = task.desc ?? '';
-
-  const actions = document.getElementById('task-modal-actions');
-  if (done) {
-    actions.innerHTML = `<div style="text-align:center;color:var(--ok-color);font-weight:700;font-size:15px;">✅ 已完成</div>`;
-  } else if (locked) {
-    actions.innerHTML = `<div style="text-align:center;color:var(--text-hint);font-size:14px;">🔒 尚未解鎖</div>`;
-  } else {
-    actions.innerHTML = `
-      <button class="btn-gold" style="margin-bottom:10px" onclick="completeTaskFromModal(${day})">✅ 完成任務</button>
-      <button class="btn-ghost" onclick="closeTaskModal()">稍後再做</button>`;
-  }
-
-  document.getElementById('task-detail-modal').classList.add('show');
-}
-
-function closeTaskModal() {
-  document.getElementById('task-detail-modal').classList.remove('show');
-}
-
-async function completeTaskFromModal(day) {
-  closeTaskModal();
-  await completeTask(day);
-}
-
-/* ── 推薦碼 Modal ── */
 function openCodeModal() {
   document.getElementById('code-modal').classList.add('show');
   document.getElementById('code-input-field').value = '';

@@ -20,6 +20,7 @@
 
 import { push } from "../_shared/line.ts";
 import { boundCard } from "../_shared/welcome.ts";
+import { ensureAccount, syntheticEmail } from "../_shared/account.ts";
 
 const LIFF_CHANNEL_ID = Deno.env.get("HEALTHBOT_LIFF_CHANNEL_ID") ?? "";
 const APP_ORIGIN = (Deno.env.get("HEALTHBOT_APP_ORIGIN") ?? "").replace(/\/$/, "");
@@ -81,45 +82,6 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
-type SbUser = { id: string; auth_id: string | null; email: string | null; merged_into: string | null };
-
-async function findByLineId(sub: string): Promise<SbUser | null> {
-  const res = await rest(
-    `sb_users?line_user_id=eq.${encodeURIComponent(sub)}&select=id,auth_id,email,merged_into&limit=1`);
-  if (!res.ok) return null;
-  const rows = await res.json();
-  return rows?.[0] ?? null;
-}
-
-/** 建一個 Supabase auth 使用者。信箱是合成的 —— LINE 不一定給得到真信箱。 */
-async function createAuthUser(email: string, name: string, sub: string): Promise<string | null> {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/users`, {
-    method: "POST",
-    headers: adminHeaders(),
-    body: JSON.stringify({
-      email,
-      email_confirm: true,
-      user_metadata: { full_name: name, line_user_id: sub, provider: "line" },
-    }),
-  });
-  if (res.ok) return (await res.json())?.id ?? null;
-
-  // 422 = 這個信箱已經有帳號(重試或先前建到一半),撈回來用
-  const body = await res.text();
-  if (res.status === 422) {
-    const look = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}`,
-      { headers: adminHeaders() });
-    if (look.ok) {
-      const users = (await look.json())?.users ?? [];
-      const hit = users.find((u: { email?: string }) => u.email === email);
-      if (hit?.id) return hit.id;
-    }
-  }
-  console.error("createAuthUser failed:", res.status, body);
-  return null;
-}
-
 /** 發 session:用 admin generate_link 拿一次性 token,前端再用它換 session */
 async function issueSession(email: string): Promise<string | null> {
   const res = await fetch(`${SUPABASE_URL}/auth/v1/admin/generate_link`, {
@@ -159,45 +121,17 @@ Deno.serve(async (req) => {
 
   const sub = profile.sub;
   const name = (profile.name ?? "").trim() || "LINE 會員";
-  const email = `line.${sub.toLowerCase()}@line.local`;
+  const email = syntheticEmail(sub);
 
-  let user = await findByLineId(sub);
-  const isNew = !user;
-
-  if (!user) {
-    const authId = await createAuthUser(email, name, sub);
-    if (!authId) return json({ ok: false, message: "建立帳號失敗,請稍後再試。" }, 500, origin);
-
-    const res = await rest("sb_users", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      // phone 不能填空字串:sb_users.phone 是 UNIQUE,空字串只有第一個人塞得進去,
-      // 第二個用 LINE 註冊的客戶就會撞鍵拿到「建立帳號失敗」。
-      // 用合成信箱當佔位值(與既有 Google 註冊路徑同一個做法),每個人都不一樣。
-      body: JSON.stringify({
-        auth_id: authId, name, phone: email, email,
-        line_user_id: sub, credits: 0, total_used: 0,
-      }),
-    });
-    if (!res.ok) {
-      console.error("create sb_users failed:", res.status, await res.text());
-      return json({ ok: false, message: "建立帳號失敗,請稍後再試。" }, 500, origin);
-    }
-    user = (await res.json())?.[0] ?? null;
-    if (!user) return json({ ok: false, message: "建立帳號失敗,請稍後再試。" }, 500, origin);
-  }
+  // 帳號可能已經在 follow 事件當下建好了(見 _shared/account.ts)。
+  // 兩邊共用同一支,所以這裡拿到的一定是「有 auth 使用者」的那種帳號。
+  const user = await ensureAccount(sub, name);
+  if (!user) return json({ ok: false, message: "建立帳號失敗,請稍後再試。" }, 500, origin);
 
   // 這個帳號被合併掉的話不該再登入(理論上不會發生,LINE 帳號永遠是合併的目標)
   if (user.merged_into) {
     return json({ ok: false, message: "這個帳號已經被合併,請聯繫客服。" }, 409, origin);
   }
-
-  // 讓 bot 立刻認得他 —— 少了這步,選單點下去還是會說「請先綁定會員」
-  await rest(`line_users?line_user_id=eq.${encodeURIComponent(sub)}`, {
-    method: "PATCH",
-    headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({ sb_user_id: user.id, bind_status: "bound" }),
-  });
 
   // 綁定完成後在 OA 送一則歡迎訊息。使用者關掉這個網頁回到聊天室時,
   // 訊息已經在那裡等他 —— 不然他回去只會看到一片空白,不知道下一步該做什麼。
@@ -205,6 +139,10 @@ Deno.serve(async (req) => {
   // welcomed_at 當冪等鎖:重新整理、重新登入、多開分頁都只會送一次。
   // 先寫旗標再送(而不是送完才寫):寧可漏送也不要連送兩則洗版,
   // 而且 LINE push 是計費的。
+  // 「第一次開網頁」不能再用「sb_users 剛剛才建」來判斷 —— 帳號現在是
+  // follow 當下就建好的,那個值對所有人都會是 false。改用 welcomed_at:
+  // 搶到那一格的人就是第一次開網頁的人,跟送歡迎訊息是同一個判斷。
+  let firstWeb = false;
   const lineRows = await (await rest(
     `line_users?line_user_id=eq.${encodeURIComponent(sub)}&select=welcomed_at&limit=1`,
   )).json().catch(() => []);
@@ -220,6 +158,7 @@ Deno.serve(async (req) => {
     const rows = await claimed.json().catch(() => []);
     // 搶到那一列的人才送 —— 同時兩個請求進來,只有一個 PATCH 得到 welcomed_at is null。
     if (Array.isArray(rows) && rows.length > 0) {
+      firstWeb = true;
       try {
         await push(sub, boundCard(name));
       } catch (err) {
@@ -233,5 +172,5 @@ Deno.serve(async (req) => {
 
   // is_new 給前端判斷要不要顯示「回到 LINE」那一步 —— 老會員每次登入
   // 都被擋一頁只會煩人。
-  return json({ ok: true, token_hash: tokenHash, user_id: user.id, name, is_new: isNew }, 200, origin);
+  return json({ ok: true, token_hash: tokenHash, user_id: user.id, name, is_new: firstWeb }, 200, origin);
 });

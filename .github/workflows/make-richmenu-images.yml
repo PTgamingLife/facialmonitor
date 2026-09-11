@@ -1,0 +1,49 @@
+name: 🎨 產生圖文選單底圖
+
+# 手動觸發。產完直接 commit 回 main。
+#
+# 為什麼放 CI 而不是叫人在本機跑:
+# 這支要 Pillow 加上一份繁體粗體字型(Noto Sans CJK Bold)。字型不對的話
+# 圖還是會產出來,只是筆畫變細、在手機上糊成一團 —— 而且不會報錯,
+# 你要把圖傳上 LINE 才會發現。CI 每次都是同一套環境,不會有這個問題。
+#
+# 產完不會自動重建選單。底圖進 repo 之後,再手動跑「🍱 重建圖文選單」。
+# 兩件事分開:改圖是安全的,重建選單會讓客戶手機上的選單閃一下。
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 🈶 安裝繁體粗體字型
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          # 腳本第一順位就是找這個檔;找不到會退到文泉驛(只有 Regular)。
+          test -f /usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc \
+            || { echo "::error::Noto Sans CJK Bold 沒裝成功,產出來的字會太細"; exit 1; }
+
+      - name: 🐍 安裝 Pillow
+        run: pip install --quiet Pillow
+
+      - name: 🎨 產圖
+        run: python3 scripts/line/make-richmenu-images.py
+
+      - name: 📦 回推
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add img/richmenu-health.png img/richmenu-reward.png
+          if git diff --cached --quiet; then
+            echo "底圖沒有變化,不用 commit"
+            exit 0
+          fi
+          git commit -m "chore(richmenu): 重新產生圖文選單底圖"
+          git push

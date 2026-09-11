@@ -3,7 +3,8 @@
 async function loadAdminUsers() {
   const list = document.getElementById('admin-user-list');
   if (!list) return;
-  loadAdminTips('draft');
+  loadAdminTips('scheduled');
+  loadAdminBlessings('visible');
   loadPrizeClaims('pending');
 
   // 用戶列表
@@ -61,40 +62,144 @@ async function loadAdminUsers() {
   </div>`).join('');
 }
 
-async function loadAdminTips(status = 'draft') {
+/**
+ * 每日挑戰行事曆。
+ *
+ * v2 沒有待審佇列:通過自動檢查的內容直接排程,管理者靠 LINE 提醒進來,
+ * 進來也只做兩件事 —— 看被擋下的那幾天、或把某一天撤下。
+ *
+ * scheduled = 未來 14 天已排定的;blocked = 被自動檢查擋下、目前沒有內容的。
+ */
+async function loadAdminTips(view = 'scheduled') {
   const list = document.getElementById('admin-tip-list');
   if (!list) return;
   list.innerHTML = '<div class="empty-state">載入中…</div>';
+
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
-  const { data: tips, error } = await supabase
+  let q = supabase
     .from('sb_daily_tips')
-    .select('id,tip_date,title,summary,body,detail_points,source_urls,risk_flags,status,content_version,approved_at,review_note')
-    .eq('status', status)
-    .gte('tip_date', status === 'draft' ? today : '2000-01-01')
+    .select('id,tip_date,kind,title,summary,body,intros,game_titles,action_today,'
+          + 'source_name,source_urls,risk_flags,status,active,content_version,quiz_question,'
+          + 'quiz_options,quiz_answer,quiz_explain')
+    .gte('tip_date', today)
     .order('tip_date', { ascending: true })
-    .limit(60);
+    .limit(30);
+  q = view === 'blocked'
+    ? q.eq('status', 'draft')
+    : q.eq('status', 'approved').eq('active', true);
+
+  const { data: tips, error } = await q;
   if (error) { list.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(error.message)}</div>`; return; }
-  if (!tips?.length) { list.innerHTML = '<div class="empty-state">目前沒有這個狀態的內容</div>'; return; }
+
+  renderTipStock(view === 'scheduled' ? (tips?.length ?? 0) : null);
+
+  if (!tips?.length) {
+    list.innerHTML = view === 'blocked'
+      ? '<div class="empty-state">沒有被擋下的內容。</div>'
+      : '<div class="empty-state">未來 14 天沒有排定的內容。存量歸零時會改用長青備用題。</div>';
+    return;
+  }
+
+  const TONE = { zhou: '周小輪', kang: '康小泳', xs: '小XS' };
 
   list.innerHTML = tips.map(t => {
-    const points = Array.isArray(t.detail_points) ? t.detail_points : [];
-    const flags = Array.isArray(t.risk_flags) ? t.risk_flags : [];
+    const flags   = Array.isArray(t.risk_flags) ? t.risk_flags : [];
     const sources = Array.isArray(t.source_urls) ? t.source_urls : [];
+    const intros  = t.intros ?? {};
+    const titles  = t.game_titles ?? {};
+    const options = Array.isArray(t.quiz_options) ? t.quiz_options : [];
+    const isBless = t.kind === 'blessing';
+
     return `<article class="admin-tip-card">
-      <div class="admin-tip-head"><strong>${escapeHtml(t.tip_date)}｜${escapeHtml(t.title)}</strong><span>v${t.content_version}</span></div>
-      ${flags.length ? `<div class="admin-tip-warning">⚠️ 風險詞：${escapeHtml(flags.join('、'))}</div>` : ''}
-      <div class="admin-tip-summary">${escapeHtml(t.summary ?? '')}</div>
-      <details><summary>查看完整內容</summary>
-        <div class="admin-tip-body">${escapeHtml(t.body)}</div>
-        <ol>${points.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ol>
-        <div class="admin-tip-sources">來源：${sources.map(u => `<a href="${safeHttpUrl(u)}" target="_blank" rel="noopener">${escapeHtml(new URL(safeHttpUrl(u)).hostname)}</a>`).join('、')}</div>
+      <div class="admin-tip-head">
+        <strong>${escapeHtml(t.tip_date)}｜${isBless ? '💚 祝福關卡' : '🌿 知識題'}</strong>
+        <span>v${t.content_version}</span>
+      </div>
+      ${flags.length
+        ? `<div class="admin-tip-warning">⚠️ 被擋下：${escapeHtml(flags.join('、'))}<br>這一天目前沒有內容。</div>`
+        : ''}
+      <div class="admin-tip-summary"><strong>${escapeHtml(t.title ?? '')}</strong></div>
+      <details><summary>開場白與完整內容</summary>
+        <ul class="admin-tip-intros">
+          ${Object.keys(TONE).map(k => `<li><b>${TONE[k]}</b>：${escapeHtml(intros[k] ?? '（缺）')}
+            <span class="admin-tip-gametitle">${escapeHtml(titles[k] ?? '')}</span></li>`).join('')}
+        </ul>
+        <div class="admin-tip-body">${escapeHtml(t.body ?? '')}</div>
+        ${isBless ? '' : `<div class="admin-tip-body">
+          <b>${escapeHtml(t.quiz_question ?? '')}</b>
+          <ol>${options.map((o, i) =>
+            `<li${i === t.quiz_answer ? ' class="admin-tip-answer"' : ''}>${escapeHtml(o)}</li>`).join('')}</ol>
+          ${escapeHtml(t.quiz_explain ?? '')}
+        </div>`}
+        ${t.action_today ? `<div class="admin-tip-body">今天可以做的一件事：${escapeHtml(t.action_today)}</div>` : ''}
+        <div class="admin-tip-sources">來源：${escapeHtml(t.source_name ?? '')}
+          ${sources.map(u => `<a href="${safeHttpUrl(u)}" target="_blank" rel="noopener">連結</a>`).join('、')}</div>
       </details>
-      ${status === 'draft' ? `<div class="admin-tip-actions">
-        <button class="btn-update-code" onclick="reviewTip('${t.id}','approve',${flags.length > 0})">通過</button>
-        <button class="btn-outline" onclick="reviewTip('${t.id}','reject')">退回</button>
-      </div>` : `<div class="admin-tip-review-note">${escapeHtml(t.review_note ?? '')}</div>`}
+      ${t.status === 'approved' ? `<div class="admin-tip-actions">
+        <button class="btn-outline" onclick="withdrawTip('${t.id}')">撤下這一天</button>
+      </div>` : ''}
     </article>`;
   }).join('');
+}
+
+/** 存量提示。≤ 4 天就是 LINE 會開始每天提醒的那條線。 */
+function renderTipStock(days) {
+  const box = document.getElementById('admin-tip-stock');
+  if (!box) return;
+  if (days === null || days > 4) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = days === 0
+    ? '⚠️ 未來 14 天完全沒有內容。今天起會改用長青備用題。'
+    : `⚠️ 只剩 ${days} 天有內容。存量 4 天以內每天都會推 LINE 提醒。`;
+}
+
+/** 撤下某一天。用 active = false,不刪除 —— 留著才看得出這天為什麼沒內容。 */
+async function withdrawTip(tipId) {
+  if (!confirm('把這一天撤下來？撤下之後那天就沒有內容，會改用長青備用題。')) return;
+  const { data, error } = await supabase.rpc('rpc_admin_withdraw_tip', { p_id: tipId });
+  if (error || !data?.ok) { showToast(data?.message ?? '撤下失敗'); return; }
+  showToast('已撤下');
+  await loadAdminTips('scheduled');
+}
+
+/**
+ * 祝福管理。
+ *
+ * 自動檢查擋得住療效宣稱、網址與聯絡方式,擋不住的還是要有人看 ——
+ * 這是使用者寫的內容,v2 唯一保留人工的地方。
+ */
+async function loadAdminBlessings(status = 'visible') {
+  const list = document.getElementById('admin-blessing-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state">載入中…</div>';
+
+  const { data, error } = await supabase.rpc('rpc_admin_list_blessings', {
+    p_status: status, p_limit: 50,
+  });
+  if (error) { list.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(error.message)}</div>`; return; }
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length) { list.innerHTML = '<div class="empty-state">這個狀態目前沒有祝福。</div>'; return; }
+
+  list.innerHTML = rows.map(b => `<article class="admin-tip-card">
+    <div class="admin-tip-head">
+      <strong>${escapeHtml(b.author_name)}</strong>
+      <span>${escapeHtml(b.blessed_date)}${b.is_public ? '' : '｜未公開'}</span>
+    </div>
+    <div class="admin-tip-summary">${escapeHtml(b.text)}</div>
+    ${status === 'visible' ? `<div class="admin-tip-actions">
+      <button class="btn-outline" onclick="blockBlessing('${b.id}')">下架</button>
+    </div>` : ''}
+  </article>`).join('');
+}
+
+async function blockBlessing(id) {
+  const reason = prompt('下架原因（會留在紀錄裡，可留空）') ?? '';
+  const { data, error } = await supabase.rpc('rpc_admin_block_blessing', {
+    p_id: id, p_reason: reason || null,
+  });
+  if (error || !data?.ok) { showToast(data?.message ?? '下架失敗'); return; }
+  showToast('已下架');
+  await loadAdminBlessings('visible');
 }
 
 function safeHttpUrl(value) {
@@ -102,18 +207,6 @@ function safeHttpUrl(value) {
     const u = new URL(String(value));
     return ['https:', 'http:'].includes(u.protocol) ? u.href : 'about:blank';
   } catch (_) { return 'about:blank'; }
-}
-
-async function reviewTip(tipId, decision, hasRiskFlags = false) {
-  if (decision === 'approve' && hasRiskFlags && !confirm('這篇含有風險字詞。確認已人工核對內容與來源，仍要通過嗎？')) return;
-  const note = decision === 'reject' ? (prompt('退回原因（會留在審核紀錄）') ?? '') : '';
-  if (decision === 'reject' && !note.trim()) return;
-  const { data, error } = await supabase.rpc('rpc_admin_review_tip', {
-    p_tip_id: tipId, p_decision: decision, p_note: note || null
-  });
-  if (error || !data?.ok) { showToast('審核失敗'); return; }
-  showToast(decision === 'approve' ? '✅ 已通過' : '已退回');
-  await loadAdminTips('draft');
 }
 
 async function saveCredits(userId) {
