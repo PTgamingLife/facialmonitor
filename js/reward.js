@@ -286,20 +286,4 @@ async function maybeOfferFreeSpin() {
   }
 }
 
-function shareRefCode(code) {
-  const referralUrl = `https://liff.line.me/${window.LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`;
-  // 與 LINE bot 的 inviteText() 保持一致。同一則訊息從兩個地方送出去，
-  // 各寫各的就會變成兩套說法（先前 看·健 / 大數據健康檢測 就漂移過）。
-  const text = `如果我可以更快知道自己的身體狀況⋯⋯\n\n`
-    + `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n`
-    + `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n`
-    + `${referralUrl}\n\n推薦碼：${code}（備用）`;
-
-  if (navigator.share) {
-    navigator.share({ text }).catch(() => {});
-    return;
-  }
-  navigator.clipboard?.writeText(text)
-    .then(() => showToast('✅ 分享訊息已複製'))
-    .catch(() => showToast('複製失敗，請手動選取'));
-}
+/* shareRefCode() 搬到 js/share.js —— 邀請訊息只留一份。 */

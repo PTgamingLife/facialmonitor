@@ -461,44 +461,6 @@ async function handleSessionUser(session) {
   }
 }
 
-/* ══════════════════════════════════════════════════════════
-   分享推薦:叫出 LINE 的好友選擇器，一次把官方帳號與推薦碼送出去
-   ══════════════════════════════════════════════════════════ */
-async function startShareFlow() {
-  if (!await initLiff()) { showToast('請在 LINE 裡開啟才能分享'); return; }
-
-  const code = currentUser?.member_code;
-  if (!code) { showToast('會員碼還沒載入，請稍後再試'); return; }
-
-  // shareTargetPicker 只有在 LINE 內建瀏覽器裡才有；在外面開就退回複製文字
-  const referralUrl = `https://liff.line.me/${window.LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`;
-  // 這段文字與 handlers.ts 的 inviteText()、reward.js 的 shareRefCode() 必須一致。
-  // 同一則訊息從三個地方送得出去,各寫各的就會漂移 —— 這份先前就掉了開頭那句
-  // 鉤子(先讓對方想到自己,再講產品),另外兩份都有。
-  const text =
-    `如果我可以更快知道自己的身體狀況⋯⋯\n\n` +
-    `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n` +
-    `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n` +
-    `${referralUrl}\n\n` +
-    `推薦碼：${code}（備用）`;
-
-  if (typeof liff === 'undefined' || !liff.isApiAvailable?.('shareTargetPicker')) {
-    copyText(text);
-    showToast('已複製分享文字，貼給朋友就可以了');
-    return;
-  }
-
-  try {
-    const res = await liff.shareTargetPicker([{ type: 'text', text }]);
-    // res 為 null = 使用者按了取消，不要當成失敗吼他
-    showToast(res ? '✅ 已送出，朋友收到就能用你的推薦碼' : '已取消分享');
-  } catch (e) {
-    console.error('shareTargetPicker failed', e);
-    copyText(text);
-    showToast('分享視窗開不起來，已改成複製文字');
-  }
-}
-
 /* ── 登出 ── */
 async function logout() {
   await supabase.auth.signOut();
