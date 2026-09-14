@@ -73,8 +73,9 @@
         },
         {
           "label": "分享推薦",
-          "type": "postback",
-          "action": "share_invite"
+          "type": "uri",
+          "target": "share",
+          "_note": "?p=share 不是頁面,是動作:開 App 之後直接叫出好友選擇器,送出一張邀請卡片。原本是 postback 先回一張卡、再點按鈕才選好友,而且那條路只送得出純文字。share_invite 這個 postback 沒有拿掉 —— 文字指令與其他卡片還在用。"
         }
       ]
     }

@@ -119,22 +119,12 @@ function referralUrl(code: string): string {
     : `${APP_BASE_URL}/index.html?p=page-main&ref=${encodeURIComponent(code)}`;
 }
 
-/**
- * LINE 內建的分享 URL scheme:按下去直接跳「選擇傳送對象」,選好友就送出。
- *
- * 不走 LIFF 的 shareTargetPicker —— 那個要先在 Developers 後台開權限,
- * 而且得先載一個網頁才彈得出選單,中間會閃一下白畫面。這條 scheme 是
- * LINE App 原生的,不必開權限、不必經過我們的網頁,按下去就是好友清單。
- */
-function shareUrl(text: string): string {
-  return `https://line.me/R/share?text=${encodeURIComponent(text)}`;
-}
-
 /** 分享出去的文字：專屬 LIFF 網址會在登入後自動綁定推薦人。 */
 function inviteText(code: string): string {
   // 開頭那句是鉤子:先讓對方想到自己,再講產品。
-  // 這段文字與網頁版 shareRefCode() 必須一致 —— 同一則訊息從兩個地方送出去,
-  // 各寫各的就會變成兩套說法(先前就漂移過)。
+  // 這段文字與網頁版 js/share.js 的 inviteText() 必須一致 —— 那邊跑在瀏覽器、
+  // 這邊跑在 Deno,共用不了,只能兩份。改一邊記得改另一邊(先前漂移過兩次)。
+  // 網頁的分享已經改送 Flex 卡片,這段文字在那邊是卡片的 altText。
   return `如果我可以更快知道自己的身體狀況⋯⋯\n\n`
     + `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
     + `點我的專屬網址加入,登入後會自動綁定推薦人,並獲得 1 次免費檢測:\n`
@@ -307,7 +297,10 @@ async function shareInvite(u: LineUser): Promise<LineMessage> {
     ],
     note: "朋友做完第一次檢測你就得積點;他當月進步 10 分,你再得一次。",
     buttons: [
-      { label: "選好友分享", action: uriAction("選好友分享", shareUrl(inviteText(code))), primary: true },
+      // 走 ?p=share 而不是 shareUrl():原生的分享 scheme 只帶得動純文字,
+      // 朋友收到的是一串網址加一張 LINE 自己生成的預覽卡,沒有按鈕。
+      // LIFF 的 shareTargetPicker 送得出 Flex,朋友看到的是我們排的卡片。
+      { label: "選好友分享", action: uriAction("選好友分享", liffUrl("share")), primary: true },
       { label: "看我推薦的人", action: postbackAction("看我推薦的人", "action=my_invitees") },
     ],
     altText: "分享給朋友",
@@ -868,12 +861,9 @@ export async function handlePostback(
       if (!u.sb_user_id) return NEED_BIND;
       const s = await rpc<{ member_code: string }>(
         "rpc_my_reward_summary", { p_user_id: u.sb_user_id });
-      return textMsg(
-        `我在用「看·健」測體質、做健康任務,滿有感的 🌿\n\n`
-        + `點我的專屬網址加入,登入後會自動綁定推薦人,並獲得 1 次免費檢測:\n`
-        + `${referralUrl(s?.member_code ?? "")}\n\n`
-        + `推薦碼：${s?.member_code ?? "—"}(備用)`,
-      );
+      // 這裡原本自己抄了一份文案,而且掉了開頭那句鉤子。改用 inviteText(),
+      // 這支函式裡的邀請文字就只剩一份。
+      return textMsg(inviteText(s?.member_code ?? "—"));
     }
 
     case "reward_shop":
