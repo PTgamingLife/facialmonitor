@@ -472,7 +472,11 @@ async function startShareFlow() {
 
   // shareTargetPicker 只有在 LINE 內建瀏覽器裡才有；在外面開就退回複製文字
   const referralUrl = `https://liff.line.me/${window.LIFF_ID}?p=page-main&ref=${encodeURIComponent(code)}`;
+  // 這段文字與 handlers.ts 的 inviteText()、reward.js 的 shareRefCode() 必須一致。
+  // 同一則訊息從三個地方送得出去,各寫各的就會漂移 —— 這份先前就掉了開頭那句
+  // 鉤子(先讓對方想到自己,再講產品),另外兩份都有。
   const text =
+    `如果我可以更快知道自己的身體狀況⋯⋯\n\n` +
     `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n` +
     `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n` +
     `${referralUrl}\n\n` +
