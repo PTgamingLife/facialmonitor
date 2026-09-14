@@ -40,8 +40,9 @@
         },
         {
           "label": "兌換 / 抽獎",
-          "type": "postback",
-          "action": "reward_shop"
+          "type": "uri",
+          "target": "page-reward",
+          "_note": "直接開主 App 的推薦與積點頁。網頁版比卡片完整:積點、兌換次數、獎品清單、抽獎入口都在同一頁,不必一張一張往右滑。reward_shop 這個 postback 沒有拿掉 —— 其他卡片上的「兌換 / 抽獎」按鈕還在用。"
         }
       ]
     },
@@ -66,8 +67,9 @@
         },
         {
           "label": "我推薦的人",
-          "type": "postback",
-          "action": "my_invitees"
+          "type": "uri",
+          "target": "page-reward",
+          "_note": "同一頁 —— 推薦名單本來就跟推薦碼、積點長在一起。卡片版只列前 10 個人,網頁版沒有這個限制。"
         },
         {
           "label": "分享推薦",
