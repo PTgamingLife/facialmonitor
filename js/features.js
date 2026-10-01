@@ -342,9 +342,10 @@ async function loadLeaderboard() {
 
   let data = null;
   try {
-    const res = await dbQuery(
-      supabase.from('sb_users').select('name, coins, total_used, streak').order('coins', { ascending: false }).limit(20)
-    );
+    // 走 RPC 而不是直接 select sb_users：排行榜只需要這四個欄位，
+    // 但 select 整張表等於為了排行榜把姓名、電話、email、積點一起開給所有登入者。
+    // RLS 收緊之後 sb_users 只讀得到自己那一列，這裡也只能走 RPC。
+    const res = await dbQuery(supabase.rpc('rpc_leaderboard', { p_limit: 20 }));
     data = res.data;
   } catch { }
 
