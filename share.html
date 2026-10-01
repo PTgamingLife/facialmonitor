@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>分享推薦｜看·健</title>
+
+<!--
+  分享推薦的半頁式入口 —— 給 Size = Tall 的獨立 LIFF app 用。
+
+  原本走主 App 的 ?p=share:整包 172 KB 的 index.html 蓋滿整個畫面,
+  只為了叫一次好友選擇器。按「分享」的人要的是好友清單,不是一個 App。
+
+  邀請卡片沒有在這裡重寫 —— 直接載 js/share.js,跟 scan.html 載
+  js/report.js 是同一個取捨。這則邀請已經漂移過兩次(一次兩套說法、
+  一次掉了開頭那句鉤子),再抄一份只是在等第三次。
+  這支只補 share.js 需要、但定義在主 App 其他檔案裡的幾個全域。
+
+  ⚠️ window.LIFF_ID 要填「主 App」的 ID,不是這一支。
+     它只有一個用途:組推薦網址。朋友點的應該是完整的 App,
+     不是這個只會跳好友清單的分享頁。
+
+  為什麼是按鈕而不是一進來就跳:shareTargetPicker 在部分版本需要
+  使用者手勢才叫得起來,自動呼叫會被擋掉而且不會報錯。
+  順便也讓人先看一眼自己要送出去什麼。
+-->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+  :root{
+    --deep:#0D5C63; --primary:#22C1C3; --pale:#E6F7F8;
+    --soft:#8FA3B8; --mid:#41565F; --bg:#FFFFFF; --line:#E7EDEE;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--deep);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    display:flex; flex-direction:column; align-items:center;
+    padding:20px 20px calc(18px + env(safe-area-inset-bottom));
+    text-align:center;
+  }
+  h1{font-size:19px;margin:0 0 4px;letter-spacing:1px}
+  .sub{font-size:12.5px;color:var(--mid);margin-bottom:16px;line-height:1.65}
+  .code-box{
+    width:100%; max-width:320px; border:1px solid var(--line); border-radius:12px;
+    background:var(--pale); padding:14px; margin-bottom:14px;
+  }
+  .code-label{font-size:11px;color:var(--mid);letter-spacing:1px}
+  .code{font-size:30px;font-weight:700;letter-spacing:5px;margin-top:2px}
+  .preview{
+    width:100%; max-width:320px; border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; margin-bottom:18px; text-align:left;
+  }
+  .preview-head{background:var(--deep);color:#fff;padding:14px 16px}
+  .preview-head b{display:block;font-size:14px;line-height:1.5}
+  .preview-head .mint{color:var(--primary)}
+  .preview-head .who{color:#B9DDDF;font-size:11px;margin-top:6px}
+  .preview-body{padding:12px 16px;font-size:11.5px;color:var(--mid);line-height:1.6}
+  .preview-btn{
+    margin:0 16px 14px; background:var(--deep); color:#fff; border-radius:6px;
+    text-align:center; font-size:12.5px; font-weight:700; padding:9px;
+  }
+  .btn{
+    width:100%; max-width:320px; border:0; border-radius:10px; padding:14px;
+    font-size:15px; font-weight:700; font-family:inherit; margin-bottom:9px;
+    cursor:pointer;
+  }
+  .btn-main{background:var(--deep);color:#fff}
+  .btn-main[disabled]{background:var(--soft);cursor:default}
+  .btn-ghost{background:transparent;color:var(--mid);font-weight:500;font-size:13px}
+  .note{font-size:11px;color:var(--soft);margin-top:6px;line-height:1.7;max-width:320px}
+  .msg{font-size:13px;margin-bottom:10px;min-height:18px}
+  .msg.err{color:#C0392B}
+  .msg.ok{color:var(--deep);font-weight:700}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+
+<h1>分享推薦</h1>
+<div class="sub">選好友送出，對方登入後<br>會自動把你綁定為小天使</div>
+
+<div class="code-box">
+  <div class="code-label">我的推薦碼</div>
+  <div class="code" id="code">—</div>
+</div>
+
+<div class="preview" id="preview" hidden>
+  <div class="preview-head">
+    <b>如果我可以更快知道<br><span class="mint">自己的身體狀況⋯⋯</span></b>
+    <div class="who" id="who"></div>
+  </div>
+  <div class="preview-body">朋友會收到這張卡片，按下面的按鈕就能直接進來。</div>
+  <div class="preview-btn">免費體驗看看</div>
+</div>
+
+<div class="msg" id="msg">準備中…</div>
+
+<button class="btn btn-main" id="share" disabled>選好友分享</button>
+<button class="btn btn-ghost" id="copy" hidden>改用複製文字</button>
+<button class="btn btn-ghost" onclick="closeShare()">關閉</button>
+
+<div class="note">朋友做完第一次面舌診，你就會拿到積點；<br>他當月分數進步 10 分，你再拿一次。</div>
+
+<!-- 邀請卡片與分享流程的唯一一份。要在下面的行內腳本之前載入。 -->
+<script src="js/share.js?v=1"></script>
+
+<script>
+// 這一支自己的 LIFF app（Tall）。留空的話下面會講清楚要去建，
+// 而不是丟一個 liff.init 的原始錯誤給使用者看。
+const SHARE_LIFF_ID = '';
+
+const SB_URL  = 'https://wcemkmwrlvijxxwybrgs.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndjZW1rbXdybHZpanh4d3licmdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxMzA1NDgsImV4cCI6MjA5MDcwNjU0OH0.Ji557wlvrS7YgflU9ANEm9To6AXLc47EFPaMHTgGARg';
+
+// 推薦網址要指向主 App —— 朋友點進去要的是完整的 App，不是這個分享頁。
+window.LIFF_ID = '2011132698-FNcAIg39';
+
+const sb = window.supabase.createClient(SB_URL, SB_ANON);
+const $  = (id) => document.getElementById(id);
+
+/* ── js/share.js 需要、但定義在主 App 其他檔案裡的全域 ── */
+var currentUser = null;
+function showToast(t, cls) { const m = $('msg'); m.textContent = t; m.className = 'msg ' + (cls || 'ok'); }
+function copyText(t) {
+  navigator.clipboard?.writeText(t)
+    .then(() => showToast('✅ 已複製，貼給朋友就可以了'))
+    .catch(() => showToast('複製失敗，請手動選取', 'err'));
+}
+// share.js 的 startShareFlow() 會先叫這個確認 LIFF 可用。
+// 這一頁的 boot() 已經 init 過了，所以只回報現況。
+async function initLiff() { return typeof liff !== 'undefined' && liff.isLoggedIn(); }
+
+function closeShare() {
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else history.length > 1 ? history.back() : window.close();
+}
+
+/**
+ * 拿不到 ID token 時自動重新授權一次。
+ * 每個 LIFF app 各帶一份 scope —— 主 App 勾了 openid 不代表這一支也有。
+ * 用網址參數擋住第二次，避免無限 login 迴圈。
+ */
+function reauth() {
+  const url = new URL(location.href);
+  if (url.searchParams.get('r') === '1') {
+    showToast('拿不到 LINE 身分 —— 這個 LIFF app 要勾選 openid 權限。', 'err');
+    return;
+  }
+  url.searchParams.set('r', '1');
+  try { liff.logout(); } catch (_) { /* 不在 LINE 裡就沒得登出 */ }
+  liff.login({ redirectUri: url.toString() });
+}
+
+async function boot() {
+  if (!SHARE_LIFF_ID) {
+    showToast('這一頁還沒接上 LIFF app（SHARE_LIFF_ID 是空的）。', 'err');
+    return;
+  }
+  try {
+    await liff.init({ liffId: SHARE_LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+    const idToken = liff.getIDToken();
+    if (!idToken) { reauth(); return; }
+
+    // 跟主 App 同一支 liff-auth —— 同一個 LINE Login channel，
+    // ID token 的 aud 不變，後端不用改。
+    const res = await fetch(SB_URL + '/functions/v1/liff-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '登入失敗');
+
+    const { error } = await sb.auth.verifyOtp({ token_hash: body.token_hash, type: 'magiclink' });
+    if (error) throw new Error('登入失敗：' + error.message);
+
+    // 推薦碼從 RPC 拿;名字要自己查 —— rpc_my_reward_summary 回傳裡的 name
+    // 是 invitees[] 與 angel 的名字,沒有「我自己」那一個。
+    const { data: summary } = await sb.rpc('rpc_my_reward_summary');
+    const code = summary?.member_code;
+    if (!code) throw new Error('還沒有推薦碼，請先在 App 完成綁定。');
+
+    const { data: auth } = await sb.auth.getUser();
+    const { data: me } = await sb.from('sb_users')
+      .select('name').eq('auth_id', auth?.user?.id ?? '').maybeSingle();
+    const name = me?.name ?? '';
+
+    // share.js 的 inviteFlex() 從這裡取推薦碼與名字
+    currentUser = { member_code: code, name };
+
+    $('code').textContent = code;
+    $('who').textContent  = (name || '朋友') + ' 推薦你一起試試';
+    $('preview').hidden = false;
+    $('share').disabled = false;
+    $('copy').hidden = false;
+    showToast('');
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || '初始化失敗，請關閉重開。', 'err');
+  }
+}
+
+$('share').addEventListener('click', async () => {
+  $('share').disabled = true;
+  await startShareFlow();       // js/share.js
+  $('share').disabled = false;
+});
+$('copy').addEventListener('click', () => {
+  if (currentUser?.member_code) copyText(inviteText(currentUser.member_code));
+});
+
+boot();
+</script>
+</body>
+</html>
