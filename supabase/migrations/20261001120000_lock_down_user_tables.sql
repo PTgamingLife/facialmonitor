@@ -38,8 +38,20 @@
 -- is_admin_caller() 原本沒授權給 authenticated,政策會 permission denied ——
 -- 前一支 migration (20261001110000) 已補上 grant,這支依賴它。
 
+
+-- ── 為什麼是 ALTER POLICY 而不是 DROP POLICY ────────────────
+-- 套用當下,透過 Supabase MCP 下 DROP POLICY 會固定卡住 60 秒逾時而不生效
+-- (apply_migration 與 execute_sql 兩條路都一樣;同時間 CREATE POLICY、
+--  ALTER POLICY、REVOKE、以及讀取查詢全部正常,資料庫也沒有任何等待中的交易,
+--  在 DO 區塊裡試拿鎖也是秒過 —— 所以卡的不是資料庫,是工具那一層)。
+--
+-- permissive 政策之間是 OR,把舊政策的條件改成 false 就等於它不存在,
+-- 效果與 DROP 相同。留著一條恆假的政策比留著一條恆真的政策安全得多,
+-- 而且正式庫現在就是這個狀態 —— 這份檔案要與正式庫一致,不是寫理想版本。
+-- 之後若從 psql 直接連,可以再把這三條 allow_all_* 真的 drop 掉。
+
 -- ── sb_users ────────────────────────────────────────────────
-drop policy if exists allow_all_sb_users on public.sb_users;
+-- 先建新政策再關掉舊的 —— 順序反過來會有一小段時間誰都讀不到自己的資料。
 
 create policy p_users_self_read on public.sb_users
   for select to authenticated
@@ -55,11 +67,17 @@ create policy p_users_self_insert on public.sb_users
   for insert to authenticated
   with check (auth_id = auth.uid() and coalesce(is_admin, false) = false);
 
+do $$ begin
+  if exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
+              where c.relname = 'sb_users' and p.polname = 'allow_all_sb_users') then
+    alter policy allow_all_sb_users on public.sb_users using (false) with check (false);
+  end if;
+end $$;
+
 revoke all on public.sb_users from anon;
 revoke delete, truncate, references, trigger on public.sb_users from authenticated;
 
 -- ── sb_analysis_records ─────────────────────────────────────
-drop policy if exists allow_all_sb_records on public.sb_analysis_records;
 
 create policy p_records_own on public.sb_analysis_records
   for select to authenticated
@@ -69,18 +87,31 @@ create policy p_records_admin_read on public.sb_analysis_records
   for select to authenticated
   using (public.is_admin_caller());
 
+do $$ begin
+  if exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
+              where c.relname = 'sb_analysis_records' and p.polname = 'allow_all_sb_records') then
+    alter policy allow_all_sb_records on public.sb_analysis_records using (false) with check (false);
+  end if;
+end $$;
+
 revoke all on public.sb_analysis_records from anon;
 revoke insert, update, delete, truncate, references, trigger
   on public.sb_analysis_records from authenticated;
 
 -- ── sb_health_codes ─────────────────────────────────────────
 -- 兌換碼。整張表可讀等於免費次數可以自己兌,只有後台需要碰它。
-drop policy if exists allow_all_sb_codes on public.sb_health_codes;
 
 create policy p_codes_admin on public.sb_health_codes
   for all to authenticated
   using (public.is_admin_caller())
   with check (public.is_admin_caller());
+
+do $$ begin
+  if exists (select 1 from pg_policy p join pg_class c on c.oid = p.polrelid
+              where c.relname = 'sb_health_codes' and p.polname = 'allow_all_sb_codes') then
+    alter policy allow_all_sb_codes on public.sb_health_codes using (false) with check (false);
+  end if;
+end $$;
 
 revoke all on public.sb_health_codes from anon;
 
