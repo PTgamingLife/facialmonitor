@@ -7,6 +7,8 @@ import {
 import { rpc, select, selectOne } from "../_shared/db.ts";
 import { LineUser } from "./member.ts";
 import { scanUrl } from "../_shared/welcome.ts";
+// 新聞轉稿的三段:產稿預覽 / 確認排程 / 取消。詳見 news.ts。
+import { apply as newsApply, draft as newsDraft, drop as newsDrop, isOwner } from "./news.ts";
 
 // 對外連結。這些「不是機密」—— 它們本來就會印在按鈕與分享訊息上給客戶看,
 // 所以直接寫預設值,不用為了改一個網址跑一趟後台設 secret。
@@ -864,6 +866,24 @@ export async function handlePostback(
       // 這裡原本自己抄了一份文案,而且掉了開頭那句鉤子。改用 inviteText(),
       // 這支函式裡的邀請文字就只剩一份。
       return textMsg(inviteText(s?.member_code ?? "—"));
+    }
+
+    // ── 新聞轉稿 ──────────────────────────────────────────
+    // 每一支都再確認一次身分:postback data 是從使用者端送回來的,
+    // 別人複製一份 action=news_apply 傳上來一樣會進到這裡。
+    case "news_make":
+    case "news_ask":
+    case "news_apply":
+    case "news_drop": {
+      if (!isOwner(u.line_user_id)) return null;
+      const id = params.get("id") ?? "";
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return textMsg("這個連結已經過期了,請重貼一次網址。");
+      if (action === "news_make")  return await newsDraft(id);
+      if (action === "news_apply") return await newsApply(id);
+      if (action === "news_drop")  return await newsDrop(id);
+      // news_ask:擁有者只是想聊這一篇,把它交回 AI 對話。
+      await newsDrop(id);
+      return textMsg("好,那你直接問我就行 —— 想知道這篇的哪個部分?");
     }
 
     case "reward_shop":

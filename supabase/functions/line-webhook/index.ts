@@ -12,6 +12,9 @@
 //   HEALTHBOT_LINE_SECRET / HEALTHBOT_LINE_TOKEN / HEALTHBOT_APP_URL
 //   HEALTHBOT_ANTHROPIC_KEY(可退回專案既有的 ANTHROPIC_API_KEY)
 
+// 新聞轉稿:擁有者貼網址 → 反問 → 產稿 → 預覽 → 確認才排程。
+// 抓回來的網頁是資料不是指令,詳見 news.ts 開頭的安全邊界說明。
+import { ask as newsAsk, firstUrl, isOwner } from "./news.ts";
 import {
   getProfile, LineMessage, reply, textMsg, verifySignature,
 } from "../_shared/line.ts";
@@ -37,6 +40,18 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
   if (/^(綁定|小天使)/.test(t)) {
     return await handlePostback(u, /^綁定/.test(t) ? "bind_start" : "share_invite",
                                 new URLSearchParams());
+  }
+
+  // 擁有者貼網址 → 問要不要做成推播新聞。
+  //
+  // 只攔擁有者:一般會員貼連結給 AI 看是正常用法,攔下來會很煩。
+  // 也只在「整則訊息幾乎就是一個網址」時才攔 —— 擁有者自己想問某一篇時,
+  // 會像平常一樣加上問句,那就照舊走 AI。
+  if (isOwner(u.line_user_id)) {
+    const url = firstUrl(t);
+    if (url && t.replace(url, "").trim().length <= 8) {
+      return await newsAsk(u.line_user_id, url);
+    }
   }
 
   // 兌換 1234567
