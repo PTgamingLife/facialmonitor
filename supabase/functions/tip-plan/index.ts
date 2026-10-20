@@ -112,23 +112,61 @@ Deno.serve(async (req) => {
   if (denied) return denied;
   if (!OPENAI_KEY) return Response.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
 
+  /*
+   * 手動重產:body 帶 { "dates": ["2026-10-22", ...] } 就只處理那幾天。
+   *
+   * 為什麼需要這條路:排程的視窗是「下週一起算 14 天」,所以本週還沒發的
+   * 日子永遠落在視窗外 —— 改了寫稿規則之後,已經排好的那幾天不可能跟上,
+   * 只會照舊用舊格式發出去。原本連「指定重產某一天」的辦法都沒有。
+   *
+   * 與排程的兩點差異:
+   *   · 跳過「兩週只跑一次」的防重複閘(那是給 cron 用的)
+   *   · 已核准的那幾天也會被覆蓋 —— 指定日期就是明講要重寫。
+   *     content_version 會 +1,但舊文字不會留下來。
+   *
+   * 身分仍然走同一個 x-tip-plan-secret,沒有放寬。
+   */
+  // authorizeCronHash 只讀 header,沒有碰過 body,所以這裡讀得到。
+  let manualDates: string[] = [];
+  const body = await req.json().catch(() => ({})) as { dates?: unknown };
+  if (body?.dates !== undefined) {
+    const raw = Array.isArray(body.dates) ? body.dates : [];
+    manualDates = raw
+      .filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .slice(0, 14);
+    // 有帶 dates 卻一個都解析不出來 = 打錯了。直接報錯,不要安靜地
+    // 退回排程模式 —— 那會變成「跑了但什麼都沒重產」,而且看不出原因。
+    if (!manualDates.length) {
+      return Response.json(
+        { ok: false, error: "bad_dates", message: "dates 要是 YYYY-MM-DD 的字串陣列" },
+        { status: 400 },
+      );
+    }
+  }
+
   // 要產哪幾天,問資料庫的 is_push_day —— 這裡自己算一次奇偶,
   // 遲早會跟推播端對不起來,而且錯了只會表現成「那天沒收到」。
   // 視窗仍是 14 個日曆天(排程兩週跑一次),只是裡面剩下 7 個發送日。
-  const start = nextMonday();
-  const dates = await rpc<string[]>("rpc_push_days", {
-    p_start: isoDate(start), p_days: 14,
-  }) ?? [];
+  const dates = manualDates.length
+    ? manualDates
+    : (await rpc<string[]>("rpc_push_days", {
+      p_start: isoDate(nextMonday()), p_days: 14,
+    }) ?? []);
   if (!dates.length) {
     return Response.json({ ok: false, error: "no_push_days" }, { status: 500 });
   }
-  const recentCutoff = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString();
-  const recentRuns = await select<{ id: string }>(
-    "sb_tip_plan_runs",
-    `select=id&status=eq.completed&started_at=gte.${encodeURIComponent(recentCutoff)}&order=started_at.desc&limit=1`,
-  );
-  if (recentRuns.length) {
-    return Response.json({ ok: true, created: 0, message: "biweekly plan already completed" });
+
+  // 指定日期時不檢查發送日:要重產的那天本來就已經排了內容,
+  // 它當然是發送日。多檢查一次只會在換過週期之後擋住自己。
+  if (!manualDates.length) {
+    const recentCutoff = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString();
+    const recentRuns = await select<{ id: string }>(
+      "sb_tip_plan_runs",
+      `select=id&status=eq.completed&started_at=gte.${encodeURIComponent(recentCutoff)}&order=started_at.desc&limit=1`,
+    );
+    if (recentRuns.length) {
+      return Response.json({ ok: true, created: 0, message: "biweekly plan already completed" });
+    }
   }
   const existing = await select<{
     id: string; tip_date: string; status: string; content_version: number; title: string;
@@ -137,7 +175,11 @@ Deno.serve(async (req) => {
     `select=id,tip_date,status,content_version,title&tip_date=gte.${dates[0]}&tip_date=lte.${dates.at(-1)}&limit=100`,
   );
   const byExistingDate = new Map(existing.map((row) => [row.tip_date, row]));
-  const have = new Set(existing.filter((row) => row.status !== "rejected").map((row) => row.tip_date));
+  // 指定日期 = 明講要重寫,已核准的也算在內;
+  // 排程則只補空的與被退稿的,不會動到已排好的內容。
+  const have = manualDates.length
+    ? new Set<string>()
+    : new Set(existing.filter((row) => row.status !== "rejected").map((row) => row.tip_date));
   const missing = dates.filter((d) => !have.has(d));
   if (!missing.length) return Response.json({ ok: true, created: 0, message: "future push days already covered" });
 
@@ -152,6 +194,9 @@ Deno.serve(async (req) => {
     // 它會端出跟已核准那幾則雷同的東西，等於再被退一次。
     const taken = existing
       .filter((row) => row.status !== "rejected")
+      // 手動重產時要避開的是「其他天」的主題,不包含正在重寫的這幾天 ——
+      // 把自己列進去等於叫模型避開自己,它會硬換一個不相干的主題。
+      .filter((row) => !missing.includes(row.tip_date))
       .map((row) => `${row.tip_date} ${row.title ?? ""}`.trim());
     const tips = await generate(missing, sources, taken);
     let warnings = 0;
@@ -186,10 +231,13 @@ Deno.serve(async (req) => {
         // 這裡寫死 draft 的話,通過檢查的稿也會停在草稿。
         rejected_at: null, rejected_by: null, review_note: null,
       };
-      const rejected = byExistingDate.get(tip.date);
-      const saved = rejected?.status === "rejected"
-        ? await patch("sb_daily_tips", `id=eq.${rejected.id}`, {
-          ...values, content_version: (rejected.content_version || 1) + 1,
+      // tip_date 有唯一鍵,那天已經有內容就只能 patch ——
+      // insert 會撞鍵。排程只會碰到 rejected,手動重產則可能碰到任何狀態。
+      const prev = byExistingDate.get(tip.date);
+      const overwrite = prev && (manualDates.length > 0 || prev.status === "rejected");
+      const saved = overwrite
+        ? await patch("sb_daily_tips", `id=eq.${prev.id}`, {
+          ...values, content_version: (prev.content_version || 1) + 1,
         })
         : await insert("sb_daily_tips", values, { returning: true });
       if (!saved) throw new Error(`failed to save tip ${tip.date}`);

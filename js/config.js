@@ -18,6 +18,7 @@ window.SCAN_LIFF_ID = '2011132698-JSOBcdBA';
    彈窗開啟不會離開聊天室 —— 早上順手做一題,做完關掉就回到對話。 */
 window.CHALLENGE_LIFF_ID = '2011132698-J7q2DbwV';   // 看健-今日挑戰   → challenge.html
 window.BLESSING_LIFF_ID  = '2011132698-qg4VNDZs';   // 看健-身邊的祝福 → blessing.html
+window.SHARE_LIFF_ID     = '2011132698-vs63dOKF';   // sharepage       → share.html
 
 /* 官方帳號的加好友連結（公開資訊，分享訊息會帶上）
    在 LINE Official Account Manager → 增加好友人數 → 網址 取得，
