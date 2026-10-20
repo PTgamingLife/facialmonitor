@@ -472,9 +472,9 @@ async function answerQuiz(choice, btn){
   if (!r.correct){
     btn.classList.add('wrong');
     btn.disabled = false;
-    $('reveal-head').textContent = '再想一下 🤔';
+    $('reveal-head').textContent = '再想一下，大使 🤔';
     $('reveal-head').className = 'reveal-head no';
-    $('reveal-why').textContent = '這個不是最合適的答案。回上面把今天的主題再看一次，然後再選一次——答錯不扣分，也不會中斷你的紀錄。';
+    $('reveal-why').textContent = '這個建議不是最合適的。回上面把今天的主題再看一次，然後再選一次——答錯不扣分，也不會中斷你的紀錄。';
     $('reveal-action').hidden = true;
     $('retry-btn').hidden = false;
     $('reveal').hidden = false;
@@ -484,7 +484,7 @@ async function answerQuiz(choice, btn){
   }
 
   btn.classList.add('right');
-  $('reveal-head').textContent = r.first_time ? '✅ 答對了' : '答對了，不過今天已經拿過分了';
+  $('reveal-head').textContent = r.first_time ? '✅ 建議得好，大使' : '答對了，不過今天已經拿過分了';
   $('reveal-head').className = 'reveal-head';
   $('reveal-why').textContent = r.explain || '';
   if (r.action_today){
