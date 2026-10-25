@@ -39,10 +39,10 @@
           "_note": "看健-今日挑戰(Tall)。challenge.html —— 半頁式彈窗,先讀主題再下滑作答。"
         },
         {
-          "label": "兌換 / 抽獎",
+          "label": "小遊戲時間",
           "type": "uri",
-          "target": "page-reward",
-          "_note": "直接開主 App 的推薦與積點頁。網頁版比卡片完整:積點、兌換次數、獎品清單、抽獎入口都在同一頁,不必一張一張往右滑。reward_shop 這個 postback 沒有拿掉 —— 其他卡片上的「兌換 / 抽獎」按鈕還在用。"
+          "url": "https://ptgaminglife.github.io/facialmonitor/games/cat-box/index.html",
+          "_note": "貓咪躲紙箱(games/cat-box)。走絕對網址而不是 LIFF —— 這個遊戲不需要 LINE 身分就能玩,包一層 LIFF 只是多一次授權畫面。要上排行榜才需要 LIFF:建好之後把 js/cb-config.js 的 cb_liffId 填上,並把這裡換成 liffId。"
         }
       ]
     },
@@ -61,9 +61,10 @@
           "_note": "看健-身邊的祝福(Tall)。blessing.html —— 剩餘次數改由檢測卡、我的積分卡與文字指令「次數」呈現。"
         },
         {
-          "label": "詢問顧問",
-          "type": "postback",
-          "action": "ask_consultant"
+          "label": "兌換 / 抽獎",
+          "type": "uri",
+          "target": "page-reward",
+          "_note": "從健康分頁搬過來 —— 兌換與積點本來就跟推薦長在同一頁,放在推薦分頁才對得上。網頁版比卡片完整:積點、兌換次數、獎品清單、抽獎入口都在同一頁,不必一張一張往右滑。reward_shop 這個 postback 沒有拿掉 —— 其他卡片上的「兌換 / 抽獎」按鈕還在用。原本這一格是「詢問顧問」,被這一格取代;ask_consultant 的 postback 與文字指令都還在,只是選單上沒有入口了。"
         },
         {
           "label": "我推薦的人",

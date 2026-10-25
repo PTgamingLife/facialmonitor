@@ -37,6 +37,8 @@ interface Cell {
   type: "uri" | "postback" | "message";
   /** 這一格自己的 LIFF app。有填就直接開它,不走主 App 的 ?p= 路由。 */
   liffId?: string;
+  /** 不經 LIFF 的絕對網址。給不需要 LINE 身分的頁面用(例:小遊戲)。 */
+  url?: string;
   target?: string;
   action?: string;
   text?: string;
@@ -105,7 +107,11 @@ function buildAreas(config: Config, tab: Tab) {
     if (cell.type === "uri") {
       // 有 liffId 就走 LIFF:在 LINE 裡開會自動帶身分,使用者不用再登入一次。
       // LIFF 只保證帶過去 query string,不保證帶 hash,所以頁面用 ?p= 指定。
-      if (cell.liffId) {
+      if (cell.url) {
+        // 連 LIFF 都不用的格子:頁面自己不需要 LINE 身分,
+        // 包一層 LIFF 只是多一次授權畫面。LINE 內會用內建瀏覽器開。
+        action = { type: "uri", label: cell.label, uri: cell.url };
+      } else if (cell.liffId) {
         // 這一格有自己的 LIFF app(面舌診 scan.html、今日挑戰 challenge.html、
         // 身邊的祝福 blessing.html)。那些是獨立頁面,不吃 ?p= 路由,直接開。
         //
