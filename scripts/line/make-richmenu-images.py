@@ -75,7 +75,7 @@ TABS = [
             ("面舌診檢測", "scan"),
             ("我的健康分數", "chart"),
             ("每日挑戰",   "check"),
-            ("兌換 / 抽獎", "gift"),
+            ("小遊戲時間", "game"),
         ],
     },
     {
@@ -84,7 +84,7 @@ TABS = [
         "active": 1,
         "cells": [
             ("身邊的祝福", "heart"),
-            ("詢問顧問",   "doctor"),
+            ("兌換 / 抽獎", "gift"),
             ("我推薦的人", "people"),
             ("分享推薦",   "share"),
         ],
@@ -234,6 +234,17 @@ def draw_icon(d, cx, cy, r, kind, ink=ICON_COL, plate=ICON_BG):
         d.line([rx, top, cx, bot], fill=c, width=lw)          # 右斜面
         d.line([lx + (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)   # 刻面
         d.line([rx - (rx - lx) / 3, top, cx, bot], fill=c, width=lw - 3)
+    elif kind == "game":          # 遊戲手把:機身 + 左十字鍵 + 右兩鍵
+        # 畫手把而不是貓臉 —— 這一格之後可能換別的遊戲,
+        # 而且貓臉在縮圖裡跟「心」那一格的輪廓太像。
+        d.rounded_rectangle([cx - s, cy - s * 0.58, cx + s, cy + s * 0.58],
+                            radius=round(s * 0.42), outline=c, width=lw)
+        d.line([cx - s * 0.68, cy, cx - s * 0.24, cy], fill=c, width=lw - 2)        # 十字橫
+        d.line([cx - s * 0.46, cy - s * 0.22, cx - s * 0.46, cy + s * 0.22],
+               fill=c, width=lw - 2)                                               # 十字直
+        for dx, dy in ((0.33, -0.16), (0.63, 0.14)):
+            r = s * 0.13
+            d.ellipse([cx + s * dx - r, cy + s * dy - r, cx + s * dx + r, cy + s * dy + r], fill=c)
     elif kind == "heart":         # 心:兩個上弧 + 兩條斜邊收到底尖
         # 不用 polygon 填實 —— 這一排 icon 全是線條稿,填實的心會比旁邊重一個級距。
         # 兩個弧的圓心左右各偏 0.5s,交會處剛好落在中線上方,不會出現凹口。
@@ -249,11 +260,14 @@ DETAILS = {
     "scan": ("拍攝臉部與舌頭", "deep"),
     "chart": ("查看最新檢測結果", "blue"),
     "check": ("先讀主題・再答一題", "mint"),
-    "gift": ("積點換好禮", "sand"),
+    "gift": ("積點換好禮", "deep"),
+    "game": ("玩一局貓咪躲紙箱", "sand"),
     "heart": ("看看大家寫給彼此的話", "mint"),
     # ticket 目前沒有格子在用（剩餘次數已改由檢測卡與「次數」指令呈現），
     # 留著是因為它畫得出來，之後要加回一格不必重寫。
     "ticket": ("查看可用檢測次數", "mint"),
+    # doctor 目前沒有格子在用(「詢問顧問」那一格讓給了兌換/抽獎),
+    # 跟 ticket 一樣留著 —— 之後要加回一格不必重畫。
     "doctor": ("健康問題・專人協助", "deep"),
     "people": ("查看好友推薦紀錄", "blue"),
     "share": ("邀請好友一起加入", "sand"),

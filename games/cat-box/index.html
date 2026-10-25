@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#FFF5E1">
+  <title>貓咪躲紙箱</title>
+  <link rel="stylesheet" href="css/cb-style.css">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <div id="cb_app">
+    <div id="cb_loading" class="cb-loading">🐱 載入中…</div>
+
+    <!-- 首頁 -->
+    <section id="cb_home" class="cb-screen">
+      <button id="cb_btnMute" class="cb-icon-btn cb-mute" aria-label="音效">🔊</button>
+      <div class="cb-hero">
+        <div class="cb-logo-box"><span class="cb-logo-ear l"></span><span class="cb-logo-ear r"></span><span class="cb-logo-heart">♥</span></div>
+        <h1 class="cb-title">貓咪躲紙箱</h1>
+        <p class="cb-sub">拔對插銷,讓貓咪躲進紙箱!</p>
+      </div>
+      <div class="cb-user">
+        <img id="cb_userAvatar" alt="">
+        <div><div id="cb_userName">訪客</div><div id="cb_userStars" class="cb-stars-txt">★ 0 / 30</div></div>
+      </div>
+      <p id="cb_guestTip" class="cb-tip">訪客模式:進度只存在這台手機,不會上排行榜</p>
+      <div class="cb-menu">
+        <button id="cb_btnStart" class="cb-btn primary">開始遊戲</button>
+        <button id="cb_btnRank" class="cb-btn">🏆 排行榜</button>
+        <button id="cb_btnHow" class="cb-btn ghost">怎麼玩?</button>
+      </div>
+    </section>
+
+    <!-- 選關 -->
+    <section id="cb_levels" class="cb-screen">
+      <header class="cb-bar">
+        <button id="cb_levelsBack" class="cb-icon-btn" aria-label="返回">‹</button>
+        <h2>選擇關卡</h2>
+        <button id="cb_btnRank2" class="cb-icon-btn" aria-label="排行榜">🏆</button>
+      </header>
+      <p id="cb_levelStars" class="cb-stars-txt center">★ 0 / 30</p>
+      <div id="cb_levelGrid" class="cb-level-grid"></div>
+      <p class="cb-tip center">一次過關 ★★★ · 第二次 ★★ · 之後 ★</p>
+    </section>
+
+    <!-- 遊戲 -->
+    <section id="cb_game" class="cb-screen">
+      <header class="cb-bar">
+        <button id="cb_gameBack" class="cb-icon-btn" aria-label="返回">‹</button>
+        <h2 id="cb_gameTitle">第 1 關</h2>
+        <button id="cb_gameRestart" class="cb-icon-btn" aria-label="重來">↻</button>
+      </header>
+      <p id="cb_hint" class="cb-hint"></p>
+      <div id="cb_canvasWrap" class="cb-canvas-wrap"><canvas id="cb_canvas"></canvas></div>
+
+      <div id="cb_result" class="cb-modal" hidden>
+        <div class="cb-card">
+          <h3 id="cb_resTitle">躲好了!</h3>
+          <div id="cb_resStars" class="cb-res-stars"></div>
+          <p id="cb_resText"></p>
+          <button id="cb_resNext" class="cb-btn primary">下一關</button>
+          <button id="cb_resRetry" class="cb-btn">再試一次</button>
+          <button id="cb_resShare" class="cb-btn line">分享給 LINE 好友</button>
+          <button id="cb_resLevels" class="cb-btn ghost">選關</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 排行榜 -->
+    <div id="cb_rank" class="cb-modal" hidden>
+      <div class="cb-card">
+        <h3>🏆 前十名</h3>
+        <ol id="cb_rankList" class="cb-rank-list"></ol>
+        <button id="cb_rankClose" class="cb-btn ghost">關閉</button>
+      </div>
+    </div>
+
+    <!-- 玩法 -->
+    <div id="cb_how" class="cb-modal" hidden>
+      <div class="cb-card cb-how">
+        <h3>怎麼玩?</h3>
+        <ul>
+          <li>👆 點金色插銷就會拔出來</li>
+          <li>📦 讓貓咪碰到紙箱,牠就會躲進去 = 過關</li>
+          <li>🔥 岩漿會燙傷貓咪、燒掉紙箱,但可以消滅狗狗</li>
+          <li>💧 水碰到岩漿會變成石頭</li>
+          <li>🪨 石頭從高處掉下來可以砸暈狗狗</li>
+          <li>🐶 狗狗看到貓咪就會衝過來</li>
+        </ul>
+        <button id="cb_howClose" class="cb-btn primary">知道了</button>
+      </div>
+    </div>
+
+    <div id="cb_toast" class="cb-toast"></div>
+  </div>
+
+  <script src="js/cb-config.js"></script>
+  <script src="js/cb-engine.js"></script>
+  <script src="js/cb-levels.js"></script>
+  <script src="js/cb-draw.js"></script>
+  <script src="js/cb-net.js"></script>
+  <script src="js/cb-app.js"></script>
+</body>
+</html>
