@@ -54,6 +54,17 @@ const CONSTITUTION_DESC = {
   '特稟質': { emoji:'🌸', desc:'先天稟賦不足，對某些物質有過敏反應。', advice:'避開過敏源，多食益氣固表食物，如黃耆、白術。' },
 };
 
+/* ── 計分模型版本 ──
+   舊模型(v1)的分數與現行模型不是同一把尺:眼診沒進總分、各項等權、
+   總分還是 AI 自己算的。舊報告一律照原樣顯示,但要標明不列入比較。
+   後端 rpc_latest_score / rpc_settle_score 也只拿同版本的紀錄相減。 */
+const SCORE_MODEL_VERSION = 2;
+const LEGACY_SCORE_NOTE   = '舊模型計算，不列入比較範圍';
+
+function isLegacyReport(r) {
+  return (Number(r?.scores?.version) || 1) !== SCORE_MODEL_VERSION;
+}
+
 /* ── 主渲染函式 ── */
 function renderReport(r) {
   const el = document.getElementById('report-content');
@@ -65,7 +76,7 @@ function renderReport(r) {
   const userName = currentUser?.name ?? '用戶';
 
   el.innerHTML = `
-    ${scoreSection(score, userName, date)}
+    ${scoreSection(score, userName, date, isLegacyReport(r))}
     ${topRisksSection(r.topRisks, r.disorder)}
     ${nutrientsSection(r.nutrients)}
     ${faceZoneSection(r.faceZones)}
@@ -82,13 +93,14 @@ function renderReport(r) {
   animateScore(score);
 }
 
-function scoreSection(score, name, date) {
+function scoreSection(score, name, date, legacy) {
   const emoji = score >= 85 ? '😄' : score >= 70 ? '😊' : score >= 55 ? '😐' : '😟';
   return `
   <div class="report-header">
     <div class="report-user">${name} 的健康分析</div>
     <div class="report-title">健康分析報告</div>
     <div class="report-date">${date}</div>
+    ${legacy ? `<div class="legacy-badge">${LEGACY_SCORE_NOTE}</div>` : ''}
     <div class="report-divider"></div>
   </div>
   <div class="sec-card">
@@ -441,6 +453,7 @@ async function loadHistory() {
         <div class="hist-date">${relativeTime(date)}</div>
       </div>
       <div class="hist-desc">體質：${type}</div>
+      ${isLegacyReport(r) ? `<div class="legacy-badge">${LEGACY_SCORE_NOTE}</div>` : ''}
     </div>`;
   }).join('');
 }
