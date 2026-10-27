@@ -16,8 +16,9 @@
     <section id="cb_home" class="cb-screen">
       <button id="cb_btnMute" class="cb-icon-btn cb-mute" aria-label="音效">🔊</button>
       <div class="cb-hero">
-        <div class="cb-logo-box"><span class="cb-logo-ear l"></span><span class="cb-logo-ear r"></span><span class="cb-logo-heart">♥</span></div>
-        <h1 class="cb-title">貓咪躲紙箱</h1>
+        <img class="cb-logo-img" src="assets/cb_logo.webp" alt="貓咪躲紙箱"
+             onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+        <h1 class="cb-title" hidden>貓咪躲紙箱</h1>
         <p class="cb-sub">拔對插銷,讓貓咪躲進紙箱!</p>
       </div>
       <div class="cb-user">
@@ -98,6 +99,7 @@
   <script src="js/cb-config.js"></script>
   <script src="js/cb-engine.js"></script>
   <script src="js/cb-levels.js"></script>
+  <script src="js/cb-sprites.js"></script>
   <script src="js/cb-draw.js"></script>
   <script src="js/cb-net.js"></script>
   <script src="js/cb-app.js"></script>
