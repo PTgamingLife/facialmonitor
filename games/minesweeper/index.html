@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>More Minesweeper</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Silkscreen&display=swap" rel="stylesheet">
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+:root{
+  --ms_bg:#5f5c63;--ms_cell:#a9a7ac;--ms_line:#e9e8ea;--ms_open:#7d7a81;
+  --ms_text:#f2f1f3;--ms_dim:#c9c7cc;--ms_hl:#c8c6cb;--ms_bad:#c0504d;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--ms_bg);color:var(--ms_text);
+  font-family:'Silkscreen',monospace;user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;overscroll-behavior:none;touch-action:manipulation}
+#ms_app{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+.ms_hide{display:none!important}
+button{font-family:inherit;color:var(--ms_text);background:transparent;border:2px solid var(--ms_line);
+  padding:10px 18px;font-size:16px;cursor:pointer;letter-spacing:1px}
+button:active{background:var(--ms_open)}
+/* 選單 */
+#ms_menu{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+#ms_menu h1{font-size:28px;font-weight:400;margin:0 0 6px;letter-spacing:2px}
+#ms_menu .ms_user{font-size:11px;color:var(--ms_dim);min-height:14px}
+#ms_menu button{width:220px}
+#ms_menu .ms_best{font-size:10px;color:var(--ms_dim);display:block;margin-top:4px}
+/* 遊戲 */
+#ms_game{display:flex;align-items:center;gap:48px}
+#ms_hud{font-size:10px;letter-spacing:1px;white-space:nowrap;display:flex;gap:14px}
+#ms_board{display:grid;background:var(--ms_line);gap:1px;border:1px solid var(--ms_line)}
+.ms_c{width:var(--ms_sz);height:var(--ms_sz);background:var(--ms_cell);display:flex;align-items:center;
+  justify-content:center;font-size:calc(var(--ms_sz)*.55);line-height:1}
+.ms_c.ms_o{background:var(--ms_open)}
+.ms_c.ms_h{background:var(--ms_hl)}
+.ms_c.ms_x{background:var(--ms_bad)}
+.ms_ic{width:75%;height:75%;display:block;pointer-events:none}
+.ms_n1{color:#8fc1ff}.ms_n2{color:#9fe39a}.ms_n3{color:#ff9a8f}.ms_n4{color:#c9a2ff}
+.ms_n5{color:#ffcf7a}.ms_n6{color:#7ff0e6}.ms_n7{color:#fff}.ms_n8{color:#d0d0d0}
+#ms_bar{display:flex;gap:10px;justify-content:center;margin-top:18px}
+#ms_bar button{font-size:12px;padding:8px 12px}
+#ms_flagbtn.ms_on{background:var(--ms_line);color:var(--ms_bg)}
+#ms_tip{font-size:10px;color:var(--ms_dim);text-align:center;margin-top:12px;max-width:320px;line-height:1.6}
+#ms_end{position:fixed;inset:0;background:rgba(40,38,43,.8);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;text-align:center}
+#ms_end h2{font-weight:400;font-size:24px;margin:0}
+#ms_end p{font-size:12px;margin:0 0 6px}
+@media (max-width:700px){
+  #ms_game{flex-direction:column;gap:14px}
+}
+</style>
+</head>
+<body>
+<div id="ms_app">
+  <div id="ms_menu">
+    <h1>More<br>Minesweeper</h1>
+    <div class="ms_user" id="ms_user"></div>
+    <div id="ms_modes"></div>
+  </div>
+  <div id="ms_play" class="ms_hide">
+    <div id="ms_game">
+      <div id="ms_hud"><span>BOMBS: <b id="ms_bombs">0</b></span><span>TIME: <b id="ms_time">00:00</b></span></div>
+      <div id="ms_board"></div>
+    </div>
+    <div id="ms_tip"></div>
+    <div id="ms_bar">
+      <button id="ms_backbtn">MENU</button>
+      <button id="ms_flagbtn">FLAG: OFF</button>
+      <button id="ms_resetbtn">RESET</button>
+    </div>
+  </div>
+</div>
+<div id="ms_end" class="ms_hide">
+  <h2 id="ms_endtitle"></h2>
+  <p id="ms_endmsg"></p>
+  <button id="ms_againbtn">PLAY AGAIN</button>
+  <button id="ms_menubtn">MENU</button>
+</div>
+<script>
+// ===== 設定 =====
+const MS_LIFF_ID = ''; // 填入 LIFF ID
+const ms_modes = [
+  {id:'tutorial',name:'Tutorial',w:5,h:5,b:3,tip:'Tap to open. Long-press (or FLAG mode) to flag. Numbers = bombs around.'},
+  {id:'easy',name:'Easy',w:7,h:7,b:6},
+  {id:'medium',name:'Medium',w:10,h:10,b:15},
+  {id:'hard',name:'Hard',w:14,h:14,b:35},
+  {id:'challenge',name:'Challenge',w:16,h:20,b:60,limit:300}
+];
+const $ = id => document.getElementById(id);
+let ms_mode, ms_cells, ms_started, ms_over, ms_flags, ms_opened, ms_t0, ms_timer, ms_flagMode = false;
+
+// ===== 最佳紀錄 =====
+function ms_getBest(id){try{return +localStorage.getItem('ms_best_'+id)||0}catch(e){return 0}}
+function ms_setBest(id,s){try{const b=ms_getBest(id);if(!b||s<b)localStorage.setItem('ms_best_'+id,s)}catch(e){}}
+const ms_fmt = s => String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+
+// ===== 選單 =====
+function ms_renderMenu(){
+  const box=$('ms_modes');box.innerHTML='';
+  ms_modes.forEach(m=>{
+    const btn=document.createElement('button');const best=ms_getBest(m.id);
+    btn.innerHTML=m.name+'<span class="ms_best">'+m.w+'x'+m.h+' / '+m.b+' bombs'+(best?' / best '+ms_fmt(best):'')+'</span>';
+    btn.onclick=()=>ms_start(m);
+    const wrap=document.createElement('div');wrap.style.marginBottom='12px';wrap.appendChild(btn);box.appendChild(wrap);
+  });
+  $('ms_menu').classList.remove('ms_hide');$('ms_play').classList.add('ms_hide');$('ms_end').classList.add('ms_hide');
+  clearInterval(ms_timer);
+}
+
+// ===== 遊戲 =====
+function ms_cellSize(m){
+  const narrow=window.innerWidth<=700;
+  const availW=(narrow?window.innerWidth-32:window.innerWidth*0.6)-m.w;
+  const availH=window.innerHeight-(narrow?190:140)-m.h;
+  return Math.max(16,Math.min(36,Math.floor(availW/m.w),Math.floor(availH/m.h)));
+}
+function ms_start(m){
+  ms_mode=m;ms_started=false;ms_over=false;ms_flags=0;ms_opened=0;clearInterval(ms_timer);
+  ms_cells=[];
+  const board=$('ms_board');board.innerHTML='';
+  board.style.setProperty('--ms_sz',ms_cellSize(m)+'px');
+  board.style.gridTemplateColumns='repeat('+m.w+',var(--ms_sz))';
+  for(let y=0;y<m.h;y++)for(let x=0;x<m.w;x++){
+    const el=document.createElement('div');el.className='ms_c';
+    const c={x,y,el,bomb:false,open:false,flag:false,n:0};
+    ms_cells.push(c);ms_bindCell(c);board.appendChild(el);
+  }
+  $('ms_bombs').textContent=m.b;
+  $('ms_time').textContent=m.limit?ms_fmt(m.limit):'00:00';
+  $('ms_tip').textContent=m.tip||'';
+  $('ms_menu').classList.add('ms_hide');$('ms_play').classList.remove('ms_hide');$('ms_end').classList.add('ms_hide');
+}
+const ms_at=(x,y)=>(x<0||y<0||x>=ms_mode.w||y>=ms_mode.h)?null:ms_cells[y*ms_mode.w+x];
+function ms_nb(c){const r=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){if(dx||dy){const n=ms_at(c.x+dx,c.y+dy);if(n)r.push(n)}}return r}
+
+function ms_layBombs(safe){
+  // 第一下及其周圍保證安全
+  const ban=new Set([safe,...ms_nb(safe)]);
+  let pool=ms_cells.filter(c=>!ban.has(c));
+  if(pool.length<ms_mode.b)pool=ms_cells.filter(c=>c!==safe);
+  for(let i=0;i<ms_mode.b;i++){const k=Math.floor(Math.random()*pool.length);pool[k].bomb=true;pool.splice(k,1)}
+  ms_cells.forEach(c=>{c.n=ms_nb(c).filter(n=>n.bomb).length});
+  ms_started=true;ms_t0=Date.now();
+  ms_timer=setInterval(ms_tick,250);
+}
+function ms_elapsed(){return Math.floor((Date.now()-ms_t0)/1000)}
+function ms_tick(){
+  const s=ms_elapsed();
+  if(ms_mode.limit){const left=Math.max(0,ms_mode.limit-s);$('ms_time').textContent=ms_fmt(left);if(!left)ms_lose(null)}
+  else $('ms_time').textContent=ms_fmt(s);
+}
+
+function ms_open(c){
+  if(c.open||c.flag)return;
+  const stack=[c];
+  while(stack.length){
+    const k=stack.pop();if(k.open||k.flag)continue;
+    k.open=true;ms_opened++;ms_paint(k);
+    if(k.bomb){ms_lose(k);return}
+    if(k.n===0)ms_nb(k).forEach(n=>{if(!n.open)stack.push(n)});
+  }
+}
+function ms_chord(c){
+  // 已翻開格再點:旗數符合時翻開周圍未插旗格
+  const nb=ms_nb(c);
+  if(nb.filter(n=>n.flag).length!==c.n)return;
+  nb.forEach(n=>{if(!ms_over)ms_open(n)});
+}
+function ms_tap(c){
+  if(ms_over)return;
+  if(!ms_started){if(ms_flagMode)return;ms_layBombs(c)}
+  if(c.open){ms_chord(c)}
+  else if(ms_flagMode){ms_toggleFlag(c);return}
+  else ms_open(c);
+  ms_checkWin();
+}
+function ms_toggleFlag(c){
+  if(ms_over||c.open||!ms_started)return;
+  c.flag=!c.flag;ms_flags+=c.flag?1:-1;ms_paint(c);
+  $('ms_bombs').textContent=ms_mode.b-ms_flags;
+  if(navigator.vibrate)navigator.vibrate(15);
+}
+// ===== 像素圖示(12x12,字元對應顏色) =====
+function ms_icon(rows,pal){
+  let r='';
+  rows.forEach((row,y)=>[...row].forEach((ch,x)=>{if(pal[ch])r+='<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+pal[ch]+'"/>'}));
+  return '<svg class="ms_ic" viewBox="0 0 12 12" shape-rendering="crispEdges">'+r+'</svg>';
+}
+const ms_bombSvg=ms_icon([
+  '..........f.','.........f..','........f...','....####....','...######...','..#hh#####..',
+  '..#h######..','..########..','..########..','...######...','....####....','............'
+],{'#':'#1b1a1d',h:'#ffffff',f:'#2e2c31'});
+const ms_flagSvg=ms_icon([
+  '............','....rrp.....','..rrrrp.....','rrrrrrp.....','..rrrrp.....','....rrp.....',
+  '......p.....','......p.....','......p.....','....ppppp...','..ppppppppp.','............'
+],{r:'#e04848',p:'#2e2c31'});
+function ms_paint(c){
+  const el=c.el;el.className='ms_c';el.textContent='';
+  if(c.open){
+    el.classList.add('ms_o');
+    if(c.bomb)el.innerHTML=ms_bombSvg;
+    else if(c.n){el.textContent=c.n;el.classList.add('ms_n'+c.n)}
+  }else if(c.flag)el.innerHTML=ms_flagSvg;
+}
+function ms_checkWin(){
+  if(ms_over)return;
+  if(ms_opened===ms_cells.length-ms_mode.b){
+    ms_over=true;clearInterval(ms_timer);
+    const s=ms_elapsed();ms_setBest(ms_mode.id,s);
+    ms_cells.forEach(c=>{if(c.bomb&&!c.flag){c.flag=true;ms_paint(c)}});
+    $('ms_bombs').textContent=0;
+    setTimeout(()=>ms_showEnd('YOU WIN','TIME '+ms_fmt(s)),400);
+  }
+}
+function ms_lose(hit){
+  ms_over=true;clearInterval(ms_timer);
+  ms_cells.forEach(c=>{if(c.bomb&&!c.flag){c.open=true;ms_paint(c)}});
+  if(hit)hit.el.classList.add('ms_x');
+  if(navigator.vibrate)navigator.vibrate([60,40,60]);
+  setTimeout(()=>ms_showEnd('GAME OVER',hit?'BOOM!':'TIME UP'),700);
+}
+function ms_showEnd(t,msg){$('ms_endtitle').textContent=t;$('ms_endmsg').textContent=msg;$('ms_end').classList.remove('ms_hide')}
+
+// ===== 觸控/滑鼠:點一下翻開、長按插旗、按住顯示鄰格 =====
+function ms_hl(c,on){
+  if(!c.open)return;
+  ms_nb(c).forEach(n=>{if(!n.open&&!n.flag)n.el.classList.toggle('ms_h',on)});
+}
+function ms_bindCell(c){
+  let lp=null,longed=false;
+  const down=e=>{
+    if(e.button===2)return;
+    longed=false;ms_hl(c,true);
+    lp=setTimeout(()=>{longed=true;ms_hl(c,false);if(!c.open)ms_toggleFlag(c)},380);
+  };
+  const up=()=>{
+    clearTimeout(lp);ms_hl(c,false);
+    if(!longed)ms_tap(c);
+    longed=true;
+  };
+  const cancel=()=>{clearTimeout(lp);ms_hl(c,false);longed=true};
+  c.el.addEventListener('pointerdown',down);
+  c.el.addEventListener('pointerup',up);
+  c.el.addEventListener('pointerleave',cancel);
+  c.el.addEventListener('pointercancel',cancel);
+  c.el.addEventListener('mouseenter',()=>ms_hl(c,true));
+  c.el.addEventListener('mouseleave',()=>ms_hl(c,false));
+  c.el.addEventListener('contextmenu',e=>{e.preventDefault();cancel();ms_toggleFlag(c)});
+}
+
+// ===== 按鈕 =====
+$('ms_flagbtn').onclick=()=>{ms_flagMode=!ms_flagMode;$('ms_flagbtn').textContent='FLAG: '+(ms_flagMode?'ON':'OFF');$('ms_flagbtn').classList.toggle('ms_on',ms_flagMode)};
+$('ms_resetbtn').onclick=()=>ms_start(ms_mode);
+$('ms_againbtn').onclick=()=>ms_start(ms_mode);
+$('ms_backbtn').onclick=ms_renderMenu;
+$('ms_menubtn').onclick=ms_renderMenu;
+document.addEventListener('contextmenu',e=>e.preventDefault());
+
+// ===== LIFF =====
+async function ms_initLiff(){
+  if(!MS_LIFF_ID||!window.liff)return;
+  try{
+    await liff.init({liffId:MS_LIFF_ID});
+    if(liff.isLoggedIn()){const p=await liff.getProfile();$('ms_user').textContent='Hi, '+p.displayName}
+  }catch(e){console.warn('LIFF init failed',e)}
+}
+ms_renderMenu();ms_initLiff();
+</script>
+</body>
+</html>

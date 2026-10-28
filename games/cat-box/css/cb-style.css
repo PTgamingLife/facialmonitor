@@ -26,6 +26,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
   border-right: 16px solid transparent; border-bottom: 28px solid #FFB27A; }
 .cb-logo-ear.l { left: 22px; } .cb-logo-ear.r { right: 22px; border-bottom-color: #fff; filter: drop-shadow(0 0 1px var(--cb-ink)); }
 .cb-logo-heart { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -45%); color: var(--cb-pink); font-size: 34px; }
+.cb-logo-img { display: block; width: min(320px, 86vw); height: auto; margin: 0 auto; animation: cb-bob 2.4s ease-in-out infinite; }
 .cb-title { margin: 0; font-size: 34px; letter-spacing: 2px; color: var(--cb-pink-dark); text-shadow: 3px 3px 0 #fff; }
 .cb-sub { margin: 6px 0 0; font-size: 15px; }
 .cb-user { display: flex; align-items: center; gap: 10px; background: #fff; padding: 8px 18px 8px 8px; border-radius: 40px;

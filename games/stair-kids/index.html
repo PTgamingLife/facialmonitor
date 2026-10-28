@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0B3D5C">
+<title>極光下樓梯</title>
+<link rel="stylesheet" href="sk_style.css">
+</head>
+<body>
+<canvas id="sk_canvas"></canvas>
+
+<!-- HUD -->
+<div id="sk_hud" class="sk_hidden">
+  <div class="sk_glass sk_pill"><span class="sk_label">深度</span><b id="sk_depth">0</b><span class="sk_unit">m</span></div>
+  <div class="sk_glass sk_pill" id="sk_hearts"></div>
+  <button class="sk_glass sk_icon" id="sk_pauseBtn" aria-label="暫停">❚❚</button>
+</div>
+<div id="sk_toast" class="sk_glass"></div>
+<div id="sk_count"></div>
+
+<!-- 觸控鍵 -->
+<div id="sk_touch" class="sk_hidden">
+  <button class="sk_glass sk_tbtn" id="sk_left" aria-label="左">◀</button>
+  <button class="sk_glass sk_tbtn" id="sk_right" aria-label="右">▶</button>
+</div>
+
+<!-- 開始畫面 -->
+<section id="sk_menu" class="sk_screen">
+  <div class="sk_card sk_glass">
+    <h1>極光下樓梯</h1>
+    <p class="sk_sub">只能左右走，踩住樓梯往下，別被天花板追上</p>
+    <h2>選角色</h2>
+    <div id="sk_chars" class="sk_grid4"></div>
+    <h2>難度</h2>
+    <div id="sk_diffs" class="sk_grid4"></div>
+    <div class="sk_best">最佳紀錄 <b id="sk_bestVal">—</b></div>
+    <button class="sk_cta" id="sk_start">開始挑戰</button>
+    <div class="sk_legend">
+      <span><i class="sk_k sk_k-normal"></i>普通</span>
+      <span><i class="sk_k sk_k-belt"></i>輸送帶</span>
+      <span><i class="sk_k sk_k-spring"></i>彈簧</span>
+      <span><i class="sk_k sk_k-spike"></i>尖刺</span>
+      <span><i class="sk_k sk_k-fake"></i>假階</span>
+    </div>
+    <p class="sk_hint">← → 或 A D 移動・Esc 暫停・手機用畫面下方按鍵</p>
+    <button class="sk_mute" id="sk_mute">🔊 音效</button>
+  </div>
+</section>
+
+<!-- 暫停 -->
+<section id="sk_pause" class="sk_screen sk_hidden">
+  <div class="sk_card sk_glass sk_small">
+    <h1>暫停</h1>
+    <button class="sk_cta" id="sk_resume">繼續</button>
+    <button class="sk_ghost" id="sk_endRun">結束這局</button>
+    <button class="sk_ghost" id="sk_toMenu">回主選單</button>
+  </div>
+</section>
+
+<!-- 結算 -->
+<section id="sk_result" class="sk_screen sk_hidden">
+  <div class="sk_card sk_glass sk_small">
+    <h1 id="sk_resTitle">挑戰結束</h1>
+    <div id="sk_newBest" class="sk_badge sk_hidden">新紀錄！</div>
+    <div class="sk_bigNum"><b id="sk_resDepth">0</b><span>m</span></div>
+    <div class="sk_stats" id="sk_resStats"></div>
+    <button class="sk_cta" id="sk_again">再玩一次</button>
+    <button class="sk_ghost" id="sk_resMenu">回主選單</button>
+  </div>
+</section>
+
+<script src="sk_game.js"></script>
+<script src="sk_render.js"></script>
+<script src="sk_main.js"></script>
+</body>
+</html>
