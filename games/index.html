@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>小遊戲時間｜看·健</title>
+
+<!--
+  小遊戲的入口頁。圖文選單「小遊戲時間」那一格指到這裡。
+
+  為什麼要有這一頁:選單只有一格,但遊戲有三個。
+  沒有這一頁的話,要嘛三個遊戲搶一格、要嘛把選單再切出兩格 ——
+  選單的格子比遊戲貴,遊戲以後還會再加。
+
+  走純網址、不包 LIFF:三個遊戲都不需要 LINE 身分就能玩,
+  包一層 LIFF 只是在玩之前多擋一次授權畫面。
+  (貓咪躲紙箱的排行榜要身分,但那是它自己 init 的事,跟這一頁無關。)
+-->
+
+<style>
+  :root{
+    --deep:#0D5C63; --primary:#22C1C3; --pale:#E6F7F8;
+    --soft:#8FA3B8; --mid:#41565F; --bg:#FFFFFF; --line:#E3ECED;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:var(--bg); color:var(--deep);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  h1{font-size:19px;margin:0 0 3px;letter-spacing:1px}
+  .sub{font-size:12.5px;color:var(--mid);margin-bottom:16px;line-height:1.6}
+
+  .card{
+    display:flex; align-items:center; gap:13px; width:100%;
+    border:1px solid var(--line); border-radius:13px; background:#fff;
+    padding:14px; margin-bottom:10px; text-decoration:none; color:inherit;
+  }
+  .art{
+    flex:none; width:54px; height:54px; border-radius:13px;
+    background:var(--pale); display:flex; align-items:center; justify-content:center;
+    font-size:27px; line-height:1;
+  }
+  .txt b{display:block; font-size:15px; letter-spacing:.5px}
+  .txt span{display:block; font-size:12px; color:var(--mid); margin-top:3px; line-height:1.55}
+  .go{margin-left:auto; flex:none; color:var(--primary); font-size:20px; font-weight:700}
+
+  .note{font-size:11px;color:var(--soft);margin-top:14px;line-height:1.75;text-align:center}
+</style>
+</head>
+<body>
+
+<h1>小遊戲時間</h1>
+<div class="sub">休息一下，挑一個玩</div>
+
+<a class="card" href="cat-box/index.html">
+  <div class="art">🐱</div>
+  <div class="txt"><b>貓咪躲紙箱</b><span>拔對插銷，讓貓咪躲進紙箱・10 關</span></div>
+  <div class="go">›</div>
+</a>
+
+<a class="card" href="stair-kids/index.html">
+  <div class="art">🪜</div>
+  <div class="txt"><b>極光下樓梯</b><span>踩住樓梯一直往下，別被天花板追上</span></div>
+  <div class="go">›</div>
+</a>
+
+<a class="card" href="minesweeper/index.html">
+  <div class="art">💣</div>
+  <div class="txt"><b>踩地雷</b><span>翻開空格、插旗標地雷・五種難度</span></div>
+  <div class="go">›</div>
+</a>
+
+<div class="note">成績存在這支手機裡，換手機不會跟著走。</div>
+
+</body>
+</html>

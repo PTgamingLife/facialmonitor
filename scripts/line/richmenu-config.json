@@ -41,8 +41,8 @@
         {
           "label": "小遊戲時間",
           "type": "uri",
-          "url": "https://ptgaminglife.github.io/facialmonitor/games/cat-box/index.html",
-          "_note": "貓咪躲紙箱(games/cat-box)。走絕對網址而不是 LIFF —— 這個遊戲不需要 LINE 身分就能玩,包一層 LIFF 只是多一次授權畫面。要上排行榜才需要 LIFF:建好之後把 js/cb-config.js 的 cb_liffId 填上,並把這裡換成 liffId。"
+          "url": "https://ptgaminglife.github.io/facialmonitor/games/index.html",
+          "_note": "小遊戲入口頁(games/index.html),底下掛著貓咪躲紙箱、極光下樓梯、踩地雷。原本直接指向貓咪躲紙箱,遊戲變三個之後改指入口頁 —— 選單只有一格,而遊戲以後還會再加。走絕對網址而不是 LIFF:三個遊戲都不需要 LINE 身分就能玩。"
         }
       ]
     },
