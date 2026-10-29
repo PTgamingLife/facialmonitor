@@ -42,6 +42,8 @@ button:active{background:var(--ms_open)}
 #ms_bar{display:flex;gap:10px;justify-content:center;margin-top:18px}
 #ms_bar button{font-size:12px;padding:8px 12px}
 #ms_flagbtn.ms_on{background:var(--ms_line);color:var(--ms_bg)}
+#ms_guide{font-family:'Silkscreen',system-ui,sans-serif;font-size:13px;color:var(--ms_text);text-align:center;
+  margin:0 auto 18px;max-width:340px;line-height:1.6}
 #ms_tip{font-size:10px;color:var(--ms_dim);text-align:center;margin-top:12px;max-width:320px;line-height:1.6}
 #ms_end{position:fixed;inset:0;background:rgba(40,38,43,.8);display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:14px;text-align:center}
@@ -60,6 +62,7 @@ button:active{background:var(--ms_open)}
     <div id="ms_modes"></div>
   </div>
   <div id="ms_play" class="ms_hide">
+    <div id="ms_guide">點選踩開格子，長按可以插旗幟，數字代表附近炸彈數量</div>
     <div id="ms_game">
       <div id="ms_hud"><span>BOMBS: <b id="ms_bombs">0</b></span><span>TIME: <b id="ms_time">00:00</b></span></div>
       <div id="ms_board"></div>
@@ -113,7 +116,7 @@ function ms_renderMenu(){
 function ms_cellSize(m){
   const narrow=window.innerWidth<=700;
   const availW=(narrow?window.innerWidth-32:window.innerWidth*0.6)-m.w;
-  const availH=window.innerHeight-(narrow?190:140)-m.h;
+  const availH=window.innerHeight-(narrow?240:180)-m.h;
   return Math.max(16,Math.min(36,Math.floor(availW/m.w),Math.floor(availH/m.h)));
 }
 function ms_start(m){

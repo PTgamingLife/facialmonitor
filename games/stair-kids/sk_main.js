@@ -83,11 +83,21 @@
   });
   window.addEventListener('blur', () => { sk_keys.clear(); sk_touchState.left = sk_touchState.right = false; });
   function sk_bindTouch(el, side) {
-    const on = e => { e.preventDefault(); sk_touchState[side] = true; el.classList.add('sk_on'); sk_audio(); };
+    const on = e => {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (er) { /* 舊瀏覽器沒有也沒關係 */ }
+      sk_touchState[side] = true; el.classList.add('sk_on'); sk_audio();
+    };
     const off = e => { e.preventDefault(); sk_touchState[side] = false; el.classList.remove('sk_on'); };
     el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off);
     el.addEventListener('pointercancel', off); el.addEventListener('pointerleave', off);
+    /* 長按時擋掉系統選單與選字 */
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    el.addEventListener('selectstart', e => e.preventDefault());
+    el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
   }
+  /* 遊戲進行中整頁都不要跳長按選單（選單畫面不影響） */
+  document.addEventListener('contextmenu', e => { if (sk_mode === 'play') e.preventDefault(); });
   sk_bindTouch($('sk_left'), 'left'); sk_bindTouch($('sk_right'), 'right');
 
   /* ---------- 選單 ---------- */
