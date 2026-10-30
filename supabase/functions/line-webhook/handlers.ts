@@ -30,6 +30,15 @@ const GAME_LIFF_URL  = Deno.env.get("HEALTHBOT_GAME_LIFF_URL")
 // LIFF ID 不是機密,它本來就印在按鈕上給使用者看。
 const CHALLENGE_LIFF_URL = Deno.env.get("HEALTHBOT_CHALLENGE_LIFF_URL")
   ?? "https://liff.line.me/2011132698-J7q2DbwV";
+// 管理員發送中心(admin.html)。跟上面兩支同一個道理:env 只是備援,
+// 預設就寫死正確的連結。
+//
+// ⚠️ 一開始只讀 env、沒有預設值,結果 secret 設了卻讀不到時,
+//    卡片會一直顯示「還沒接上」—— 而真正的問題看不出來是名稱打錯、
+//    還是函式沒吃到新的環境變數。寫死預設值就沒有這一類問題了,
+//    這也正是 CHALLENGE / BLESSING 當初踩過才改成這樣的。
+const ADMIN_LIFF_URL = Deno.env.get("HEALTHBOT_ADMIN_LIFF_URL")
+  ?? "https://liff.line.me/2011132698-98s0OfPc";
 const BLESSING_LIFF_URL  = Deno.env.get("HEALTHBOT_BLESSING_LIFF_URL")
   ?? "https://liff.line.me/2011132698-qg4VNDZs";
 // 年費健康管理方案:1,680 元，每月 1 次、全年 12 次。這裡只是用來「顯示」——
@@ -474,30 +483,15 @@ async function myPoints(u: LineUser): Promise<LineMessage> {
   });
 }
 
-/**
- * 管理員發送中心的入口卡。只給擁有者。
- *
- * LIFF 還沒建的時候不要丟一個死連結出去 —— 點了會是 LINE 的錯誤頁,
- * 看不出是「還沒設定」還是「壞了」。直接把要做的事寫在卡片上。
- */
+/** 管理員發送中心的入口卡。只給擁有者。 */
 export function adminConsoleCard(): LineMessage {
-  const url = Deno.env.get("HEALTHBOT_ADMIN_LIFF_URL") ?? "";
-  if (!url) {
-    return infoCard({
-      title: "管理中心還沒接上",
-      subtitle: "後端已經就緒,還差一支 LIFF app。",
-      note: "LINE Developers → LINE Login channel → 新增 LIFF:\n"
-        + "Size = Full、Scopes 勾 profile 與 openid、\n"
-        + "Endpoint = <網站網址>/admin.html\n"
-        + "再把 LIFF 連結設成 secret HEALTHBOT_ADMIN_LIFF_URL。",
-      altText: "管理中心還沒接上",
-    });
-  }
   return infoCard({
     title: "管理員發送中心",
     subtitle: "做卡片、預覽、發給自己測試,確認後才群發。",
     note: "保存與預覽都不會群發。",
-    buttons: [{ label: "開啟管理中心", action: uriAction("開啟管理中心", url), primary: true }],
+    buttons: [
+      { label: "開啟管理中心", action: uriAction("開啟管理中心", ADMIN_LIFF_URL), primary: true },
+    ],
     altText: "管理員發送中心",
   });
 }
