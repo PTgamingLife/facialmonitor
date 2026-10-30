@@ -17,8 +17,12 @@
 // 一支每日 cron 就夠,不必每則圖文各排一個 one-shot job。
 
 import { authorizeCronHash } from "../_shared/cron-auth.ts";
-import { broadcast, infoCard, LineMessage, multicast, uriAction } from "../_shared/line.ts";
+import { broadcast, LineMessage, multicast } from "../_shared/line.ts";
 import { patch, select, selectOne, upsert } from "../_shared/db.ts";
+// 卡片怎麼組、分眾怎麼算,都只有一份 —— 管理中心(admin-api)的預覽與這裡
+// 送出去的必須一模一樣,否則預覽等於白看、顯示的人數等於亂寫。
+import { buildMessages, type ImageLayout } from "../_shared/broadcast-card.ts";
+import { type Audience, audienceCount, audienceList } from "../_shared/audience.ts";
 
 // 專用密鑰優先;還沒設就退回 tip-push 的密鑰,讓排程立刻能動。
 // 這裡做 fallback 是可以的 —— 兩支都是本系統的內部排程端點,退錯了頂多
@@ -26,13 +30,6 @@ import { patch, select, selectOne, upsert } from "../_shared/db.ts";
 // 設好 HEALTHBOT_BROADCAST_SECRET_SHA256 之後就會自動改用專用的那把。
 const SECRET_HASH = Deno.env.get("HEALTHBOT_BROADCAST_SECRET_SHA256")
   ?? Deno.env.get("HEALTHBOT_TIP_PUSH_SECRET_SHA256") ?? "";
-
-type Audience = "all" | "bound" | "active_30d";
-
-// hero    圖片當卡片頂圖。infoCard 的 hero 固定 20:13 且 cover,
-//         直式圖塞進去只會看到中間一條,文字全被裁掉。
-// message 圖片改成獨立的 LINE 圖片訊息接在卡片前面,保留原始比例。
-type ImageLayout = "hero" | "message";
 
 type Payload = {
   broadcast_id?: string;
@@ -44,6 +41,8 @@ type Payload = {
   link_label?: string;
   image_layout?: ImageLayout;
   audience?: Audience;
+  /** 加一顆「先問問 AI」。預設不加 —— 理由見 _shared/broadcast-card.ts。 */
+  ask_ai?: boolean;
   due?: boolean;
   dry_run?: boolean;
 };
@@ -59,60 +58,9 @@ type BroadcastRow = {
   image_layout: ImageLayout;
   audience: Audience;
   status: string;
+  // 資料表沒有這一欄 —— 排程列撈出來一律是 undefined,也就是不加那顆按鈕。
+  ask_ai?: boolean;
 };
-
-function buildFlex(row: {
-  title: string; subtitle?: string | null; note?: string | null;
-  image_url?: string | null; link_url?: string | null;
-  link_label?: string | null; image_layout?: ImageLayout | null;
-}): LineMessage {
-  const label = row.link_label?.trim() || "立即報名";
-  // image_layout = message 時圖片已經單獨送一則了,卡片就不要再放頂圖,
-  // 否則同一張圖會出現兩次。
-  const hero = (row.image_layout ?? "hero") === "hero" ? (row.image_url ?? undefined) : undefined;
-  return infoCard({
-    title: row.title,
-    subtitle: row.subtitle ?? undefined,
-    hero,
-    note: row.note ?? undefined,
-    buttons: [
-      ...(row.link_url
-        ? [{ label, action: uriAction(label, row.link_url), primary: true }]
-        : []),
-      { label: "先問問 AI", action: { type: "message", label: "先問問 AI", text: `我想了解「${row.title}」` } },
-    ],
-    altText: row.title,
-  });
-}
-
-/** 圖片訊息:originalContentUrl 與 previewImageUrl 都必須是 HTTPS 的 JPEG/PNG。 */
-function buildImage(url: string): LineMessage {
-  return { type: "image", originalContentUrl: url, previewImageUrl: url };
-}
-
-/** 依分眾條件取名單;audience=all 走 broadcast API,不需要名單 */
-async function audienceList(audience: Audience): Promise<string[]> {
-  if (audience === "all") return [];
-
-  let query = "select=line_user_id&unfollowed_at=is.null";
-  if (audience === "bound") {
-    query += "&sb_user_id=not.is.null";
-  } else if (audience === "active_30d") {
-    const since = new Date(Date.now() - 30 * 86400_000).toISOString();
-    query += `&last_active_at=gte.${since}`;
-  }
-
-  const rows = await select<{ line_user_id: string }>("line_users", `${query}&limit=10000`);
-  return rows.map((r) => r.line_user_id);
-}
-
-async function estimateAll(): Promise<number> {
-  const rows = await select<{ line_user_id: string }>(
-    "line_users",
-    "select=line_user_id&unfollowed_at=is.null&limit=10000",
-  );
-  return rows.length;
-}
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
@@ -164,17 +112,14 @@ Deno.serve(async (req) => {
       image_layout: body.image_layout ?? "hero",
       audience: body.audience ?? "all",
       status: "draft",
+      ask_ai: body.ask_ai === true,
     };
   }
 
-  const flex = buildFlex(row);
-  // 一次送出的訊息陣列。圖片走 message 版位時排在卡片前面 ——
-  // 先看到圖再看到字,順序反過來圖會被當成附註。
-  const messages: LineMessage[] = row.image_layout === "message" && row.image_url
-    ? [buildImage(row.image_url), flex]
-    : [flex];
+  const messages: LineMessage[] = buildMessages(row);
+  const flex = messages.at(-1)!;   // flex_json 存的是卡片本身,不含前面那張圖
   const targets = await audienceList(row.audience);
-  const estimated = row.audience === "all" ? await estimateAll() : targets.length;
+  const estimated = row.audience === "all" ? await audienceCount("all") : targets.length;
 
   if (dryRun) {
     return Response.json({

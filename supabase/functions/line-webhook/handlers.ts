@@ -474,6 +474,34 @@ async function myPoints(u: LineUser): Promise<LineMessage> {
   });
 }
 
+/**
+ * 管理員發送中心的入口卡。只給擁有者。
+ *
+ * LIFF 還沒建的時候不要丟一個死連結出去 —— 點了會是 LINE 的錯誤頁,
+ * 看不出是「還沒設定」還是「壞了」。直接把要做的事寫在卡片上。
+ */
+export function adminConsoleCard(): LineMessage {
+  const url = Deno.env.get("HEALTHBOT_ADMIN_LIFF_URL") ?? "";
+  if (!url) {
+    return infoCard({
+      title: "管理中心還沒接上",
+      subtitle: "後端已經就緒,還差一支 LIFF app。",
+      note: "LINE Developers → LINE Login channel → 新增 LIFF:\n"
+        + "Size = Full、Scopes 勾 profile 與 openid、\n"
+        + "Endpoint = <網站網址>/admin.html\n"
+        + "再把 LIFF 連結設成 secret HEALTHBOT_ADMIN_LIFF_URL。",
+      altText: "管理中心還沒接上",
+    });
+  }
+  return infoCard({
+    title: "管理員發送中心",
+    subtitle: "做卡片、預覽、發給自己測試,確認後才群發。",
+    note: "保存與預覽都不會群發。",
+    buttons: [{ label: "開啟管理中心", action: uriAction("開啟管理中心", url), primary: true }],
+    altText: "管理員發送中心",
+  });
+}
+
 /** 詢問北醫健康管理顧問 */
 function askConsultant(): LineMessage {
   // 兩條路刻意並列:真人有專業與責任但要等,AI 秒回但不做判斷。

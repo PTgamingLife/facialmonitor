@@ -24,7 +24,7 @@ import {
   getConversation, getOrCreateLineUser, isAiPaused, LIMITS,
   loadHistory, loadMemberContext, LineUser, messageCount, saveMessage,
 } from "./member.ts";
-import { handlePostback, helpCard } from "./handlers.ts";
+import { adminConsoleCard, handlePostback, helpCard } from "./handlers.ts";
 import { liffUrl, welcomeCard, welcomeVideo } from "../_shared/welcome.ts";
 
 // 歡迎訊息與 liffUrl 移到 _shared/welcome.ts —— liff-auth 綁定完成時也要送同一份,
@@ -40,6 +40,14 @@ async function handleCommand(u: LineUser, text: string): Promise<LineMessage | L
   if (/^(綁定|小天使)/.test(t)) {
     return await handlePostback(u, /^綁定/.test(t) ? "bind_start" : "share_invite",
                                 new URLSearchParams());
+  }
+
+  // 擁有者打「管理中心」→ 給管理員發送中心的連結。
+  //
+  // 只有擁有者看得到。一般會員打同樣的字會落到 AI,
+  // 跟平常問問題一樣 —— 不要回「你沒有權限」,那等於告訴對方有這個東西。
+  if (isOwner(u.line_user_id) && /^(管理中心|發送中心|後台|管理後台)$/.test(t)) {
+    return adminConsoleCard();
   }
 
   // 擁有者貼網址 → 問要不要做成推播新聞。
