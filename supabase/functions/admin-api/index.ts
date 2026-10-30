@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       case "broadcast_delete": {
         const id = String(body.id ?? "");
         if (!id) return json({ ok: false, error: "缺少 id。" }, 400, origin);
-        return json({ ok: true, ...(await bc.drop(id)) }, 200, origin);
+        return json({ ...(await bc.drop(id)) }, 200, origin);
       }
 
       // 以下四個都吃同一份草稿,而且都先過同一道清洗 ——
@@ -78,15 +78,15 @@ Deno.serve(async (req) => {
         const d = parsed.draft;
 
         if (action === "broadcast_preview") return json({ ok: true, ...(await bc.preview(d)) }, 200, origin);
-        if (action === "broadcast_test") return json({ ok: true, ...(await bc.test(d, who.line_user_id)) }, 200, origin);
-        if (action === "broadcast_schedule") return json({ ok: true, ...(await bc.schedule(d)) }, 200, origin);
+        if (action === "broadcast_test") return json({ ...(await bc.test(d, who.line_user_id)) }, 200, origin);
+        if (action === "broadcast_schedule") return json({ ...(await bc.schedule(d)) }, 200, origin);
 
         // 真的要送了。前端必須明確帶 confirm: true ——
         // 少打一個字就群發出去是收不回來的。
         if (body.confirm !== true) {
           return json({ ok: false, error: "送出需要 confirm: true。" }, 400, origin);
         }
-        return json({ ok: true, ...(await bc.send(d)) }, 200, origin);
+        return json({ ...(await bc.send(d)) }, 200, origin);
       }
 
       // ── 每日內容 ──────────────────────────────────────
