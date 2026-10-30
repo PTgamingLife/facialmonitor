@@ -1,247 +1,335 @@
-/**
- * 管理員發送中心的前端。
- *
- * 這一頁不是門 —— 每一次動作都帶 LIFF 的 ID token 給 admin-api,
- * 由後端向 LINE 查證身分再比對擁有者。前端的隱藏與顯示只是體驗。
- *
- * 刻意不做的事:不在前端組 Flex JSON。預覽只是「夠接近的樣子」,
- * 真正的長相以「發送本人測試卡片」為準 —— 卡片怎麼組只有後端那一份,
- * 前端再寫一份就會出現「預覽好看、送出去不一樣」。
- */
+/* ── 管理後台 ── */
 
-const ADMIN_LIFF_ID = '';   // 建好 LIFF app(Full)之後填這裡
-const API = 'https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/admin-api';
+async function loadAdminUsers() {
+  const list = document.getElementById('admin-user-list');
+  if (!list) return;
+  loadAdminTips('scheduled');
+  loadAdminBlessings('visible');
+  loadPrizeClaims('pending');
 
-const $ = (id) => document.getElementById(id);
-const val = (id) => $(id).value.trim();
+  // 用戶列表
+  const { data: users } = await supabase
+    .from('sb_users')
+    .select('id,name,phone,email,credits,total_used,member_code,created_at')
+    .order('created_at', { ascending: false });
 
-let idToken = '';
+  // 密碼設定：讀取未使用的 health codes
+  const { data: codes } = await supabase
+    .from('sb_health_codes')
+    .select('id,code,credits')
+    .is('used_by', null)
+    .order('credits');
 
-function say(text, cls) {
-  const m = $('msg');
-  m.textContent = text;
-  m.className = 'msg ' + (cls || '');
-}
+  if (codes) {
+    const c1  = codes.find(c => c.credits === 1);
+    const c10 = codes.find(c => c.credits === 10);
+    const c1El  = document.getElementById('admin-code1-input');
+    const c10El = document.getElementById('admin-code10-input');
+    if (c1El)  { c1El.value  = c1?.code  ?? ''; c1El.dataset.id  = c1?.id  ?? ''; }
+    if (c10El) { c10El.value = c10?.code ?? ''; c10El.dataset.id = c10?.id ?? ''; }
+  }
 
-async function api(action, extra) {
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, id_token: idToken, ...(extra || {}) }),
-  });
-  const body = await res.json().catch(() => ({}));
-  return { status: res.status, body };
-}
-
-/* ── 草稿 ───────────────────────────────────────────── */
-
-function draft() {
-  const when = val('f-when');
-  return {
-    title: val('f-title'),
-    subtitle: val('f-subtitle'),
-    note: val('f-note'),
-    link_label: val('f-link-label'),
-    link_url: val('f-link-url'),
-    image_url: val('f-image-url'),
-    image_layout: val('f-image-layout'),
-    audience: val('f-audience'),
-    ask_ai: $('f-ask-ai').checked,
-    // datetime-local 沒有時區,使用者輸入的是自己手機的在地時間。
-    // 直接交給 Date 解析,送出去是 ISO —— 後端只認 ISO。
-    scheduled_at: when === 'later' && val('f-at') ? new Date(val('f-at')).toISOString() : '',
-  };
-}
-
-const TEMPLATES = {
-  blank: { title: '', subtitle: '', note: '', link_label: '', link_url: '' },
-  game: {
-    title: '小遊戲時間到了 🎮',
-    subtitle: '貓咪躲紙箱、極光下樓梯、踩地雷，三個隨你挑。',
-    note: '不用登入、不花點數。等人、排隊、睡不著的時候玩。',
-    link_label: '我來試試',
-    link_url: 'https://ptgaminglife.github.io/facialmonitor/games/index.html',
-  },
-};
-
-function apply(t) {
-  const d = TEMPLATES[t];
-  $('f-title').value = d.title;
-  $('f-subtitle').value = d.subtitle;
-  $('f-note').value = d.note;
-  $('f-link-label').value = d.link_label;
-  $('f-link-url').value = d.link_url;
-  counts();
-  renderPreview();
-}
-
-/* ── 預覽 ───────────────────────────────────────────── */
-
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-
-function renderPreview() {
-  const d = draft();
-  if (!d.title) { $('pv').innerHTML = '<div class="hint">填了標題才看得到預覽。</div>'; return; }
-  const topImg = d.image_url && d.image_layout === 'hero';
-  const sepImg = d.image_url && d.image_layout === 'message';
-  $('pv').innerHTML = `
-    ${sepImg ? `<img class="pv-img" src="${esc(d.image_url)}" alt="">` : ''}
-    <div class="pv">
-      ${topImg ? `<img class="pv-img" src="${esc(d.image_url)}" alt="">` : ''}
-      <div class="pv-head">
-        <div class="brand">看·健 / 健康顧問</div><b>${esc(d.title)}</b>
-      </div>
-      <div class="pv-body">
-        ${d.subtitle ? `<div class="s">${esc(d.subtitle)}</div>` : ''}
-        ${d.note ? `<div class="n">${esc(d.note)}</div>` : ''}
-      </div>
-      ${d.link_url ? `<div class="pv-foot"><div class="pv-btn">${esc(d.link_label || '立即報名')}</div></div>` : ''}
+  const stats = document.getElementById('admin-stats');
+  if (stats && users) {
+    stats.innerHTML = `
+    <div class="admin-stat-row">
+      <span>👥 總用戶</span><strong>${users.length}</strong>
+    </div>
+    <div class="admin-stat-row">
+      <span>🔬 總掃描</span><strong>${users.reduce((s, u) => s + (u.total_used ?? 0), 0)}</strong>
     </div>`;
-}
-
-function counts() {
-  for (const [id, max] of [['title', 60], ['subtitle', 1000]]) {
-    const n = $('f-' + id).value.trim().length;
-    const el = $('c-' + id);
-    el.textContent = `${n} / ${max}`;
-    el.className = 'count' + (n > max ? ' over' : '');
   }
+
+  if (!users?.length) { list.innerHTML = '<div class="empty-state">尚無用戶資料</div>'; return; }
+
+  list.innerHTML = users.map(u => `
+  <div class="admin-user-card">
+    <div class="auc-top">
+      <div>
+        <div class="auc-name">${escapeHtml(u.name)}</div>
+        <div class="auc-email">${escapeHtml(u.email ?? u.phone ?? '')}</div>
+      </div>
+      <div class="auc-code">${u.member_code ?? '—'}</div>
+    </div>
+    <div class="auc-bottom">
+      <div class="auc-stat"><span>掃描</span><strong>${u.total_used ?? 0}</strong></div>
+      <div class="auc-credits-row">
+        <span class="auc-stat-label">次數</span>
+        <input class="admin-edit-input" id="cr-${u.id}" type="number" value="${u.credits ?? 0}" min="0">
+        <button class="btn-save-credits" onclick="saveCredits('${u.id}')">儲存</button>
+      </div>
+    </div>
+  </div>`).join('');
 }
 
-/* ── 後端往返 ───────────────────────────────────────── */
+/**
+ * 每日挑戰行事曆。
+ *
+ * v2 沒有待審佇列:通過自動檢查的內容直接排程,管理者靠 LINE 提醒進來,
+ * 進來也只做兩件事 —— 看被擋下的那幾天、或把某一天撤下。
+ *
+ * scheduled = 未來 14 天已排定的;blocked = 被自動檢查擋下、目前沒有內容的。
+ */
+async function loadAdminTips(view = 'scheduled') {
+  const list = document.getElementById('admin-tip-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state">載入中…</div>';
 
-async function refresh() {
-  const [ov, ls] = await Promise.all([api('overview'), api('broadcast_list')]);
-  if (ov.body.ok) {
-    const a = ov.body.audience;
-    $('stats').innerHTML = [
-      [a.all, '全部好友'], [a.bound, '已綁定'], [a.active_30d, '近 30 天活躍'],
-    ].map(([n, t]) => `<div class="stat"><b>${n}</b><span>${t}</span></div>`).join('');
-    const nd = ov.body.next_free_push_day;
-    $('next-day').textContent = nd
-      ? `下一個還沒有內容的推播日：${nd}　待發排程 ${ov.body.pending_scheduled} 則`
-      : `未來 60 天的推播日都已經有內容了。待發排程 ${ov.body.pending_scheduled} 則`;
-  }
-  if (ls.body.ok) {
-    const rows = ls.body.items || [];
-    $('list').innerHTML = rows.length ? rows.map((r) => {
-      const when = r.sent_at || r.scheduled_at || r.created_at;
-      const cls = r.status === 'sent' ? 'sent' : r.status === 'failed' ? 'failed' : '';
-      const label = r.status === 'sent' ? `已送出 ${r.sent_count} 人`
-        : r.scheduled_at ? '待發' : '草稿';
-      return `<div class="item"><b>${esc(r.title)}<span class="pill ${cls}">${label}</span></b>
-              <span>${esc(String(when).replace('T', ' ').slice(0, 16))}</span></div>`;
-    }).join('') : '<div class="hint">還沒有任何卡片。</div>';
-  }
-}
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  let q = supabase
+    .from('sb_daily_tips')
+    .select('id,tip_date,kind,title,summary,body,intros,game_titles,action_today,'
+          + 'source_name,source_urls,risk_flags,status,active,content_version,quiz_question,'
+          + 'quiz_options,quiz_answer,quiz_explain')
+    .gte('tip_date', today)
+    .order('tip_date', { ascending: true })
+    .limit(30);
+  q = view === 'blocked'
+    ? q.eq('status', 'draft')
+    : q.eq('status', 'approved').eq('active', true);
 
-async function preview() {
-  renderPreview();
-  const r = await api('broadcast_preview', { draft: draft() });
-  $('pv-count').textContent = r.body.ok
-    ? `預計送達 ${r.body.estimated_recipients} 人`
-    : (r.body.error || '');
-}
+  const { data: tips, error } = await q;
+  if (error) { list.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(error.message)}</div>`; return; }
 
-/* ── 啟動 ───────────────────────────────────────────── */
+  renderTipStock(view === 'scheduled' ? (tips?.length ?? 0) : null);
 
-function showGate(text, lineUserId) {
-  $('app').hidden = true;
-  $('gate').hidden = false;
-  $('gate-text').textContent = text;
-  $('gate-id').value = lineUserId || '';
-  say('');
-}
-
-async function boot() {
-  if (!ADMIN_LIFF_ID) {
-    say('這一頁還沒接上 LIFF app（ADMIN_LIFF_ID 是空的）。', 'err');
+  if (!tips?.length) {
+    list.innerHTML = view === 'blocked'
+      ? '<div class="empty-state">沒有被擋下的內容。</div>'
+      : '<div class="empty-state">未來 14 天沒有排定的內容。存量歸零時會改用長青備用題。</div>';
     return;
   }
+
+  const TONE = { zhou: '周小輪', kang: '康小泳', xs: '小XS' };
+
+  list.innerHTML = tips.map(t => {
+    const flags   = Array.isArray(t.risk_flags) ? t.risk_flags : [];
+    const sources = Array.isArray(t.source_urls) ? t.source_urls : [];
+    const intros  = t.intros ?? {};
+    const titles  = t.game_titles ?? {};
+    const options = Array.isArray(t.quiz_options) ? t.quiz_options : [];
+    const isBless = t.kind === 'blessing';
+
+    return `<article class="admin-tip-card">
+      <div class="admin-tip-head">
+        <strong>${escapeHtml(t.tip_date)}｜${isBless ? '💚 祝福關卡' : '🌿 知識題'}</strong>
+        <span>v${t.content_version}</span>
+      </div>
+      ${flags.length
+        ? `<div class="admin-tip-warning">⚠️ 被擋下：${escapeHtml(flags.join('、'))}<br>這一天目前沒有內容。</div>`
+        : ''}
+      <div class="admin-tip-summary"><strong>${escapeHtml(t.title ?? '')}</strong></div>
+      <details><summary>開場白與完整內容</summary>
+        <ul class="admin-tip-intros">
+          ${Object.keys(TONE).map(k => `<li><b>${TONE[k]}</b>：${escapeHtml(intros[k] ?? '（缺）')}
+            <span class="admin-tip-gametitle">${escapeHtml(titles[k] ?? '')}</span></li>`).join('')}
+        </ul>
+        <div class="admin-tip-body">${escapeHtml(t.body ?? '')}</div>
+        ${isBless ? '' : `<div class="admin-tip-body">
+          <b>${escapeHtml(t.quiz_question ?? '')}</b>
+          <ol>${options.map((o, i) =>
+            `<li${i === t.quiz_answer ? ' class="admin-tip-answer"' : ''}>${escapeHtml(o)}</li>`).join('')}</ol>
+          ${escapeHtml(t.quiz_explain ?? '')}
+        </div>`}
+        ${t.action_today ? `<div class="admin-tip-body">今天可以做的一件事：${escapeHtml(t.action_today)}</div>` : ''}
+        <div class="admin-tip-sources">來源：${escapeHtml(t.source_name ?? '')}
+          ${sources.map(u => `<a href="${safeHttpUrl(u)}" target="_blank" rel="noopener">連結</a>`).join('、')}</div>
+      </details>
+      ${t.status === 'approved' ? `<div class="admin-tip-actions">
+        <button class="btn-outline" onclick="withdrawTip('${t.id}')">撤下這一天</button>
+      </div>` : ''}
+    </article>`;
+  }).join('');
+}
+
+/** 存量提示。≤ 4 天就是 LINE 會開始每天提醒的那條線。 */
+function renderTipStock(days) {
+  const box = document.getElementById('admin-tip-stock');
+  if (!box) return;
+  if (days === null || days > 4) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = days === 0
+    ? '⚠️ 未來 14 天完全沒有內容。今天起會改用長青備用題。'
+    : `⚠️ 只剩 ${days} 天有內容。存量 4 天以內每天都會推 LINE 提醒。`;
+}
+
+/** 撤下某一天。用 active = false,不刪除 —— 留著才看得出這天為什麼沒內容。 */
+async function withdrawTip(tipId) {
+  if (!confirm('把這一天撤下來？撤下之後那天就沒有內容，會改用長青備用題。')) return;
+  const { data, error } = await supabase.rpc('rpc_admin_withdraw_tip', { p_id: tipId });
+  if (error || !data?.ok) { showToast(data?.message ?? '撤下失敗'); return; }
+  showToast('已撤下');
+  await loadAdminTips('scheduled');
+}
+
+/**
+ * 祝福管理。
+ *
+ * 自動檢查擋得住療效宣稱、網址與聯絡方式,擋不住的還是要有人看 ——
+ * 這是使用者寫的內容,v2 唯一保留人工的地方。
+ */
+async function loadAdminBlessings(status = 'visible') {
+  const list = document.getElementById('admin-blessing-list');
+  if (!list) return;
+  list.innerHTML = '<div class="empty-state">載入中…</div>';
+
+  const { data, error } = await supabase.rpc('rpc_admin_list_blessings', {
+    p_status: status, p_limit: 50,
+  });
+  if (error) { list.innerHTML = `<div class="empty-state">載入失敗：${escapeHtml(error.message)}</div>`; return; }
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length) { list.innerHTML = '<div class="empty-state">這個狀態目前沒有祝福。</div>'; return; }
+
+  list.innerHTML = rows.map(b => `<article class="admin-tip-card">
+    <div class="admin-tip-head">
+      <strong>${escapeHtml(b.author_name)}</strong>
+      <span>${escapeHtml(b.blessed_date)}${b.is_public ? '' : '｜未公開'}</span>
+    </div>
+    <div class="admin-tip-summary">${escapeHtml(b.text)}</div>
+    ${status === 'visible' ? `<div class="admin-tip-actions">
+      <button class="btn-outline" onclick="blockBlessing('${b.id}')">下架</button>
+    </div>` : ''}
+  </article>`).join('');
+}
+
+async function blockBlessing(id) {
+  const reason = prompt('下架原因（會留在紀錄裡，可留空）') ?? '';
+  const { data, error } = await supabase.rpc('rpc_admin_block_blessing', {
+    p_id: id, p_reason: reason || null,
+  });
+  if (error || !data?.ok) { showToast(data?.message ?? '下架失敗'); return; }
+  showToast('已下架');
+  await loadAdminBlessings('visible');
+}
+
+function safeHttpUrl(value) {
   try {
-    await liff.init({ liffId: ADMIN_LIFF_ID });
-    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
-    idToken = liff.getIDToken() || '';
-    if (!idToken) {
-      say('拿不到 LINE 身分 —— 這個 LIFF app 要勾選 openid 權限。', 'err');
-      return;
-    }
-
-    const me = await api('whoami');
-    if (!me.body.ok) { say(me.body.error || '驗證失敗。', 'err'); return; }
-    const who = me.body.who;
-    if (!who.is_owner) {
-      showGate(
-        who.owner_configured
-          ? '這個帳號不是已綁定的擁有者。如果應該是你，請確認下面這串與 Secret 裡設定的一致。'
-          : '還沒設定擁有者，所以後台對所有人關著。照下面的步驟綁定一次就好。',
-        who.line_user_id);
-      return;
-    }
-
-    $('app').hidden = false;
-    say('');
-    await refresh();
-    await preview();
-  } catch (e) {
-    console.error(e);
-    say(e.message || '初始化失敗，請關閉重開。', 'err');
-  }
+    const u = new URL(String(value));
+    return ['https:', 'http:'].includes(u.protocol) ? u.href : 'about:blank';
+  } catch (_) { return 'about:blank'; }
 }
 
-/* ── 綁事件 ─────────────────────────────────────────── */
+async function saveCredits(userId) {
+  const input = document.getElementById(`cr-${userId}`);
+  if (!input) return;
+  const val = parseInt(input.value);
+  if (isNaN(val) || val < 0) { showToast('請輸入有效次數'); return; }
 
-['f-title', 'f-subtitle', 'f-note', 'f-link-label', 'f-link-url', 'f-image-url']
-  .forEach((id) => $(id).addEventListener('input', () => { counts(); renderPreview(); }));
-['f-image-layout', 'f-audience'].forEach((id) => $(id).addEventListener('change', preview));
-$('f-ask-ai').addEventListener('change', renderPreview);
-$('f-when').addEventListener('change', () => { $('when-later').hidden = val('f-when') !== 'later'; });
-$('t-blank').addEventListener('click', () => apply('blank'));
-$('t-game').addEventListener('click', () => apply('game'));
+  // 走 RPC：前端已無權直接改 sb_users.credits，且後台調整要留在積點總帳裡
+  const { data, error } = await supabase.rpc('rpc_admin_set_balance', {
+    p_target_user_id: userId,
+    p_credits: val,
+  });
+  if (error || !data?.ok) { showToast('儲存失敗'); return; }
+  showToast('✅ 次數已更新');
+}
 
-$('gate-copy').addEventListener('click', () => {
-  navigator.clipboard?.writeText($('gate-id').value)
-    .then(() => say('✅ 已複製', 'ok'))
-    .catch(() => say('複製失敗，請手動選取。', 'err'));
-});
+async function updateCode(type) {
+  const inputId  = type === 1 ? 'admin-code1-input' : 'admin-code10-input';
+  const resultId = type === 1 ? 'admin-code1-result' : 'admin-code10-result';
+  const input    = document.getElementById(inputId);
+  const result   = document.getElementById(resultId);
 
-$('b-test').addEventListener('click', async () => {
-  $('b-test').disabled = true;
-  const r = await api('broadcast_test', { draft: draft() });
-  say(r.body.ok ? '✅ 測試卡片已送到你的 LINE，去看看實際長相。'
-                : (r.body.error || '送不出去。'), r.body.ok ? 'ok' : 'err');
-  $('b-test').disabled = false;
-});
+  const code = input?.value.trim();
+  if (!code || !/^\d{7}$/.test(code)) {
+    result.textContent = '請輸入 7 位數字'; result.style.color = 'var(--alert-color)'; return;
+  }
 
-$('b-send').addEventListener('click', async () => {
-  const d = draft();
-  if (!d.title) { say('標題不能空白。', 'err'); return; }
+  const existingId = input?.dataset.id;
+  let error;
 
-  if (val('f-when') === 'later') {
-    if (!d.scheduled_at) { say('選一個送出時間。', 'err'); return; }
-    $('b-send').disabled = true;
-    const r = await api('broadcast_schedule', { draft: d });
-    say(r.body.ok ? '✅ 已排程。每天台北 09:00 那次 cron 會撿到期的那一則。'
-                  : (r.body.error || '排程失敗。'), r.body.ok ? 'ok' : 'err');
-    $('b-send').disabled = false;
-    await refresh();
+  if (existingId) {
+    // 更新現有未使用的 code
+    ({ error } = await supabase.from('sb_health_codes').update({ code }).eq('id', existingId));
+  } else {
+    // 新增一筆
+    ({ error } = await supabase.from('sb_health_codes').insert({ code, credits: type }));
+  }
+
+  if (error) { result.textContent = '更新失敗'; result.style.color = 'var(--alert-color)'; return; }
+  result.textContent = '✓ 已更新'; result.style.color = 'var(--ok-color)';
+  setTimeout(() => { result.textContent = ''; }, 3000);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/* ── 領獎管理 ───────────────────────────────────────────────
+   名單裡有其他會員的姓名與電話,查詢與確認都走擋了 is_admin_caller()
+   的 RPC —— 前端這一層只是畫面,不是權限。 */
+let _prizeFilter = 'pending';
+
+async function loadPrizeClaims(status = 'pending') {
+  _prizeFilter = status;
+  const box = document.getElementById('admin-prize-list');
+  if (!box) return;
+  box.innerHTML = '<div class="empty-state">載入中…</div>';
+
+  const { data, error } = await supabase.rpc('rpc_admin_prize_claims', { p_status: status });
+  if (error || !data?.ok) {
+    box.innerHTML = `<div class="empty-state">${escapeHtml(data?.message ?? '讀取失敗')}</div>`;
     return;
   }
 
-  const pv = await api('broadcast_preview', { draft: d });
-  const n = pv.body.ok ? pv.body.estimated_recipients : '?';
-  // 最後一道關。群發會計費,而且收不回來。
-  if (!confirm(`現在就送給 ${n} 個人，收不回來。確定嗎？\n\n${d.title}`)) return;
+  const rows = data.rows ?? [];
+  if (!rows.length) {
+    box.innerHTML = `<div class="empty-state">${status === 'pending' ? '目前沒有待領取的獎品' : '沒有紀錄'}</div>`;
+    return;
+  }
 
-  $('b-send').disabled = true;
-  say('送出中…');
-  const r = await api('broadcast_send', { draft: d, confirm: true });
-  say(r.body.ok ? `✅ 已送出，${r.body.sent} 人。` : (r.body.error || '送出失敗。'),
-      r.body.ok ? 'ok' : 'err');
-  $('b-send').disabled = false;
-  await refresh();
-});
+  box.innerHTML = rows.map(r => {
+    const when = new Date(r.drawn_at).toLocaleString('zh-TW',
+      { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const pending = r.status === 'pending';
+    return `
+      <div class="admin-row" data-draw="${r.draw_id}">
+        <div>
+          <div style="font-weight:700">${escapeHtml(r.prize_name)}</div>
+          <div style="font-size:12px;color:var(--text-soft)">
+            ${escapeHtml(r.user_name || '（未填姓名）')}
+            ${r.member_code ? '· ' + escapeHtml(r.member_code) : ''}
+            ${r.phone ? '· ' + escapeHtml(r.phone) : ''}
+          </div>
+          <div style="font-size:11px;color:var(--text-soft)">
+            ${when} 抽中${r.has_line ? '' : '　⚠️ 未綁定 LINE，無法通知'}
+          </div>
+        </div>
+        ${pending
+          ? `<button class="btn-update-code" onclick="confirmClaim('${r.draw_id}', this)">確認領取</button>`
+          : '<span style="font-size:12px;color:var(--ok-color)">✓ 已領取</span>'}
+      </div>`;
+  }).join('');
+}
 
-boot();
+/* 確認領取 = 標記 + 推 LINE 通知。兩件事一起做才不會出現
+   「後台顯示已領、當事人完全不知道」。走 Edge Function 是因為推播需要
+   channel token,那把鑰匙不能放進瀏覽器。 */
+async function confirmClaim(drawId, btn) {
+  if (!confirm('確認這份獎品已經交給對方？\n確認後會發送一則 LINE 訊息通知本人。')) return;
+
+  btn.disabled = true;
+  btn.textContent = '處理中…';
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch(window.SUPABASE_URL + '/functions/v1/prize-claim', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token ?? ''}`,
+        'apikey': window.SUPABASE_ANON,
+      },
+      body: JSON.stringify({ draw_id: drawId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.ok) throw new Error(body.message ?? '確認失敗');
+
+    showToast('✅ ' + body.message);
+    loadPrizeClaims(_prizeFilter);
+  } catch (e) {
+    showToast('⚠️ ' + (e.message || '確認失敗'));
+    btn.disabled = false;
+    btn.textContent = '確認領取';
+  }
+}
