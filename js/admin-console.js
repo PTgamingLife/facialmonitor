@@ -9,7 +9,7 @@
  * 前端再寫一份就會出現「預覽好看、送出去不一樣」。
  */
 
-const ADMIN_LIFF_ID = '';   // 建好 LIFF app(Full)之後填這裡
+const ADMIN_LIFF_ID = '2011132698-98s0OfPc';   // 管理中心(Full)
 const API = 'https://wcemkmwrlvijxxwybrgs.supabase.co/functions/v1/admin-api';
 
 const $ = (id) => document.getElementById(id);
