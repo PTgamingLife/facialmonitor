@@ -12,6 +12,7 @@
 | `js/cb-engine.js` | 物理/規則引擎(水、岩漿、石頭、角色) |
 | `js/cb-levels.js` | 10 關關卡資料 |
 | `js/cb-draw.js` | Canvas 繪圖(場景、粒子、特效;圖片載入失敗時用向量角色備援) |
+| `js/cb-matter.js` | 水/岩漿/石頭質感(深度漸層、圓弧液面、波光、氣泡、火星、圓石光影) |
 | `js/cb-sprites.js` | 角色圖片 + 程式動作(呼吸、走路、落地壓扁、跳進紙箱、狗被打飛) |
 | `assets/cb_*.webp` | Higgsfield 生成圖:貓/狗/紙箱 + 姿勢圖(貓走路×2、跳、躲進箱;狗跑、暈倒)、背景、磚牆、Logo,共約 216KB |
 | `js/cb-net.js` | LIFF 登入/分享、排行榜 API |

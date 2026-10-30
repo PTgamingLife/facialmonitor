@@ -36,7 +36,8 @@
       }
     }
     const wallFill = cbWallPattern(ctx, sp, s);
-    drawParticles(ctx, g, s, now);
+    if (cb_root.CB_MATTER) cb_root.CB_MATTER.cbDrawMatter(ctx, g, s, now);
+    else drawParticles(ctx, g, s, now);
     g.wallRects.forEach(([x, y, w, h]) => {
       rr(ctx, x * s, y * s, w * s, h * s, Math.min(w, h) * s * 0.45);
       ctx.fillStyle = wallFill; ctx.fill();

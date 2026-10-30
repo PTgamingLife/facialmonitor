@@ -9,6 +9,8 @@
   --sk_muted: rgba(244, 251, 255, 0.68);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* 手機長按不要跳出選字／複製／放大鏡選單（iOS 要加 -webkit- 前綴） */
+html, body, button, canvas { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sk_deep); color: var(--sk_text);
   font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif; user-select: none; }
 #sk_canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
@@ -35,7 +37,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sk_dee
 
 /* 觸控鍵 */
 #sk_touch { position: fixed; left: 0; right: 0; bottom: max(14px, env(safe-area-inset-bottom)); display: flex; justify-content: space-between; padding: 0 14px; z-index: 5; }
-.sk_tbtn { width: 84px; height: 84px; border-radius: 26px; color: var(--sk_text); font-size: 28px; opacity: .75; touch-action: none; }
+.sk_tbtn { width: 84px; height: 84px; border-radius: 26px; color: var(--sk_text); font-size: 28px; opacity: .75; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .sk_tbtn.sk_on { background: rgba(92, 242, 200, 0.35); opacity: 1; }
 @media (hover: hover) and (pointer: fine) { #sk_touch { display: none !important; } }
 
