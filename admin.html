@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>管理員發送中心｜看·健</title>
+
+<!--
+  管理員發送中心 —— Size = Full 的獨立 LIFF。
+  在聊天室打「管理中心」就會拿到連結。
+
+  🔒 這一頁本身不是門。
+     畫面上的隱藏與顯示只是體驗,真正的權限在 admin-api:
+     每一次呼叫都帶 LIFF 的 ID token,後端拿去跟 LINE 查證,
+     再比對 HEALTHBOT_ADMIN_LINE_USER_ID。前端改不動那道檢查。
+
+  設計上刻意做的三件事:
+  ① 保存與預覽永遠不會群發 —— 唯一會送到所有人手上的按鈕只有一顆,
+     而且要再確認一次。
+  ② 先發給自己測試,再群發。群發收不回來,一則測試訊息很便宜。
+  ③ 還沒設定擁有者時,把「你的 LINE User ID」顯示出來讓你複製去設定,
+     而不是丟一句「你沒有權限」然後讓你自己猜。
+-->
+
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+<style>
+  :root{
+    --deep:#0D5C63; --primary:#22C1C3; --pale:#E6F7F8;
+    --soft:#8FA3B8; --mid:#41565F; --bg:#FFFFFF; --line:#E3ECED;
+    --warn:#B3341F; --warn-bg:#FCEDEA; --ok:#2F6B3C; --ok-bg:#EAF4EB;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:var(--bg); color:var(--deep);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    padding:16px 16px calc(24px + env(safe-area-inset-bottom));
+    max-width:640px; margin:0 auto;
+  }
+  h1{font-size:19px;margin:0 0 2px;letter-spacing:.5px}
+  h2{font-size:14px;margin:22px 0 8px;letter-spacing:.5px}
+  .sub{font-size:12px;color:var(--mid);line-height:1.6}
+
+  .banner{
+    background:var(--ok-bg); color:var(--ok); border-radius:10px;
+    padding:11px 13px; font-size:12.5px; line-height:1.6; margin:12px 0 4px;
+  }
+  .banner.warn{background:var(--warn-bg);color:var(--warn)}
+
+  .stats{display:flex;gap:8px;margin:12px 0}
+  .stat{flex:1;background:var(--pale);border-radius:10px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:20px;line-height:1.2}
+  .stat span{font-size:11px;color:var(--mid)}
+
+  .card{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+
+  label{display:block;font-size:12px;color:var(--mid);margin:11px 0 4px}
+  label:first-child{margin-top:0}
+  input,textarea,select{
+    width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;
+    font-size:14px;font-family:inherit;color:var(--deep);background:#fff;
+  }
+  textarea{resize:vertical;min-height:72px;line-height:1.6}
+  .count{font-size:11px;color:var(--soft);text-align:right;margin-top:3px}
+  .count.over{color:var(--warn);font-weight:700}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1;min-width:0}
+
+  .btn{
+    width:100%;border:0;border-radius:10px;padding:12px;font-size:14px;
+    font-weight:700;font-family:inherit;margin-top:8px;cursor:pointer;
+  }
+  .btn-main{background:var(--deep);color:#fff}
+  .btn-send{background:var(--warn);color:#fff}
+  .btn-ghost{background:var(--pale);color:var(--deep)}
+  .btn-line{background:transparent;color:var(--mid);font-weight:500;font-size:13px}
+  .btn[disabled]{opacity:.5;cursor:default}
+  .half{display:flex;gap:8px}
+  .half>.btn{margin-top:8px}
+
+  .msg{font-size:13px;line-height:1.6;margin:10px 0;min-height:18px}
+  .msg.err{color:var(--warn)} .msg.ok{color:var(--ok);font-weight:700}
+
+  /* 預覽:不是真的 Flex,是夠接近的樣子。真正的長相以測試卡片為準。 */
+  .pv{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:10px}
+  .pv-img{width:100%;display:block;background:var(--pale)}
+  .pv-head{background:var(--deep);color:#fff;padding:14px 16px}
+  .pv-head .brand{font-size:11px;color:#B9DDDF}
+  .pv-head b{display:block;font-size:15px;line-height:1.5;margin-top:5px}
+  .pv-body{padding:12px 16px;background:#F1F7F5}
+  .pv-body .s{font-size:13px;color:var(--mid);line-height:1.6}
+  .pv-body .n{font-size:11.5px;color:#526B75;line-height:1.6;margin-top:8px}
+  .pv-foot{background:#F1F7F5;padding:0 16px 14px}
+  .pv-btn{background:var(--deep);color:#fff;border-radius:7px;text-align:center;
+          font-size:13px;font-weight:700;padding:10px}
+
+  .tabs{display:flex;gap:6px;margin:14px 0 4px}
+  .tab{flex:1;border:0;background:var(--pale);color:var(--mid);border-radius:9px;
+       padding:9px 4px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+  .tab.on{background:var(--deep);color:#fff}
+
+  .day{border-bottom:1px solid var(--line);padding:11px 0}
+  .day:last-child{border-bottom:0}
+  .day .d{font-size:12px;color:var(--soft)}
+  .day b{display:block;font-size:13.5px;line-height:1.5;margin:3px 0}
+  .day .q{font-size:11.5px;color:var(--mid);line-height:1.6}
+  .day .acts{display:flex;gap:6px;margin-top:7px}
+  .day .acts button{flex:0 0 auto;border:1px solid var(--line);background:#fff;
+    color:var(--mid);border-radius:7px;padding:5px 11px;font-size:11.5px;
+    font-family:inherit;cursor:pointer}
+  .empty{color:var(--warn);font-weight:700}
+
+  pre{background:#F1F7F5;border-radius:9px;padding:11px;font-size:11px;
+      line-height:1.55;overflow:auto;max-height:260px;white-space:pre-wrap;
+      word-break:break-all;margin:10px 0 0}
+
+  .item{border-bottom:1px solid var(--line);padding:10px 0;font-size:13px}
+  .item:last-child{border-bottom:0}
+  .item b{display:block;line-height:1.5}
+  .item span{font-size:11px;color:var(--soft)}
+  .pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:9px;
+        background:var(--pale);color:var(--deep);margin-left:6px}
+  .pill.sent{background:var(--ok-bg);color:var(--ok)}
+  .pill.failed{background:var(--warn-bg);color:var(--warn)}
+
+  .hint{font-size:11px;color:var(--soft);line-height:1.7;margin-top:8px}
+  code{background:var(--pale);padding:1px 5px;border-radius:4px;font-size:11px;
+       word-break:break-all}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+
+<h1>管理員發送中心</h1>
+<div class="sub">保存與預覽都不會群發。</div>
+
+<div class="msg" id="msg">載入中…</div>
+
+<!-- 還沒設定擁有者 / 不是擁有者 -->
+<section id="gate" hidden>
+  <div class="banner warn" id="gate-text"></div>
+  <label>你的 LINE User ID</label>
+  <input id="gate-id" readonly>
+  <button class="btn btn-ghost" id="gate-copy">複製</button>
+  <div class="hint">
+    到 Supabase → Edge Functions → Secrets，新增
+    <code>HEALTHBOT_ADMIN_LINE_USER_ID</code>，值就是上面這一串，然後回來重新整理。
+  </div>
+</section>
+
+<!-- 主畫面 -->
+<main id="app" hidden>
+  <div class="stats" id="stats"></div>
+  <div class="banner" id="next-day"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-pane="pane-cast">群發卡片</button>
+    <button class="tab" data-pane="pane-tips">每日內容</button>
+    <button class="tab" data-pane="pane-menu">圖文選單</button>
+  </div>
+
+<section id="pane-cast">
+  <h2>1. 填寫卡片內容</h2>
+  <div class="card">
+    <div class="half">
+      <button class="btn btn-ghost" id="t-blank">＋ 新卡片</button>
+      <button class="btn btn-ghost" id="t-game">套用小遊戲模板</button>
+    </div>
+
+    <label>標題（最多 60 字）</label>
+    <input id="f-title" maxlength="80" placeholder="例如：小遊戲時間到了 🎮">
+    <div class="count" id="c-title">0 / 60</div>
+
+    <label>內文（最多 1000 字）</label>
+    <textarea id="f-subtitle" placeholder="告訴好友這次有什麼新內容。"></textarea>
+    <div class="count" id="c-subtitle">0 / 1000</div>
+
+    <label>附註（小字，可留空）</label>
+    <input id="f-note" placeholder="例如：不用登入、不花點數。">
+
+    <div class="row">
+      <div>
+        <label>按鈕文字</label>
+        <input id="f-link-label" placeholder="我來試試">
+      </div>
+      <div>
+        <label>按鈕連結（https）</label>
+        <input id="f-link-url" placeholder="https://…">
+      </div>
+    </div>
+
+    <label>圖片網址（https，可留空）</label>
+    <input id="f-image-url" placeholder="https://…">
+    <div class="row">
+      <div>
+        <label>圖片位置</label>
+        <select id="f-image-layout">
+          <option value="hero">卡片頂圖（會裁成橫幅）</option>
+          <option value="message">單獨一張圖（保留原比例）</option>
+        </select>
+      </div>
+      <div>
+        <label>送給誰</label>
+        <select id="f-audience">
+          <option value="all">全部好友</option>
+          <option value="bound">已綁定會員</option>
+          <option value="active_30d">近 30 天活躍</option>
+        </select>
+      </div>
+    </div>
+
+    <label><input type="checkbox" id="f-ask-ai" style="width:auto"> 加一顆「先問問 AI」</label>
+    <div class="hint">
+      那顆按鈕會把標題丟給健康 AI。標題不是健康主題的話，AI 只會回
+      「我這邊沒有相關資訊」—— 所以預設不加。
+    </div>
+  </div>
+
+  <h2>2. 預覽</h2>
+  <div class="card">
+    <div id="pv"></div>
+    <div class="hint" id="pv-count"></div>
+    <button class="btn btn-ghost" id="b-test">發送本人測試卡片</button>
+    <div class="hint">只會送到你自己的 LINE。這是確認實際長相最可靠的方式。</div>
+  </div>
+
+  <h2>3. 送出</h2>
+  <div class="card">
+    <label>時機</label>
+    <select id="f-when">
+      <option value="now">立即送出</option>
+      <option value="later">排程</option>
+    </select>
+    <div id="when-later" hidden>
+      <label>送出時間</label>
+      <input type="datetime-local" id="f-at">
+      <div class="hint">
+        ⚠️ 排程是每天台北時間 <b>09:00</b> 那一次 cron 在撿，所以設 08:00 會在
+        09:00 送出。同一天排兩則，第二則會留到隔天。
+      </div>
+    </div>
+    <button class="btn btn-send" id="b-send">確認送出</button>
+    <div class="hint">群發會計費，而且收不回來。按下去會再問一次。</div>
+  </div>
+
+  <h2>最近與待發</h2>
+  <div class="card" id="list"></div>
+</section>
+
+<section id="pane-tips" hidden>
+  <h2>推播日表</h2>
+  <div class="sub">
+    每三天一則。沒有內容的推播日那天會撲空 —— 下面紅字就是那幾天。
+  </div>
+  <div class="card" id="days">載入中…</div>
+  <button class="btn btn-ghost" id="b-fill">把空的日子一次補齊</button>
+  <div class="hint">
+    ⚠️ 重產的「要避開的主題」是從你選的日期頭尾之間撈的，範圍外的日子它看不到。
+    一次只重產一天時它幾乎是瞎的，容易寫出跟別天很像的東西。
+    一次補多天反而比較不會撞。
+  </div>
+</section>
+
+<section id="pane-menu" hidden>
+  <h2>線上這一組</h2>
+  <div class="card" id="menu-now">載入中…</div>
+  <h2>重建</h2>
+  <div class="card">
+    <div class="sub">
+      改了 <code>richmenu-config.json</code> 或底圖之後要重建一次才會生效。
+      從這裡重建會順手把 <code>line_rich_menus</code> 寫對 ——
+      用 GitHub Actions 重建不會寫那張表，所以表裡常常是舊的 ID。
+    </div>
+    <button class="btn btn-ghost" id="b-menu-dry">先看可點區塊（不碰 LINE）</button>
+    <button class="btn btn-send" id="b-menu-go">確認重建</button>
+    <div class="hint">
+      ⚠️ 重建會先刪掉舊選單再建新的，中間有幾秒鐘客戶看到的是空的。
+    </div>
+    <pre id="menu-log" hidden></pre>
+  </div>
+</section>
+</main>
+
+<script src="js/admin-console.js?v=1"></script>
+</body>
+</html>

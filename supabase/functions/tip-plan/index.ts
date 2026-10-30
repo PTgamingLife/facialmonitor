@@ -1,4 +1,4 @@
-import { authorizeCronHash } from "../_shared/cron-auth.ts";
+import { authorizeCronHash, isInternalCall } from "../_shared/cron-auth.ts";
 import { APP_BASE_URL, assetUrl, infoCard, push, uriAction } from "../_shared/line.ts";
 import { insert, patch, rpc, select } from "../_shared/db.ts";
 // 欄位形狀、輸出 schema、寫稿指令都在 _shared/tip-schema.ts ——
@@ -108,8 +108,12 @@ async function generate(dates: string[], sources: string[], taken: string[]): Pr
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405 });
-  const denied = await authorizeCronHash(req, "x-tip-plan-secret", PLAN_SECRET_HASH);
-  if (denied) return denied;
+  // 兩條門:pg_cron 帶密鑰,管理中心(admin-api)帶 service role key。
+  // 後者不是放寬 —— 見 _shared/cron-auth.ts 的 isInternalCall。
+  if (!isInternalCall(req)) {
+    const denied = await authorizeCronHash(req, "x-tip-plan-secret", PLAN_SECRET_HASH);
+    if (denied) return denied;
+  }
   if (!OPENAI_KEY) return Response.json({ ok: false, error: "openai_not_configured" }, { status: 503 });
 
   /*

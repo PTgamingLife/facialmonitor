@@ -28,14 +28,13 @@ import {
 
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? Deno.env.get("HEALTHBOT_OPENAI_KEY") ?? "";
 const MODEL = Deno.env.get("HEALTHBOT_OPENAI_MODEL") ?? "gpt-4.1-mini";
-const ADMIN_LINE_ID = Deno.env.get("HEALTHBOT_ADMIN_LINE_USER_ID") ?? "";
 
 /** 網頁抓多少就夠寫一則衛教。再多只是讓 token 變貴、讓雜訊變多。 */
 const MAX_PAGE_CHARS = 12_000;
 
-export function isOwner(lineUserId: string): boolean {
-  return !!ADMIN_LINE_ID && lineUserId === ADMIN_LINE_ID;
-}
+// 擁有者的判斷搬到 _shared/owner.ts —— 管理中心(admin-api)也要用同一把尺。
+// 這裡 re-export,handlers.ts 與 index.ts 的 import 不用動。
+export { isOwner } from "../_shared/owner.ts";
 
 /** 從一段文字裡抓出第一個 http(s) 網址。 */
 export function firstUrl(text: string): string | null {
