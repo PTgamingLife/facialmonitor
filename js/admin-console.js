@@ -145,6 +145,85 @@ async function preview() {
     : (r.body.error || '');
 }
 
+/* ── 每日內容 ───────────────────────────────────────── */
+
+let emptyDays = [];
+
+async function loadTips() {
+  const r = await api('tips_schedule');
+  if (!r.body.ok) { $('days').textContent = r.body.error || '讀不到。'; return; }
+  const days = r.body.days || [];
+  emptyDays = days.filter((d) => !d.tip || d.tip.status === 'rejected').map((d) => d.day);
+
+  $('days').innerHTML = days.map(({ day, tip }) => {
+    const rejected = tip && tip.status === 'rejected';
+    if (!tip || rejected) {
+      return `<div class="day"><div class="d">${day}</div>
+        <b class="empty">${rejected ? '已退稿，等重產' : '沒有內容 —— 這天會撲空'}</b>
+        <div class="acts"><button data-regen="${day}">重產這天</button></div></div>`;
+    }
+    const kind = tip.kind === 'blessing' ? '祝福' : '知識題';
+    return `<div class="day"><div class="d">${day}・${kind}・v${tip.content_version}</div>
+      <b>${esc(tip.title)}</b>
+      ${tip.quiz_question ? `<div class="q">${esc(tip.quiz_question)}</div>` : ''}
+      ${tip.action_today ? `<div class="q">👉 ${esc(tip.action_today)}</div>` : ''}
+      <div class="acts">
+        <button data-regen="${day}">重產</button>
+        <button data-reject="${day}">退稿</button>
+      </div></div>`;
+  }).join('');
+
+  $('b-fill').hidden = emptyDays.length === 0;
+  $('b-fill').textContent = `把空的 ${emptyDays.length} 天一次補齊`;
+
+  $('days').querySelectorAll('[data-regen]').forEach((b) =>
+    b.addEventListener('click', () => regen([b.dataset.regen])));
+  $('days').querySelectorAll('[data-reject]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      if (!confirm(`退掉 ${b.dataset.reject} 這天的內容？退了之後那天會是空的。`)) return;
+      const r = await api('tips_reject', { day: b.dataset.reject });
+      say(r.body.ok ? '✅ 已退稿。' : (r.body.error || '退稿失敗。'), r.body.ok ? 'ok' : 'err');
+      await loadTips();
+    }));
+}
+
+async function regen(dates) {
+  if (!dates.length) return;
+  say(`產稿中…（${dates.length} 天，要等十幾秒）`);
+  const r = await api('tips_regenerate', { dates });
+  say(r.body.ok ? `✅ 產了 ${r.body.created} 則。` : (r.body.error || '產稿失敗。'),
+      r.body.ok ? 'ok' : 'err');
+  await loadTips();
+}
+
+/* ── 圖文選單 ───────────────────────────────────────── */
+
+async function loadMenu() {
+  const r = await api('menu_current');
+  if (!r.body.ok) { $('menu-now').textContent = r.body.error || '讀不到。'; return; }
+  const rows = r.body.items || [];
+  $('menu-now').innerHTML = (rows.length
+    ? rows.map((m) => `<div class="item"><b>${esc(m.tab_key)}${m.is_default ? '<span class="pill">預設</span>' : ''}</b>
+        <span>${esc(m.richmenu_id)}</span></div>`).join('')
+    : '<div class="hint">line_rich_menus 是空的。</div>')
+    + (r.body.setup_key_configured ? ''
+      : '<div class="hint" style="color:var(--warn)">HEALTHBOT_SETUP_KEY 沒設定，重建會被擋下。</div>');
+}
+
+async function menuRun(dry) {
+  const btn = dry ? $('b-menu-dry') : $('b-menu-go');
+  if (!dry && !confirm('重建會先刪掉舊選單，中間幾秒鐘客戶看到的是空的。確定嗎？')) return;
+  btn.disabled = true;
+  say(dry ? '產出可點區塊…' : '重建中…');
+  const r = await api('menu_rebuild', dry ? { dry: true } : { dry: false, confirm: true });
+  $('menu-log').hidden = false;
+  $('menu-log').textContent = r.body.log || r.body.error || '(沒有輸出)';
+  say(r.body.ok ? (dry ? '✅ 這是乾跑，沒有碰 LINE。' : '✅ 選單已重建。') : '失敗，看下面的紀錄。',
+      r.body.ok ? 'ok' : 'err');
+  btn.disabled = false;
+  if (r.body.ok && !dry) await loadMenu();
+}
+
 /* ── 啟動 ───────────────────────────────────────────── */
 
 function showGate(text, lineUserId) {
@@ -185,6 +264,8 @@ async function boot() {
     say('');
     await refresh();
     await preview();
+    // 另外兩個分頁一起載 —— 切過去才開始轉圈比較難看,而且這兩個都很輕。
+    await Promise.all([loadTips(), loadMenu()]);
   } catch (e) {
     console.error(e);
     say(e.message || '初始化失敗，請關閉重開。', 'err');
@@ -198,6 +279,14 @@ async function boot() {
 ['f-image-layout', 'f-audience'].forEach((id) => $(id).addEventListener('change', preview));
 $('f-ask-ai').addEventListener('change', renderPreview);
 $('f-when').addEventListener('change', () => { $('when-later').hidden = val('f-when') !== 'later'; });
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
+  ['pane-cast', 'pane-tips', 'pane-menu'].forEach((id) => { $(id).hidden = id !== t.dataset.pane; });
+}));
+$('b-fill').addEventListener('click', () => regen(emptyDays));
+$('b-menu-dry').addEventListener('click', () => menuRun(true));
+$('b-menu-go').addEventListener('click', () => menuRun(false));
+
 $('t-blank').addEventListener('click', () => apply('blank'));
 $('t-game').addEventListener('click', () => apply('game'));
 

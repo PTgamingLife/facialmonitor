@@ -26,3 +26,19 @@ export async function authorizeCronHash(req: Request, header: string, expectedHa
   }
   return null;
 }
+
+/**
+ * 同一個專案裡另一支 Edge Function 的呼叫。
+ *
+ * 排程端點的密鑰明文只存在 vault,Edge Function 讀不到(環境變數裡是 SHA-256)。
+ * 所以管理中心要叫得動 tip-plan,得有另一條門 —— 用 service role key 本身。
+ *
+ * 這不是放寬:能拿到 service role key 的東西本來就能直接改資料庫,
+ * 多一條「可以叫 tip-plan」沒有多給任何權限。
+ * 反過來說,service role key 絕不可以出現在瀏覽器,所以這條路只有
+ * Edge Function 走得到。
+ */
+export function isInternalCall(req: Request): boolean {
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return !!key && secureEqual(req.headers.get("x-internal-key") ?? "", key);
+}

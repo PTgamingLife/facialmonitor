@@ -15,6 +15,8 @@
 
 import { cors, json, verify } from "./auth.ts";
 import * as bc from "./broadcast.ts";
+import * as content from "./content.ts";
+import * as menu from "./menu.ts";
 import { overview } from "./overview.ts";
 
 Deno.serve(async (req) => {
@@ -85,6 +87,32 @@ Deno.serve(async (req) => {
           return json({ ok: false, error: "送出需要 confirm: true。" }, 400, origin);
         }
         return json({ ok: true, ...(await bc.send(d)) }, 200, origin);
+      }
+
+      // ── 每日內容 ──────────────────────────────────────
+      case "tips_schedule":
+        return json({ ok: true, ...(await content.schedule()) }, 200, origin);
+
+      case "tips_reject":
+        return json({ ...(await content.reject(String(body.day ?? ""))) }, 200, origin);
+
+      case "tips_regenerate": {
+        const dates = Array.isArray(body.dates) ? body.dates.map(String) : [];
+        return json({ ...(await content.regenerate(dates)) }, 200, origin);
+      }
+
+      // ── 圖文選單 ──────────────────────────────────────
+      case "menu_current":
+        return json({ ok: true, ...(await menu.current()) }, 200, origin);
+
+      case "menu_rebuild": {
+        // 真的重建會先刪掉舊選單,中間幾秒鐘客戶看到的是空的。
+        // 所以跟群發一樣,非 dry 必須明確帶 confirm: true。
+        const dry = body.dry !== false;
+        if (!dry && body.confirm !== true) {
+          return json({ ok: false, error: "重建需要 confirm: true。" }, 400, origin);
+        }
+        return json({ ...(await menu.rebuild(dry)) }, 200, origin);
       }
 
       default:

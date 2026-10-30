@@ -95,6 +95,26 @@
   .pv-btn{background:var(--deep);color:#fff;border-radius:7px;text-align:center;
           font-size:13px;font-weight:700;padding:10px}
 
+  .tabs{display:flex;gap:6px;margin:14px 0 4px}
+  .tab{flex:1;border:0;background:var(--pale);color:var(--mid);border-radius:9px;
+       padding:9px 4px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer}
+  .tab.on{background:var(--deep);color:#fff}
+
+  .day{border-bottom:1px solid var(--line);padding:11px 0}
+  .day:last-child{border-bottom:0}
+  .day .d{font-size:12px;color:var(--soft)}
+  .day b{display:block;font-size:13.5px;line-height:1.5;margin:3px 0}
+  .day .q{font-size:11.5px;color:var(--mid);line-height:1.6}
+  .day .acts{display:flex;gap:6px;margin-top:7px}
+  .day .acts button{flex:0 0 auto;border:1px solid var(--line);background:#fff;
+    color:var(--mid);border-radius:7px;padding:5px 11px;font-size:11.5px;
+    font-family:inherit;cursor:pointer}
+  .empty{color:var(--warn);font-weight:700}
+
+  pre{background:#F1F7F5;border-radius:9px;padding:11px;font-size:11px;
+      line-height:1.55;overflow:auto;max-height:260px;white-space:pre-wrap;
+      word-break:break-all;margin:10px 0 0}
+
   .item{border-bottom:1px solid var(--line);padding:10px 0;font-size:13px}
   .item:last-child{border-bottom:0}
   .item b{display:block;line-height:1.5}
@@ -134,6 +154,13 @@
   <div class="stats" id="stats"></div>
   <div class="banner" id="next-day"></div>
 
+  <div class="tabs">
+    <button class="tab on" data-pane="pane-cast">群發卡片</button>
+    <button class="tab" data-pane="pane-tips">每日內容</button>
+    <button class="tab" data-pane="pane-menu">圖文選單</button>
+  </div>
+
+<section id="pane-cast">
   <h2>1. 填寫卡片內容</h2>
   <div class="card">
     <div class="half">
@@ -219,6 +246,40 @@
 
   <h2>最近與待發</h2>
   <div class="card" id="list"></div>
+</section>
+
+<section id="pane-tips" hidden>
+  <h2>推播日表</h2>
+  <div class="sub">
+    每三天一則。沒有內容的推播日那天會撲空 —— 下面紅字就是那幾天。
+  </div>
+  <div class="card" id="days">載入中…</div>
+  <button class="btn btn-ghost" id="b-fill">把空的日子一次補齊</button>
+  <div class="hint">
+    ⚠️ 重產的「要避開的主題」是從你選的日期頭尾之間撈的，範圍外的日子它看不到。
+    一次只重產一天時它幾乎是瞎的，容易寫出跟別天很像的東西。
+    一次補多天反而比較不會撞。
+  </div>
+</section>
+
+<section id="pane-menu" hidden>
+  <h2>線上這一組</h2>
+  <div class="card" id="menu-now">載入中…</div>
+  <h2>重建</h2>
+  <div class="card">
+    <div class="sub">
+      改了 <code>richmenu-config.json</code> 或底圖之後要重建一次才會生效。
+      從這裡重建會順手把 <code>line_rich_menus</code> 寫對 ——
+      用 GitHub Actions 重建不會寫那張表，所以表裡常常是舊的 ID。
+    </div>
+    <button class="btn btn-ghost" id="b-menu-dry">先看可點區塊（不碰 LINE）</button>
+    <button class="btn btn-send" id="b-menu-go">確認重建</button>
+    <div class="hint">
+      ⚠️ 重建會先刪掉舊選單再建新的，中間有幾秒鐘客戶看到的是空的。
+    </div>
+    <pre id="menu-log" hidden></pre>
+  </div>
+</section>
 </main>
 
 <script src="js/admin-console.js?v=1"></script>
