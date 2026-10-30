@@ -44,6 +44,8 @@ type Payload = {
   link_label?: string;
   image_layout?: ImageLayout;
   audience?: Audience;
+  /** 加一顆「先問問 AI」。預設不加 —— 見 buildFlex。 */
+  ask_ai?: boolean;
   due?: boolean;
   dry_run?: boolean;
 };
@@ -59,12 +61,26 @@ type BroadcastRow = {
   image_layout: ImageLayout;
   audience: Audience;
   status: string;
+  // 資料表沒有這一欄 —— 從 line_broadcasts 撈出來的列一律是 undefined,
+  // 也就是不加那顆按鈕。只有這次呼叫直接帶內容時才可能是 true。
+  ask_ai?: boolean;
 };
 
+/**
+ * ⚠️ 「先問問 AI」預設不加。
+ *
+ * 那顆按鈕會送出「我想了解『<標題>』」給健康 AI,而 AI 只認識健康與養生。
+ * 標題不是健康主題時,它會老實回「這個我沒有相關資訊」—— 使用者按了官方
+ * 帳號自己給的按鈕,卻被告知問錯地方。小遊戲那則推播就是這樣,
+ * 17 個人都看得到。
+ *
+ * 要加回去必須明講 ask_ai: true,而且只在標題本身是健康主題時才該開。
+ */
 function buildFlex(row: {
   title: string; subtitle?: string | null; note?: string | null;
   image_url?: string | null; link_url?: string | null;
   link_label?: string | null; image_layout?: ImageLayout | null;
+  ask_ai?: boolean | null;
 }): LineMessage {
   const label = row.link_label?.trim() || "立即報名";
   // image_layout = message 時圖片已經單獨送一則了,卡片就不要再放頂圖,
@@ -79,7 +95,9 @@ function buildFlex(row: {
       ...(row.link_url
         ? [{ label, action: uriAction(label, row.link_url), primary: true }]
         : []),
-      { label: "先問問 AI", action: { type: "message", label: "先問問 AI", text: `我想了解「${row.title}」` } },
+      ...(row.ask_ai
+        ? [{ label: "先問問 AI", action: { type: "message", label: "先問問 AI", text: `我想了解「${row.title}」` } }]
+        : []),
     ],
     altText: row.title,
   });
@@ -164,6 +182,7 @@ Deno.serve(async (req) => {
       image_layout: body.image_layout ?? "hero",
       audience: body.audience ?? "all",
       status: "draft",
+      ask_ai: body.ask_ai === true,
     };
   }
 
