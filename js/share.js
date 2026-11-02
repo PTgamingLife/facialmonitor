@@ -34,12 +34,21 @@ function inviteUrl(code) {
 
 /**
  * 邀請文字。與 handlers.ts 的 inviteText() 逐字相同。
- * 開頭那句是鉤子:先讓對方想到自己,再講產品。
+ *
+ * 鉤子是「沒發現」而不是「生病」—— 讓對方想到自己,再講產品。
+ *
+ * ⚠️ 這段話踩在界線附近:提到名人猝逝、提到「少很多遺憾」,
+ *    很容易被讀成「這個產品可以及早發現疾病」。
+ *    所以卡片底下那句免責聲明(中醫養生與體質參考,不是醫療診斷,
+ *    不能取代醫師)絕對不能拿掉,而且文案本身不要再往前走 ——
+ *    不要出現「檢測出」「及早發現」「預防」「避免」這類動詞接在疾病後面。
  */
 function inviteText(code) {
-  return `如果我可以更快知道自己的身體狀況⋯⋯\n\n`
-    + `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n`
-    + `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n`
+  return `最可怕的不是生病，而是我根本沒發現。\n\n`
+    + `這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n`
+    + `如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n`
+    + `我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。\n\n`
+    + `點我的專屬網址加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測：\n`
     + `${inviteUrl(code)}\n\n`
     + `推薦碼：${code}（備用）`;
 }
@@ -62,8 +71,8 @@ function inviteFlex(code, name) {
         type: 'box', layout: 'vertical', backgroundColor: BRAND_DEEP,
         paddingAll: '20px',
         contents: [
-          { type: 'text', text: '如果我可以更快知道',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
-          { type: 'text', text: '自己的身體狀況⋯⋯',     color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
+          { type: 'text', text: '最可怕的不是生病',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
+          { type: 'text', text: '而是我根本沒發現',   color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
           { type: 'text', text: who, color: '#B9DDDF', size: 'sm', margin: 'md', wrap: true },
         ],
       },
@@ -72,7 +81,9 @@ function inviteFlex(code, name) {
         contents: [
           {
             type: 'text', wrap: true, size: 'sm', color: '#333333',
-            text: '用一張臉部與舌頭的照片，看懂目前的健康狀態，並獲得適合自己的 14 天健康方向。',
+            text: '這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n\n'
+                + '如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n'
+                + '我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。',
           },
           { type: 'separator', margin: 'lg' },
           {
@@ -85,7 +96,7 @@ function inviteFlex(code, name) {
               },
               {
                 type: 'text', wrap: true, size: 'xs', color: '#666666', margin: 'md',
-                text: '點下面的按鈕加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測。',
+                text: '點下面的按鈕加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測。',
               },
             ],
           },
@@ -99,7 +110,7 @@ function inviteFlex(code, name) {
         type: 'box', layout: 'vertical', paddingAll: '16px',
         contents: [{
           type: 'button', style: 'primary', height: 'sm', color: BRAND_DEEP,
-          action: { type: 'uri', label: '免費體驗看看', uri: inviteUrl(code) },
+          action: { type: 'uri', label: '我也試試看', uri: inviteUrl(code) },
         }],
       },
     },
