@@ -224,6 +224,67 @@ async function menuRun(dry) {
   if (r.body.ok && !dry) await loadMenu();
 }
 
+/* ── 好友名單 ───────────────────────────────────────── */
+
+let people = [];
+
+/** 2026-10-30T02:13:32Z → 10/30 */
+function md(iso) {
+  if (!iso) return '—';
+  const s = String(iso);
+  return `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`;
+}
+
+async function loadPeople() {
+  const r = await api('members');
+  if (!r.body.ok) { $('ppl-list').textContent = r.body.error || '讀不到。'; return; }
+  people = r.body.items || [];
+
+  $('ppl-stats').innerHTML = [
+    [r.body.scanned, '做過檢測'],
+    [r.body.never_scanned, '一次都沒做'],
+    [r.body.total_scans, '累計檢測次數'],
+  ].map(([n, t]) => `<div class="stat"><b>${n}</b><span>${t}</span></div>`).join('');
+
+  const broken = r.body.scores_broken;
+  $('ppl-note').textContent = (broken ? '⚠️ 分數讀不到（查詢語法被拒），其餘數字正常。　' : '')
+    + (r.body.capped
+      ? `只列出最近互動的 ${people.length} 人（還有更多）。`
+      : `${r.body.total} 位好友，其中 ${r.body.bound} 位已綁定。`);
+  $('ppl-note').className = 'banner' + (broken ? ' warn' : '');
+
+  $('ppl-list').innerHTML = people.length ? people.map((m) => `
+    <div class="ppl${m.scans === 0 ? ' cold' : ''}">
+      <div class="top">
+        <b>${esc(m.name)}</b>
+        ${m.bound ? '' : '<span class="pill">未綁定</span>'}
+        <span class="code">${m.member_code ? esc(m.member_code) : ''}</span>
+      </div>
+      <div class="nums">
+        <i>檢測</i> ${m.scans} 次${m.last_scan_at ? `（最近 ${md(m.last_scan_at)}）` : ''}
+        ・<i>分數</i> ${broken ? '讀不到' : (m.last_score ?? '—')}
+        ・<i>剩餘次數</i> ${m.credits}
+        <br>
+        <i>積點</i> ${m.points}
+        ・<i>推薦</i> ${m.referral_count} 人
+        ・<i>最近互動</i> ${md(m.last_active_at)}
+      </div>
+    </div>`).join('') : '<div class="hint">還沒有好友。</div>';
+}
+
+/** 貼到試算表用。Tab 分隔是試算表唯一不用設定就會自動分欄的格式。 */
+function peopleTsv() {
+  const head = ['名稱', '綁定', '推薦碼', '檢測次數', '最近檢測', '分數',
+                '剩餘次數', '已用次數', '積點', '推薦人數', '最近互動'];
+  const rows = people.map((m) => [
+    m.name, m.bound ? '是' : '否', m.member_code ?? '',
+    m.scans, m.last_scan_at ? m.last_scan_at.slice(0, 10) : '',
+    m.last_score ?? '', m.credits, m.total_used, m.points, m.referral_count,
+    m.last_active_at ? m.last_active_at.slice(0, 10) : '',
+  ]);
+  return [head, ...rows].map((r) => r.join('\t')).join('\n');
+}
+
 /* ── 啟動 ───────────────────────────────────────────── */
 
 function showGate(text, lineUserId) {
@@ -265,7 +326,7 @@ async function boot() {
     await refresh();
     await preview();
     // 另外兩個分頁一起載 —— 切過去才開始轉圈比較難看,而且這兩個都很輕。
-    await Promise.all([loadTips(), loadMenu()]);
+    await Promise.all([loadTips(), loadMenu(), loadPeople()]);
   } catch (e) {
     console.error(e);
     say(e.message || '初始化失敗，請關閉重開。', 'err');
@@ -281,11 +342,17 @@ $('f-ask-ai').addEventListener('change', renderPreview);
 $('f-when').addEventListener('change', () => { $('when-later').hidden = val('f-when') !== 'later'; });
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => {
   document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
-  ['pane-cast', 'pane-tips', 'pane-menu'].forEach((id) => { $(id).hidden = id !== t.dataset.pane; });
+  ['pane-cast', 'pane-tips', 'pane-menu', 'pane-ppl']
+    .forEach((id) => { $(id).hidden = id !== t.dataset.pane; });
 }));
 $('b-fill').addEventListener('click', () => regen(emptyDays));
 $('b-menu-dry').addEventListener('click', () => menuRun(true));
 $('b-menu-go').addEventListener('click', () => menuRun(false));
+$('b-ppl-copy').addEventListener('click', () => {
+  navigator.clipboard?.writeText(peopleTsv())
+    .then(() => say(`✅ 已複製 ${people.length} 列，貼到試算表就會自動分欄。`, 'ok'))
+    .catch(() => say('複製失敗 —— 瀏覽器擋掉了剪貼簿權限。', 'err'));
+});
 
 $('t-blank').addEventListener('click', () => apply('blank'));
 $('t-game').addEventListener('click', () => apply('game'));

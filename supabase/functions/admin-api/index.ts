@@ -17,6 +17,7 @@ import { cors, json, verify } from "./auth.ts";
 import * as bc from "./broadcast.ts";
 import * as content from "./content.ts";
 import * as menu from "./menu.ts";
+import { members } from "./members.ts";
 import { overview } from "./overview.ts";
 
 Deno.serve(async (req) => {
@@ -100,6 +101,10 @@ Deno.serve(async (req) => {
         const dates = Array.isArray(body.dates) ? body.dates.map(String) : [];
         return json({ ...(await content.regenerate(dates)) }, 200, origin);
       }
+
+      // ── 好友名單 ──────────────────────────────────────
+      case "members":
+        return json({ ok: true, ...(await members()) }, 200, origin);
 
       // ── 圖文選單 ──────────────────────────────────────
       case "menu_current":
