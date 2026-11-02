@@ -145,8 +145,7 @@ function inviteText(code: string): string {
     + `如果可以簡單看到身體的訊號,我們會少很多遺憾。\n\n`
     + `我最近在用這個:拍一張臉和舌頭,就有一份體質報告,還會給 14 天可以做的方向。\n\n`
     + `點我的專屬網址加入,登入後會自動綁定推薦人,並馬上獲得 1 次免費檢測:\n`
-    + `${referralUrl(code)}\n\n`
-    + `推薦碼:${code}(備用)`;
+    + `${referralUrl(code)}`;
 }
 
 const NEED_BIND = infoCard({

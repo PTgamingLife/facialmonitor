@@ -49,15 +49,19 @@ function inviteText(code) {
     + `如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n`
     + `我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。\n\n`
     + `點我的專屬網址加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測：\n`
-    + `${inviteUrl(code)}\n\n`
-    + `推薦碼：${code}（備用）`;
+    + `${inviteUrl(code)}`;
 }
 
 /**
  * 邀請卡片。
  *
- * 刻意不放 hero 圖:標題已經把「臉和舌頭」講完了,再配一張寫著同一件事
+ * 刻意不放 hero 圖:內文已經把「臉和舌頭」講完了,再配一張寫著同一件事
  * 的圖只是變吵 —— 跟群發主視覺不放圖示是同一個理由。
+ *
+ * 也不放推薦碼。手動輸入推薦碼綁定的那條路(set_angel)早就拿掉了,
+ * 現在唯一的綁定途徑是網址上的 ?ref=(js/auth.js)。
+ * 印一組沒有地方輸入的號碼、還寫「備用」,是假的備援 ——
+ * 真的開不了連結的人照著做只會更挫折。
  */
 function inviteFlex(code, name) {
   const who = name ? `${name} 推薦你一起試試` : '朋友推薦你一起試試';
@@ -73,7 +77,6 @@ function inviteFlex(code, name) {
         contents: [
           { type: 'text', text: '最可怕的不是生病',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
           { type: 'text', text: '而是我根本沒發現',   color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
-          { type: 'text', text: who, color: '#B9DDDF', size: 'sm', margin: 'md', wrap: true },
         ],
       },
       body: {
@@ -85,24 +88,13 @@ function inviteFlex(code, name) {
                 + '如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n'
                 + '我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。',
           },
-          { type: 'separator', margin: 'lg' },
           {
-            type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs',
-            contents: [
-              { type: 'text', text: '推薦碼', size: 'xs', color: '#999999' },
-              {
-                type: 'text', text: String(code), size: 'xxl', weight: 'bold',
-                color: BRAND_DEEP,
-              },
-              {
-                type: 'text', wrap: true, size: 'xs', color: '#666666', margin: 'md',
-                text: '點下面的按鈕加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測。',
-              },
-            ],
+            type: 'text', text: who, wrap: true, size: 'sm', weight: 'bold',
+            color: BRAND_DEEP, margin: 'lg',
           },
           {
             type: 'text', wrap: true, size: 'xxs', color: '#AAAAAA', margin: 'lg',
-            text: '本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。',
+            text: 'PS. 本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。',
           },
         ],
       },
