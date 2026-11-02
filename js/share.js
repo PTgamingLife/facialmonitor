@@ -44,9 +44,9 @@ function inviteUrl(code) {
  *    不要出現「檢測出」「及早發現」「預防」「避免」這類動詞接在疾病後面。
  */
 function inviteText(code) {
-  return `最可怕的不是生病，而是我根本沒發現。\n\n`
-    + `這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n`
-    + `如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n`
+  return `最可怕的不是生病，而是我根本沒發現身體出問題。\n\n`
+    + `這幾年新聞最嚇人的，不是認識的名人走了，而是走得太突然。\n\n`
+    + `如果可以簡單看到身體的訊號，我們會少很多遺憾。\n`
     + `我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。\n\n`
     + `點我的專屬網址加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測：\n`
     + `${inviteUrl(code)}`;
@@ -76,7 +76,7 @@ function inviteFlex(code, name) {
         paddingAll: '20px',
         contents: [
           { type: 'text', text: '最可怕的不是生病',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
-          { type: 'text', text: '而是我根本沒發現',   color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
+          { type: 'text', text: '而是我根本沒發現身體出問題', color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
         ],
       },
       body: {
@@ -84,8 +84,8 @@ function inviteFlex(code, name) {
         contents: [
           {
             type: 'text', wrap: true, size: 'sm', color: '#333333',
-            text: '這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n\n'
-                + '如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n'
+            text: '這幾年新聞最嚇人的，不是認識的名人走了，而是走得太突然。\n\n'
+                + '如果可以簡單看到身體的訊號，我們會少很多遺憾。\n'
                 + '我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。',
           },
           {
