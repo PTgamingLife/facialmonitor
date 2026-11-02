@@ -111,6 +111,15 @@
     font-family:inherit;cursor:pointer}
   .empty{color:var(--warn);font-weight:700}
 
+  .ppl{border-bottom:1px solid var(--line);padding:10px 0}
+  .ppl:last-child{border-bottom:0}
+  .ppl .top{display:flex;align-items:baseline;gap:7px}
+  .ppl b{font-size:13.5px}
+  .ppl .code{font-size:10.5px;color:var(--soft);font-variant-numeric:tabular-nums}
+  .ppl .nums{font-size:11.5px;color:var(--mid);margin-top:4px;line-height:1.6}
+  .ppl .nums i{font-style:normal;color:var(--soft)}
+  .ppl.cold b{color:var(--warn)}
+
   pre{background:#F1F7F5;border-radius:9px;padding:11px;font-size:11px;
       line-height:1.55;overflow:auto;max-height:260px;white-space:pre-wrap;
       word-break:break-all;margin:10px 0 0}
@@ -158,6 +167,7 @@
     <button class="tab on" data-pane="pane-cast">群發卡片</button>
     <button class="tab" data-pane="pane-tips">每日內容</button>
     <button class="tab" data-pane="pane-menu">圖文選單</button>
+    <button class="tab" data-pane="pane-ppl">好友名單</button>
   </div>
 
 <section id="pane-cast">
@@ -279,6 +289,18 @@
     </div>
     <pre id="menu-log" hidden></pre>
   </div>
+</section>
+
+<section id="pane-ppl" hidden>
+  <h2>使用狀況</h2>
+  <div class="stats" id="ppl-stats"></div>
+  <div class="banner" id="ppl-note"></div>
+
+  <h2>好友名單</h2>
+  <div class="sub">依最近互動排序。沒做過檢測的人標紅字。</div>
+  <div class="card" id="ppl-list">載入中…</div>
+  <button class="btn btn-ghost" id="b-ppl-copy">複製成表格（貼到試算表）</button>
+  <div class="hint">以 Tab 分隔，貼進 Google 試算表或 Excel 會自動分欄。</div>
 </section>
 </main>
 
