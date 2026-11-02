@@ -38,6 +38,27 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   });
 }
 
+/**
+ * 叫一支 RPC,回傳它發出去的次數。
+ *
+ * 失敗一律回 0 而不是丟例外 —— 呼叫端在註冊流程裡,
+ * 送次數失敗不該讓整個註冊失敗。
+ */
+async function rpcCall(fn: string, body: Record<string, unknown>): Promise<number> {
+  try {
+    const res = await rest(`rpc/${fn}`, { method: "POST", body: JSON.stringify(body) });
+    if (!res.ok) {
+      console.error(`${fn} failed:`, res.status, await res.text());
+      return 0;
+    }
+    const out = await res.json() as { granted?: number };
+    return typeof out?.granted === "number" ? out.granted : 0;
+  } catch (err) {
+    console.error(`${fn} threw:`, err);
+    return 0;
+  }
+}
+
 /** LINE 不一定給得到真信箱,合成一組。同一個 sub 永遠得到同一組。 */
 export function syntheticEmail(sub: string): string {
   return `line.${sub.toLowerCase()}@line.local`;
@@ -120,6 +141,16 @@ export async function ensureAccount(
     }
     user = (await res.json())?.[0] ?? null;
     if (!user) return null;
+
+    // 這個月的免費檢測次數當下就發掉,不要等每天 00:05 那支排程。
+    //
+    // 邀請卡片寫的是「登入後⋯⋯獲得 1 次免費檢測」。原本新帳號是 credits: 0,
+    // 朋友在意願最高的那一刻點進來就被 analyze.js 擋下,最長等快 24 小時。
+    //
+    // 失敗不擋註冊 —— 沒拿到次數還能逛、還能看內容,
+    // 但註冊失敗就什麼都沒有了。排程隔天會補上同一筆。
+    const granted = await rpcCall("rpc_grant_signup_credit", { p_user_id: user.id });
+    if (granted) user.credits = ((user.credits as number) ?? 0) + granted;
   }
 
   // 讓 bot 立刻認得他。少了這步,選單點下去還是會說「請先綁定」。

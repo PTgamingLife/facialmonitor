@@ -34,21 +34,34 @@ function inviteUrl(code) {
 
 /**
  * 邀請文字。與 handlers.ts 的 inviteText() 逐字相同。
- * 開頭那句是鉤子:先讓對方想到自己,再講產品。
+ *
+ * 鉤子是「沒發現」而不是「生病」—— 讓對方想到自己,再講產品。
+ *
+ * ⚠️ 這段話踩在界線附近:提到名人猝逝、提到「少很多遺憾」,
+ *    很容易被讀成「這個產品可以及早發現疾病」。
+ *    所以卡片底下那句免責聲明(中醫養生與體質參考,不是醫療診斷,
+ *    不能取代醫師)絕對不能拿掉,而且文案本身不要再往前走 ——
+ *    不要出現「檢測出」「及早發現」「預防」「避免」這類動詞接在疾病後面。
  */
 function inviteText(code) {
-  return `如果我可以更快知道自己的身體狀況⋯⋯\n\n`
-    + `我在用「看·健」測體質、做健康任務，滿有感的 🌿\n\n`
-    + `點我的專屬網址加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測：\n`
-    + `${inviteUrl(code)}\n\n`
-    + `推薦碼：${code}（備用）`;
+  return `最可怕的不是生病，而是我根本沒發現。\n\n`
+    + `這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n`
+    + `如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n`
+    + `我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。\n\n`
+    + `點我的專屬網址加入，登入後會自動綁定推薦人，並馬上獲得 1 次免費檢測：\n`
+    + `${inviteUrl(code)}`;
 }
 
 /**
  * 邀請卡片。
  *
- * 刻意不放 hero 圖:標題已經把「臉和舌頭」講完了,再配一張寫著同一件事
+ * 刻意不放 hero 圖:內文已經把「臉和舌頭」講完了,再配一張寫著同一件事
  * 的圖只是變吵 —— 跟群發主視覺不放圖示是同一個理由。
+ *
+ * 也不放推薦碼。手動輸入推薦碼綁定的那條路(set_angel)早就拿掉了,
+ * 現在唯一的綁定途徑是網址上的 ?ref=(js/auth.js)。
+ * 印一組沒有地方輸入的號碼、還寫「備用」,是假的備援 ——
+ * 真的開不了連結的人照著做只會更挫折。
  */
 function inviteFlex(code, name) {
   const who = name ? `${name} 推薦你一起試試` : '朋友推薦你一起試試';
@@ -62,9 +75,8 @@ function inviteFlex(code, name) {
         type: 'box', layout: 'vertical', backgroundColor: BRAND_DEEP,
         paddingAll: '20px',
         contents: [
-          { type: 'text', text: '如果我可以更快知道',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
-          { type: 'text', text: '自己的身體狀況⋯⋯',     color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
-          { type: 'text', text: who, color: '#B9DDDF', size: 'sm', margin: 'md', wrap: true },
+          { type: 'text', text: '最可怕的不是生病',   color: '#FFFFFF',  size: 'lg', weight: 'bold', wrap: true },
+          { type: 'text', text: '而是我根本沒發現',   color: BRAND_MINT, size: 'lg', weight: 'bold', wrap: true },
         ],
       },
       body: {
@@ -72,26 +84,17 @@ function inviteFlex(code, name) {
         contents: [
           {
             type: 'text', wrap: true, size: 'sm', color: '#333333',
-            text: '用一張臉部與舌頭的照片，看懂目前的健康狀態，並獲得適合自己的 14 天健康方向。',
+            text: '這幾年新聞最嚇人的，不是又有認識的名人走了，而是走得太突然。\n\n'
+                + '如果可以簡單看到身體的訊號，我們會少很多遺憾。\n\n'
+                + '我最近在用這個：拍一張臉和舌頭，就有一份體質報告，還會給 14 天可以做的方向。',
           },
-          { type: 'separator', margin: 'lg' },
           {
-            type: 'box', layout: 'vertical', margin: 'lg', spacing: 'xs',
-            contents: [
-              { type: 'text', text: '推薦碼', size: 'xs', color: '#999999' },
-              {
-                type: 'text', text: String(code), size: 'xxl', weight: 'bold',
-                color: BRAND_DEEP,
-              },
-              {
-                type: 'text', wrap: true, size: 'xs', color: '#666666', margin: 'md',
-                text: '點下面的按鈕加入，登入後會自動綁定推薦人，並獲得 1 次免費檢測。',
-              },
-            ],
+            type: 'text', text: who, wrap: true, size: 'sm', weight: 'bold',
+            color: BRAND_DEEP, margin: 'lg',
           },
           {
             type: 'text', wrap: true, size: 'xxs', color: '#AAAAAA', margin: 'lg',
-            text: '本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。',
+            text: 'PS. 本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。',
           },
         ],
       },
@@ -99,7 +102,7 @@ function inviteFlex(code, name) {
         type: 'box', layout: 'vertical', paddingAll: '16px',
         contents: [{
           type: 'button', style: 'primary', height: 'sm', color: BRAND_DEEP,
-          action: { type: 'uri', label: '免費體驗看看', uri: inviteUrl(code) },
+          action: { type: 'uri', label: '我也試試看', uri: inviteUrl(code) },
         }],
       },
     },
