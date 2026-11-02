@@ -188,6 +188,40 @@ function showBoundPanel() {
   return true;
 }
 
+/* ── 推薦連結的迎賓畫面 ────────────────────────────────
+ *
+ * 按下邀請卡片的按鈕之後,這個 App 只是中途站:做完身分確認與推薦綁定
+ * 就會把人送去 LINE 官方帳號。問題是中間那一下會把整個 App 畫出來再被
+ * 取代,看起來像閃了一個莫名其妙的頁面。
+ *
+ * 蓋一層迎賓畫面上去,那一秒就變成一句話。
+ * 背後的流程一行都沒有改 —— 綁定照跑,跑完照樣轉去 OA。
+ */
+const SPLASH_MIN_MS = 2200;   // 至少讓人看得完那句話;綁定通常比這快
+let splashShownAt = 0;
+
+function showInviteSplash() {
+  const el = document.getElementById('invite-splash');
+  if (!el) return;
+  el.hidden = false;
+  splashShownAt = Date.now();
+}
+
+function setSplashStatus(text) {
+  const el = document.getElementById('is-status');
+  if (el) el.textContent = text;
+}
+
+/**
+ * 等到最短顯示時間到。
+ *
+ * 綁定常常半秒就跑完,那樣這個畫面只會閃一下,跟原本的問題沒兩樣。
+ */
+function holdSplash() {
+  const left = SPLASH_MIN_MS - (Date.now() - splashShownAt);
+  return left > 0 ? new Promise((r) => setTimeout(r, left)) : Promise.resolve();
+}
+
 /**
  * 新使用者完成 LINE / Supabase 身分確認與推薦綁定後，直接前往 LINE 官方帳號。
  * 必須在 processReferralLink() 之後呼叫，否則離開頁面時推薦碼可能還沒寫入。
@@ -439,17 +473,34 @@ async function handleSessionUser(session) {
 
   const isAdmin = existing.is_admin === true
                || (existing.phone === window.ADMIN_PHONE && existing.name === window.ADMIN_NAME);
-  enterApp(isAdmin);
-
   // 推薦網址無論新、舊使用者，完成身分確認與推薦處理後都回到 LINE OA。
   // 先記住 ref，因為 processReferralLink() 完成後會從網址移除它。
   const referralCode = liffParam('ref');
   const shouldReturnToOA = window._justBoundNew || /^\d{7}$/.test(referralCode);
 
+  // 要在 enterApp() 之前蓋上去 —— 晚一步就會先看到整個 App 畫出來,
+  // 那正是這個畫面要解決的事。
+  if (shouldReturnToOA) showInviteSplash();
+
+  enterApp(isAdmin);
+
   // 一定要在 LINE / Supabase 身分都確認後才處理推薦網址。
   // 必須等推薦綁定完成後才離開，避免跳到 OA 時中斷贈送流程。
   await processReferralLink();
-  if (shouldReturnToOA && redirectToOfficialAccount()) return;
+
+  if (shouldReturnToOA) {
+    setSplashStatus('完成了，正在帶你回 LINE⋯⋯');
+    await holdSplash();
+    // 轉址被擋住(少見,但發生時使用者會卡在這一頁)就給一顆按鈕,
+    // 不要讓他對著「正在帶你回 LINE」乾等。
+    const go = document.getElementById('is-go');
+    if (go) {
+      go.hidden = false;
+      go.onclick = () => redirectToOfficialAccount();
+    }
+    if (redirectToOfficialAccount()) return;
+    setSplashStatus('沒辦法自動帶你回去,按下面的按鈕就好。');
+  }
 
   // 轉移卡片只對「LINE 帳號、而且還沒轉移過」的人顯示。
   // 登在舊 Google 帳號時給他看這張卡沒有意義 —— 按下去只會得到
