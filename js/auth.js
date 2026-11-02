@@ -285,7 +285,9 @@ async function processReferralLink() {
     currentUser.points = data.balance ?? currentUser.points;
     currentUser.credits = data.credits ?? currentUser.credits;
     sessionStorage.setItem('hq_user', JSON.stringify(currentUser));
-    showToast(`✅ 已綁定小天使 ${data.angel_name}，獲得 ${data.points_awarded ?? 0} 點及 1 次免費檢測`);
+    // 免費檢測次數是註冊當下就發掉的(rpc_grant_signup_credit),
+    // 綁定這一步只給積點 —— 這裡再講一次「1 次免費檢測」會變成重複承諾。
+    showToast(`✅ 已綁定小天使 ${data.angel_name}，獲得 ${data.points_awarded ?? 0} 點`);
   } else if (data?.error === 'already_bound') {
     showToast('你已經綁定過小天使，不會重複變更');
   } else {

@@ -524,16 +524,29 @@
   </div>
 </div>
 
-<!-- 推薦朋友 Modal -->
+<!--
+  推薦朋友 Modal
+
+  原本這裡是「複製 7 位會員碼給朋友填入,雙方各獲得 1 次免費檢測」。
+  三句話沒有一句還成立:
+    · 手動輸入推薦碼綁定的那條路(set_angel)已經移除,沒有地方填得進去
+    · rpc_bind_angel 從來只給被邀請的人,沒給過小天使
+    · 綁定送次數也已經拿掉,次數改成註冊當下發、算當月額度
+  而這個 modal 是活的(頂欄「🤝 推薦」與「邀請朋友」都開得到)。
+
+  改成送真的會動的東西:好友選擇器,送出一張邀請卡片。
+  會員碼留著顯示 —— 它還是推薦網址的識別碼,但不再叫人去「填入」。
+-->
 <div class="modal-overlay" id="share-friend-modal">
   <div class="modal-box">
     <div class="modal-title">🤝 推薦朋友</div>
-    <div class="modal-sub">分享你的 7 位會員碼給朋友<br>朋友填入後，雙方各獲得 1 次免費檢測</div>
+    <div class="modal-sub">把邀請卡片送給朋友<br>他從你的連結加入就會自動綁定你</div>
     <div class="share-code-box">
       <div class="share-code-big" id="share-code-display">-------</div>
-      <div class="share-code-hint">你的專屬會員碼</div>
+      <div class="share-code-hint">你的專屬推薦編號</div>
     </div>
-    <button class="btn-gold" onclick="copyText(document.getElementById('share-code-display').textContent)">📋 複製會員碼</button>
+    <button class="btn-gold" onclick="startShareFlow()">選好友分享</button>
+    <button class="btn-ghost" onclick="shareRefCode(document.getElementById('share-code-display').textContent)">複製邀請訊息</button>
     <button class="btn-ghost" onclick="closeShareFriendModal()">關閉</button>
   </div>
 </div>
