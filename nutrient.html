@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>營養素大考驗｜看·健</title>
+
+<!--
+  營養素猜謎 —— 半頁式 LIFF(Size = Tall)。
+
+  玩法照搬 taiwanguessr 的「詞義測驗」:
+    左邊一個被遮住的答案 + 一個可以感知的線索,右邊四個選項問它的意思,
+    **答錯一次才把提示的墊板掀開**,限時一局、分數累積。
+  那個墊板是整個設計的核心 —— 提示不是免費的,所以第一次猜要用力想。
+  台語版給的感知線索是「發音」,這裡換成「富含它的食物」。
+
+  跟 game.html / challenge.html 同一套外殼:自帶樣式、只載 LIFF SDK,
+  彈窗開起來聊天室還在後面。
+
+  v1 刻意不連資料庫:
+    題庫寫死在 js/nutrient-bank.js,進度與最佳成績存 localStorage。
+    沒有新的資料表、沒有 RPC、沒有 RLS 要顧 —— 一個頁面就是全部。
+    代價是最佳成績不跨裝置、後台看不到有多少人玩。要接積分或統計再說。
+-->
+
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="js/nutrient-bank.js?v=1"></script>
+
+<style>
+  :root{
+    --deep:#0D5C63; --primary:#22C1C3; --pale:#E6F7F8;
+    --soft:#8FA3B8; --mid:#41565F; --bg:#FFFFFF; --line:#E3ECED;
+    --right:#2F6B3C; --right-bg:#EAF4EB;
+    --wrong:#B3341F; --wrong-bg:#FCEDEA;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--deep);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    display:flex; flex-direction:column;
+    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  /* ── 頂列:計時與分數 ── */
+  .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .top h1{font-size:16px;margin:0;letter-spacing:.5px;flex:1}
+  .chip{
+    font-size:13px;font-weight:700;background:var(--pale);color:var(--deep);
+    padding:4px 10px;border-radius:20px;font-variant-numeric:tabular-nums;
+  }
+  .chip.warn{background:var(--wrong-bg);color:var(--wrong)}
+
+  /* ── 題目:遮住的名稱 ── */
+  .stage{text-align:center;margin-bottom:14px}
+  .boxes{display:flex;justify-content:center;gap:5px;margin-bottom:10px}
+  .box{
+    width:34px;height:40px;border:2px solid var(--deep);border-radius:4px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:20px;font-weight:700;background:#fff;
+  }
+  .box.open{background:var(--pale)}
+  .from{font-size:12.5px;color:var(--mid);line-height:1.6}
+  .from b{color:var(--deep)}
+
+  /* ── 選項 ── */
+  .q{font-size:14px;font-weight:700;margin-bottom:8px}
+  .opts{display:flex;flex-direction:column;gap:7px}
+  .opt{
+    display:flex;gap:9px;align-items:flex-start;text-align:left;width:100%;
+    border:1px solid var(--line);background:#fff;border-radius:9px;
+    padding:11px 12px;font-size:13.5px;font-family:inherit;color:var(--deep);
+    line-height:1.5;cursor:pointer;
+  }
+  .opt .mk{font-weight:700;color:var(--soft);flex:none}
+  .opt:disabled{cursor:default}
+  .opt.right{background:var(--right-bg);border-color:var(--right);color:var(--right);font-weight:700}
+  .opt.right .mk{color:var(--right)}
+  .opt.wrong{background:var(--wrong-bg);border-color:var(--wrong);color:var(--wrong)}
+  .opt.wrong .mk{color:var(--wrong)}
+
+  /* ── 提示墊板 ── */
+  .hint{margin-top:12px;border-left:3px solid var(--primary);padding-left:10px}
+  .hint-label{font-size:11px;font-weight:700;letter-spacing:1px;color:var(--mid)}
+  .pad{
+    margin-top:5px;background:var(--deep);color:#fff;border-radius:7px;
+    padding:11px;text-align:center;font-size:13px;font-weight:700;
+  }
+  .hint-text{margin-top:5px;font-size:13px;color:var(--mid);line-height:1.65}
+
+  /* ── 結算 ── */
+  .over{text-align:center;padding:10px 0}
+  .over .big{font-family:'Noto Serif TC',serif;font-size:40px;font-weight:700;line-height:1.1}
+  .over .sub{font-size:13px;color:var(--mid);margin-top:6px;line-height:1.7}
+
+  .btn{
+    width:100%;border:0;border-radius:10px;padding:13px;font-size:15px;
+    font-weight:700;font-family:inherit;margin-top:9px;cursor:pointer;
+  }
+  .btn-main{background:var(--deep);color:#fff}
+  .btn-ghost{background:transparent;color:var(--mid);font-weight:500;font-size:13px}
+  .note{font-size:11px;color:var(--soft);margin-top:12px;line-height:1.7;text-align:center}
+  [hidden]{display:none !important}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>營養素大考驗</h1>
+  <span class="chip" id="clock">1:30</span>
+  <span class="chip" id="score">0 分</span>
+</div>
+
+<!-- ── 遊戲中 ── -->
+<div id="play">
+  <div class="stage">
+    <div class="boxes" id="boxes"></div>
+    <div class="from">常見於：<b id="food"></b></div>
+  </div>
+
+  <div class="q">這個營養素主要在幫身體做什麼？</div>
+  <div class="opts" id="opts"></div>
+
+  <div class="hint" id="hint">
+    <div class="hint-label">提示・缺乏時的身體訊號</div>
+    <div class="pad" id="pad">猜錯一次再把墊板拿開</div>
+    <div class="hint-text" id="hint-text" hidden></div>
+  </div>
+</div>
+
+<!-- ── 結算 ── -->
+<div id="over" hidden>
+  <div class="over">
+    <div class="big" id="final">0</div>
+    <div class="sub" id="final-sub"></div>
+  </div>
+  <button class="btn btn-main" id="again">再玩一局</button>
+  <button class="btn btn-ghost" onclick="closeGame()">關閉</button>
+</div>
+
+<div class="note">這裡講的是一般營養知識，不是個人化建議，也不能取代醫師或營養師。</div>
+
+<script>
+const LIFF_ID = '';                 // 建好 LIFF app 之後填(Tall)
+const ROUND_SECONDS = 90;
+const BASE_POINTS = 10;             // 第一次就猜中
+const HINTED_POINTS = 4;            // 掀過墊板才猜中
+
+let deck = [], cur = null, score = 0, solved = 0, missed = 0;
+let wrongThisQ = 0, left = ROUND_SECONDS, timer = null;
+
+const $ = (id) => document.getElementById(id);
+
+function closeGame(){
+  if (window.liff?.isInClient?.()) liff.closeWindow();
+  else history.length > 1 ? history.back() : window.close();
+}
+
+/* 一局的題序:每次重洗,不跟日期綁 ——
+   這是可以一直玩的小遊戲,不是一天一題的每日挑戰。 */
+function shuffled(){
+  const a = NUTRIENTS.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** 四個選項:正解 + 三個「其他營養素真的有的功能」,不自己編。 */
+function optionsFor(n){
+  const others = [...new Set(NUTRIENTS.map(x => x.role))].filter(r => r !== n.role);
+  for (let i = others.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [others[i], others[j]] = [others[j], others[i]];
+  }
+  const picked = [n.role, ...others.slice(0, 3)];
+  for (let i = picked.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [picked[i], picked[j]] = [picked[j], picked[i]];
+  }
+  return picked;
+}
+
+function nextQuestion(){
+  if (!deck.length) deck = shuffled();
+  cur = deck.pop();
+  wrongThisQ = 0;
+
+  // 名稱遮起來,只露字數 —— 空格與標點照原樣留著,不然字數會誤導
+  $('boxes').innerHTML = [...cur.name].map((ch) =>
+    ch.trim() === '' ? '<span style="width:6px"></span>'
+                     : '<div class="box"></div>').join('');
+  $('food').textContent = cur.food;
+
+  const opts = optionsFor(cur);
+  $('opts').innerHTML = opts.map((role, i) => `
+    <button class="opt" data-role="${role}">
+      <span class="mk">(${'ABCD'[i]})</span><span>${ROLE_TEXT[role]}</span>
+    </button>`).join('');
+  $('opts').querySelectorAll('.opt').forEach((b) =>
+    b.addEventListener('click', () => answer(b)));
+
+  // 墊板一開始就擺在那裡 —— 看得到有提示在等你,才會想先用力猜一次。
+  // 整塊藏起來的話,這個設計就等於不存在了。
+  $('pad').hidden = false;
+  $('hint-text').hidden = true;
+}
+
+function revealName(){
+  const boxes = $('boxes').querySelectorAll('.box');
+  const chars = [...cur.name].filter((c) => c.trim() !== '');
+  boxes.forEach((b, i) => { b.textContent = chars[i] ?? ''; b.classList.add('open'); });
+}
+
+function answer(btn){
+  const picked = btn.dataset.role;
+
+  if (picked !== cur.role){
+    wrongThisQ++;
+    btn.classList.add('wrong');
+    btn.disabled = true;
+    // 答錯一次才掀墊板。提示不是免費的。
+    $('pad').hidden = true;
+    $('hint-text').hidden = false;
+    $('hint-text').textContent = cur.low;
+    return;
+  }
+
+  btn.classList.add('right');
+  $('opts').querySelectorAll('.opt').forEach((b) => b.disabled = true);
+  revealName();
+  score += wrongThisQ === 0 ? BASE_POINTS : HINTED_POINTS;
+  solved++;
+  $('score').textContent = score + ' 分';
+  setTimeout(() => { if (left > 0) nextQuestion(); }, 900);
+}
+
+function tick(){
+  left--;
+  const m = Math.floor(left / 60), s = String(left % 60).padStart(2, '0');
+  $('clock').textContent = `${m}:${s}`;
+  $('clock').classList.toggle('warn', left <= 10);
+  if (left <= 0) finish();
+}
+
+function finish(){
+  clearInterval(timer);
+  $('play').hidden = true;
+  $('over').hidden = false;
+  $('final').textContent = score + ' 分';
+
+  let best = 0;
+  try { best = Number(localStorage.getItem('kj_nutrient_best') || 0); } catch { /* 無痕模式 */ }
+  const isBest = score > best;
+  if (isBest) { try { localStorage.setItem('kj_nutrient_best', String(score)); } catch { /* 存不了就算了 */ } }
+
+  $('final-sub').innerHTML = `答對 ${solved} 題<br>`
+    + (isBest ? '🎉 這是你目前的最佳成績' : `最佳成績 ${best} 分`);
+}
+
+function start(){
+  deck = shuffled(); score = 0; solved = 0; left = ROUND_SECONDS;
+  $('score').textContent = '0 分';
+  $('clock').classList.remove('warn');
+  $('over').hidden = true;
+  $('play').hidden = false;
+  nextQuestion();
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
+  tick();
+}
+
+$('again').addEventListener('click', start);
+
+/* LIFF 只是為了在聊天室裡用彈窗開啟。
+   這一局不碰資料庫,所以不需要登入,拿不到身分也照玩 ——
+   為了一個小遊戲把人擋在登入前面不划算。 */
+(async () => {
+  try { if (LIFF_ID) await liff.init({ liffId: LIFF_ID }); }
+  catch (e) { console.warn('liff.init failed, 單機模式照玩', e); }
+  start();
+})();
+</script>
+</body>
+</html>
