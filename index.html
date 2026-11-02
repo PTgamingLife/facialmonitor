@@ -41,6 +41,68 @@
 <link rel="stylesheet" href="css/style.css?v=18">
 </head>
 <body>
+
+<!--
+  推薦連結的迎賓畫面。
+  只有帶 ?ref= 進來的人看得到 —— 其他人完全不會碰到這一段。
+
+  為什麼需要它:按下邀請卡片的按鈕之後,流程是
+    LINE 登入 → 載入這個 App → 背景做身分確認與推薦綁定 → 轉去 LINE 官方帳號。
+  中間那一下會把整個 App 畫出來再被取代,看起來像閃了一個莫名其妙的頁面。
+  那一秒拿不掉(綁定沒跑完就跳走會中斷贈送),但可以拿來講一句話。
+
+  它蓋在 App 上面,不是取代 App —— 背後該跑的流程一行都沒有改。
+-->
+<div id="invite-splash" hidden>
+  <div class="is-card">
+    <div class="is-logo">看·健</div>
+    <h1>歡迎加入</h1>
+    <p class="is-lead">
+      拍一張臉和舌頭，<br>看懂現在的身體狀態，<br>還有 14 天可以做的方向。
+    </p>
+    <div class="is-gift">免費檢測已經準備好了</div>
+    <div class="is-status" id="is-status">正在幫你綁定推薦人⋯⋯</div>
+    <button class="is-btn" id="is-go" hidden>回到 LINE 開始</button>
+    <p class="is-note">本服務提供中醫養生與體質參考，不是醫療診斷，也不能取代醫師。</p>
+  </div>
+</div>
+
+<style>
+  /* 這一塊刻意不放進 css/,它是一個只在推薦流程出現一次的獨立畫面。 */
+  #invite-splash{
+    position:fixed; inset:0; z-index:9999;
+    background:linear-gradient(160deg,#0D5C63 0%,#13757A 100%);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px calc(20px + env(safe-area-inset-left));
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    color:#fff; text-align:center;
+  }
+  #invite-splash[hidden]{display:none}
+  #invite-splash .is-card{max-width:320px;width:100%}
+  #invite-splash .is-logo{
+    font-size:13px; letter-spacing:6px; color:#B9DDDF; margin-bottom:18px;
+  }
+  #invite-splash h1{font-size:26px; margin:0 0 14px; letter-spacing:2px}
+  #invite-splash .is-lead{
+    font-size:14.5px; line-height:2; color:#DCF2F3; margin:0 0 20px;
+  }
+  #invite-splash .is-gift{
+    display:inline-block; background:rgba(255,255,255,.14); color:#fff;
+    border-radius:20px; padding:7px 16px; font-size:13px; font-weight:700;
+  }
+  #invite-splash .is-status{
+    font-size:12.5px; color:#9FCFD2; margin-top:22px; min-height:18px;
+  }
+  #invite-splash .is-btn{
+    width:100%; margin-top:16px; border:0; border-radius:10px; padding:13px;
+    background:#fff; color:#0D5C63; font-size:15px; font-weight:700;
+    font-family:inherit; cursor:pointer;
+  }
+  #invite-splash .is-note{
+    font-size:10.5px; color:#7FB4B8; line-height:1.7; margin:26px 0 0;
+  }
+</style>
+
 <div id="webview-banner" class="webview-banner">
   ⚠️ 請在 Safari 或 Chrome 開啟以使用完整功能
   <button onclick="copyText(location.href)">複製連結</button>
