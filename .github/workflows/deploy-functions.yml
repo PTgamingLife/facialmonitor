@@ -48,6 +48,11 @@ jobs:
           # 帶上 GITHUB_TOKEN 之後改用本 repo 的額度,不再跟別人搶。
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # setup-cli 不會印版號,只是解壓縮。印出來才知道線上用的是哪一版 ——
+      # 要釘版的時候需要這個數字,出事時也才查得出「那天跑的是哪一版」。
+      - name: 🔎 CLI 版本
+        run: supabase --version
+
       - name: 🦕 安裝 Deno
         uses: denoland/setup-deno@v1
         with:
@@ -76,12 +81,15 @@ jobs:
             # 而 Actions 的 stdout 不是終端機,它會直接停在
             # 「Confirmation required ... Nothing was changed」並 exit 1。
             # 這會在第一支函式就擋下來,等於整批都沒部署(run #28 就是這樣)。
+            # --remote 取代 --project-ref:後者已被標記 deprecated,v4 會移除。
+            # 不先換掉的話,等 v4 出來、setup-cli 自動抓到新版的那一天,
+            # 部署會再死一次,症狀跟 run #28 一樣(整批都沒上)。
             if echo "$NO_JWT" | grep -qw "$name"; then
               echo "── $name (--no-verify-jwt)"
-              supabase functions deploy "$name" --project-ref "$PROJECT_REF" --no-verify-jwt --yes
+              supabase functions deploy "$name" --remote="$PROJECT_REF" --no-verify-jwt --yes
             else
               echo "── $name"
-              supabase functions deploy "$name" --project-ref "$PROJECT_REF" --yes
+              supabase functions deploy "$name" --remote="$PROJECT_REF" --yes
             fi
           done
 
