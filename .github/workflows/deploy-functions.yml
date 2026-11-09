@@ -72,12 +72,16 @@ jobs:
             [ "$name" = "_shared" ] && continue
             if [ -n "$ONLY" ] && [ "$ONLY" != "$name" ]; then continue; fi
 
+            # --yes 不能省:CLI 新版把部署改成要互動確認,
+            # 而 Actions 的 stdout 不是終端機,它會直接停在
+            # 「Confirmation required ... Nothing was changed」並 exit 1。
+            # 這會在第一支函式就擋下來,等於整批都沒部署(run #28 就是這樣)。
             if echo "$NO_JWT" | grep -qw "$name"; then
               echo "── $name (--no-verify-jwt)"
-              supabase functions deploy "$name" --project-ref "$PROJECT_REF" --no-verify-jwt
+              supabase functions deploy "$name" --project-ref "$PROJECT_REF" --no-verify-jwt --yes
             else
               echo "── $name"
-              supabase functions deploy "$name" --project-ref "$PROJECT_REF"
+              supabase functions deploy "$name" --project-ref "$PROJECT_REF" --yes
             fi
           done
 
