@@ -37,21 +37,33 @@ jobs:
             exit 1
           fi
 
+      # ⚠️ 版本是釘死的。要升級必須經過擁有者確認,不要自己改這個數字。
+      #
+      # 原本寫 version: latest,等於每次部署都抓當下最新版。
+      # 2026-11-09 就因此整批部署失敗:CLI 把部署改成要互動確認,
+      # 而 Actions 的 stdout 不是終端機,第一支函式就 exit 1,12 支一支都沒上。
+      # 沒有人改過任何東西 —— 它是自己長出來的。
+      #
+      # 3.1.0 是當天實測跑通的版本(--yes、--remote 都認得,12 支全部成功)。
+      # 升級的做法:在這裡改版號 → 合併 → 看這一次的部署有沒有全綠。
+      # 綠了才算數;沒綠就改回 3.1.0,因為舊版一定是好的。
       - name: 🧰 安裝 Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.1.0
         env:
-          # version: latest 會打 GitHub API 查最新版。未授權的請求是用 runner 的
-          # 共用 IP 計額度,尖峰時會 rate limit exceeded —— run #6 就是這樣掛的,
-          # 而且掛掉時正式環境會安靜地停在舊版,正是這條 pipeline 要防的事。
-          # 帶上 GITHUB_TOKEN 之後改用本 repo 的額度,不再跟別人搶。
+          # 釘版之後這支 action 仍會打 GitHub API 找對應的 release。
+          # 未授權的請求用 runner 的共用 IP 計額度,尖峰時會 rate limit exceeded
+          # —— run #6 就是這樣掛的,而且掛掉時正式環境會安靜地停在舊版,
+          # 正是這條 pipeline 要防的事。帶 GITHUB_TOKEN 改用本 repo 的額度。
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # setup-cli 不會印版號,只是解壓縮。印出來才知道線上用的是哪一版 ——
-      # 要釘版的時候需要這個數字,出事時也才查得出「那天跑的是哪一版」。
+      # setup-cli 不會印版號,只是解壓縮。印出來才查得到「那天跑的是哪一版」。
+      # 釘版之後這行還有一個用途:確認實際裝到的真的是上面釘的那一版。
       - name: 🔎 CLI 版本
-        run: supabase --version
+        run: |
+          echo "釘住的版本:3.1.0"
+          supabase --version
 
       - name: 🦕 安裝 Deno
         uses: denoland/setup-deno@v1
